@@ -1,0 +1,41 @@
+plugins {
+  id 'io.quarkus' version "${quarkusVersion}" apply false
+}
+
+def javaLanguageVersion = JavaLanguageVersion.of(Integer.parseInt(javaVersion))
+
+allprojects {
+  group = project.property('group')
+  version = project.property('version')
+}
+
+subprojects {
+  repositories {
+    mavenCentral()
+  }
+
+  if (name != 'carabo-bom') {
+    apply plugin: 'java-library'
+
+    java {
+      toolchain {
+        languageVersion = javaLanguageVersion
+      }
+      withSourcesJar()
+    }
+
+    test {
+      useJUnitPlatform()
+      outputs.upToDateWhen { false }
+      testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showStandardStreams = true
+      }
+    }
+
+    dependencies {
+      testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+plugins {
+  id 'java-platform'
+}
+
+javaPlatform {
+  allowDependencies()
+}
+
+dependencies {
+  api platform("io.quarkus.platform:quarkus-bom:${quarkusVersion}")
+
+  constraints {
+    api "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    api "org.slf4j:slf4j-api:${slf4jVersion}"
+  }
+}

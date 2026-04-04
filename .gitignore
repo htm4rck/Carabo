@@ -1,0 +1,36 @@
+# === Backend (Java/Gradle) ===
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# === Frontend (Angular/Node) ===
+node_modules/
+dist/
+.angular/
+package-lock.json
+
+# === IDEs ===
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.classpath
+.project
+.settings/
+bin/
+.vscode/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+
+# === Quarkus ===
+.quarkus/
+
+# === Environment ===
+.env
+!.env.example

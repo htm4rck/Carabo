@@ -1,0 +1,16 @@
+plugins {
+  id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'carabo'
+
+include(
+  'carabo-bom',
+  'carabo-core',
+  'carabo-signer',
+  'carabo-ose-client',
+  'carabo-sunat-client',
+  'carabo-storage',
+  'carabo-scheduler',
+  'carabo-starter-quarkus'
+)
