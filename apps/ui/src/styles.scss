@@ -1,0 +1,70 @@
+@use '@angular/material' as mat;
+
+html {
+  height: 100%;
+  @include mat.theme((
+    color: (
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: Gill Sans MT,
+    density: 0,
+  ));
+}
+
+:root {
+  --fontFamily: 'Gill Sans MT', 'Gill Sans', 'Calibri', sans-serif;
+  --headingFontFamily: 'Gill Sans MT', 'Gill Sans', 'Calibri', sans-serif;
+  --heraBlueColor: #757fef;
+  --aareRiverColor: #00b69b;
+  --blackColor: #260944;
+  --paragraphColor: #5b5b98;
+  --whiteColor: #ffffff;
+  --fontSize: 15px;
+  --transition: .5s;
+  --borderBoxShadow: rgba(0, 0, 0, 0.05) 0px 6px 24px 0px, rgba(0, 0, 0, 0.08) 0px 0px 0px 1px;
+}
+
+*, ::after, ::before {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  color: var(--blackColor);
+  background: linear-gradient(rgba(245,245,245,0.9), rgba(245,245,245,0.9)), url('/img/aside_background.png') center / cover no-repeat fixed;
+  font: {
+    size: var(--fontSize);
+    family: var(--fontFamily) !important;
+  };
+}
+
+a {
+  transition: var(--transition);
+  color: var(--blackColor);
+  text-decoration: none;
+  outline: 0 !important;
+  &:hover {
+    text-decoration: none;
+    color: var(--heraBlueColor);
+  }
+}
+
+p {
+  color: var(--paragraphColor);
+  font-size: var(--fontSize);
+  line-height: 1.8;
+  margin: { top: 0; bottom: 15px; };
+  &:last-child { margin-bottom: 0; }
+}
+
+// Utilities
+@import "./utilities";
+
+// Form
+@import "./form";
+
+// Sidebar
+@import "./sidebar";

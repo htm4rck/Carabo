@@ -1,0 +1,44 @@
+name: tordo-carabo
+
+services:
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: carabo
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://tordo_postgres:5432/${DB_NAME:-tordo}?currentSchema=carabo
+      DB_USERNAME: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-yourpassword}
+      RABBITMQ_HOST: tordo_rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USER:-tordo}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-tordo123}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8998/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - tordo_network
+
+  ui:
+    build:
+      context: ../apps/ui
+      dockerfile: Dockerfile
+    container_name: carabo_ui
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/carabo/ui/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tordo_network
+
+networks:
+  tordo_network:
+    external: true

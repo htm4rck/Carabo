@@ -1,0 +1,6 @@
+<app-sidebar />
+<div class="main-content d-flex flex-column" [ngClass]="{'active': isToggled}">
+  <app-header />
+  <router-outlet />
+  <div class="flex-grow-1"></div>
+</div>
