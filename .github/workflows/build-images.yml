@@ -76,3 +76,24 @@ jobs:
             npmrc=.docker-secrets/npmrc
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+  deploy-lab:
+    needs: build
+    if: github.ref_type == 'branch' && (github.ref_name == 'main' || github.ref_name == 'master' || github.ref_name == 'develop')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Tordo.Platform LAB deploy
+        env:
+          PLATFORM_DEPLOY_TOKEN: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$PLATFORM_DEPLOY_TOKEN" ]; then
+            echo "Missing PLATFORM_DEPLOY_TOKEN secret. Create a token allowed to dispatch workflows in htm4rck/Tordo.Platform." >&2
+            exit 1
+          fi
+
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $PLATFORM_DEPLOY_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/htm4rck/Tordo.Platform/dispatches \
+            -d "{\"event_type\":\"deploy-lab\",\"client_payload\":{\"source_repo\":\"$GITHUB_REPOSITORY\",\"source_ref\":\"$GITHUB_REF_NAME\",\"source_sha\":\"$GITHUB_SHA\"}}"
+
