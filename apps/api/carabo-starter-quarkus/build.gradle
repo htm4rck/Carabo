@@ -5,9 +5,19 @@ plugins {
 dependencies {
   implementation platform(project(':carabo-bom'))
   implementation project(':carabo-core')
+  implementation project(':carabo-signer')
+  implementation project(':carabo-sunat-client')
+  implementation project(':carabo-ose-client')
+  implementation project(':carabo-storage')
 
   implementation 'io.quarkus:quarkus-rest-jackson'
   implementation 'io.quarkus:quarkus-arc'
+  implementation 'io.quarkus:quarkus-hibernate-orm'
+  implementation 'io.quarkus:quarkus-jdbc-postgresql'
+  implementation 'io.quarkus:quarkus-messaging-rabbitmq'
+  implementation 'io.quarkus:quarkus-scheduler'
+  implementation 'io.quarkus:quarkus-smallrye-openapi'
+  implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
   testImplementation 'io.quarkus:quarkus-junit5'
   testImplementation 'io.rest-assured:rest-assured'

@@ -1,0 +1,166 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+export interface DocumentSummary {
+  id: string;
+  fullNumber: string;
+  docType: string;
+  docTypeName: string;
+  status: string;
+  total: number;
+  currency: string;
+  receiverName: string;
+  receiverDoc: string;
+  issueDate: string;
+  hashCode: string;
+  externalId: string;
+  businessCode: string;
+  sunatResponse: string;
+  createdAt: string;
+}
+
+export interface QueryResponse {
+  items: DocumentSummary[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface QueryParams {
+  businessCode?: string;
+  docType?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  receiverDoc?: string;
+  series?: string;
+  search?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export interface TenantConfig {
+  id: string;
+  businessCode: string;
+  businessName: string;
+  issuerRuc: string;
+  issuerName: string;
+  sendMode: string;
+  certificateFile: string;
+  certificateValidTo: string;
+  environment: string;
+  webhookUrl: string;
+  active: boolean;
+  apiKey: string;
+  countryCode: string;
+}
+
+export interface SalesReport {
+  businessCode: string;
+  from: string;
+  to: string;
+  totalDocuments: number;
+  totalTaxBase: number;
+  totalIgv: number;
+  totalAmount: number;
+  byType: { docType: string; count: number; taxBase: number; igvAmount: number; total: number }[];
+}
+
+export interface DashboardStats {
+  emitted: number;
+  accepted: number;
+  rejected: number;
+  pending: number;
+  tenants: number;
+}
+
+@Injectable({ providedIn: 'root' })
+export class CaraboApiService {
+  private baseUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  // --- Documents ---
+
+  queryDocuments(params: QueryParams): Observable<QueryResponse> {
+    let httpParams = new HttpParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        httpParams = httpParams.set(key, String(value));
+      }
+    });
+    return this.http.get<QueryResponse>(`${this.baseUrl}/documents`, { params: httpParams });
+  }
+
+  getDocument(id: string): Observable<DocumentSummary> {
+    return this.http.get<DocumentSummary>(`${this.baseUrl}/documents/${id}`);
+  }
+
+  retryDocument(id: string): Observable<DocumentSummary> {
+    return this.http.post<DocumentSummary>(`${this.baseUrl}/documents/${id}/retry`, {});
+  }
+
+  getDocumentXmlUrl(id: string): string {
+    return `${this.baseUrl}/documents/${id}/xml`;
+  }
+
+  getDocumentCdrUrl(id: string): string {
+    return `${this.baseUrl}/documents/${id}/cdr`;
+  }
+
+  getDocumentPdfUrl(id: string, format?: string): string {
+    return `${this.baseUrl}/documents/${id}/pdf${format ? '?format=' + format : ''}`;
+  }
+
+  emitDocument(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/documents/emit`, payload);
+  }
+
+  // --- Tenants ---
+
+  getTenant(businessCode: string): Observable<TenantConfig> {
+    return this.http.get<TenantConfig>(`${this.baseUrl}/tenants/${businessCode}`);
+  }
+
+  listTenants(): Observable<TenantConfig[]> {
+    return this.http.get<TenantConfig[]>(`${this.baseUrl}/tenants`);
+  }
+
+  createTenant(data: Partial<TenantConfig>): Observable<TenantConfig> {
+    return this.http.post<TenantConfig>(`${this.baseUrl}/tenants`, data);
+  }
+
+  updateTenant(id: string, data: Partial<TenantConfig>): Observable<TenantConfig> {
+    return this.http.put<TenantConfig>(`${this.baseUrl}/tenants/${id}`, data);
+  }
+
+  // --- Batch ---
+
+  generateSummary(businessCode: string, date?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/documents/batch/summary`, { businessCode, date });
+  }
+
+  sendVoided(businessCode: string, documentIds: string[], reason: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/documents/batch/void`, { businessCode, documentIds, reason });
+  }
+
+  checkTicket(businessCode: string, ticket: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/documents/batch/ticket/${businessCode}/${ticket}`);
+  }
+
+  // --- Reports ---
+
+  salesReport(businessCode: string, from: string, to: string): Observable<SalesReport> {
+    return this.http.get<SalesReport>(`${this.baseUrl}/reports/sales`, {
+      params: { businessCode, from, to }
+    });
+  }
+
+  monthlyReport(businessCode: string, year: number, month: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/reports/monthly`, {
+      params: { businessCode, year: String(year), month: String(month) }
+    });
+  }
+}

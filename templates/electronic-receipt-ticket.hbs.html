@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 10px; width: 72mm; padding: 2mm; }
+  .center { text-align: center; }
+  .bold { font-weight: 700; }
+  .separator { border-top: 1px dashed #333; margin: 4px 0; }
+  .row { display: flex; justify-content: space-between; }
+  .issuer { margin-bottom: 6px; }
+  .issuer .name { font-size: 12px; font-weight: 700; }
+  .issuer .ruc { font-size: 11px; }
+  .doc-title { font-size: 11px; font-weight: 700; margin: 4px 0; }
+  table { width: 100%; font-size: 9px; }
+  th { text-align: left; border-bottom: 1px solid #333; padding: 2px 0; }
+  td { padding: 2px 0; vertical-align: top; }
+  .text-right { text-align: right; }
+  .totals { margin-top: 4px; }
+  .totals .row { font-size: 10px; }
+  .total-final { font-size: 12px; font-weight: 700; }
+  .qr { margin-top: 6px; text-align: center; }
+  .qr img { width: 60px; height: 60px; }
+  .hash { font-size: 7px; word-break: break-all; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="issuer center">
+    <div class="name">{{issuer.name}}</div>
+    {{#if issuer.tradeName}}<div>{{issuer.tradeName}}</div>{{/if}}
+    <div>{{issuer.address}}</div>
+    <div class="ruc">RUC: {{issuer.ruc}}</div>
+  </div>
+
+  <div class="separator"></div>
+
+  <div class="center">
+    <div class="doc-title">{{docTypeName}}</div>
+    <div class="bold">{{fullNumber}}</div>
+  </div>
+
+  <div class="separator"></div>
+
+  <div>
+    <div class="row"><span>Fecha:</span><span>{{formatDate issueDate}}</span></div>
+    <div class="row"><span>Cliente:</span><span>{{receiver.name}}</span></div>
+    <div class="row"><span>Doc:</span><span>{{receiver.doc}}</span></div>
+  </div>
+
+  <div class="separator"></div>
+
+  <table>
+    <thead><tr><th>Desc.</th><th class="text-right">Cant</th><th class="text-right">P.U.</th><th class="text-right">Total</th></tr></thead>
+    <tbody>
+      {{#each lines}}
+      <tr>
+        <td>{{productName}}</td>
+        <td class="text-right">{{quantity}}</td>
+        <td class="text-right">{{formatCurrency unitPrice}}</td>
+        <td class="text-right">{{formatCurrency lineTotal}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="separator"></div>
+
+  <div class="totals">
+    <div class="row"><span>Op. Gravada:</span><span>{{formatCurrency taxBase}}</span></div>
+    <div class="row"><span>IGV 18%:</span><span>{{formatCurrency igvAmount}}</span></div>
+    <div class="separator"></div>
+    <div class="row total-final"><span>TOTAL {{currency}}:</span><span>{{formatCurrency total}}</span></div>
+  </div>
+
+  <div class="qr">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data={{qrContent}}" alt="QR"/>
+  </div>
+  {{#if hashCode}}<div class="hash center">{{hashCode}}</div>{{/if}}
+
+  <div class="separator"></div>
+  <div class="center" style="font-size:8px; margin-top:4px;">
+    Representación impresa<br/>Consulte en www.sunat.gob.pe
+  </div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+dependencies {
+  api platform(project(':carabo-bom'))
+  implementation project(':carabo-core')
+}

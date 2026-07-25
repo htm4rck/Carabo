@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #333; padding: 0; }
+  .container { width: 100%; max-width: 210mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 2px solid #1565c0; padding-bottom: 12px; }
+  .issuer-info { flex: 1; }
+  .issuer-info h1 { font-size: 16px; color: #1565c0; margin-bottom: 4px; }
+  .issuer-info .trade { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .issuer-info .detail { font-size: 10px; color: #666; }
+  .doc-box { border: 2px solid #1565c0; border-radius: 6px; padding: 12px 16px; text-align: center; min-width: 200px; }
+  .doc-box .ruc { font-size: 13px; font-weight: 700; color: #1565c0; }
+  .doc-box .doc-type { font-size: 12px; font-weight: 700; margin: 4px 0; text-transform: uppercase; }
+  .doc-box .doc-number { font-size: 14px; font-weight: 700; color: #1565c0; }
+  .section { margin-bottom: 12px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #1565c0; margin-bottom: 4px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+  .info-row { display: flex; gap: 6px; }
+  .info-label { font-weight: 600; font-size: 10px; min-width: 80px; }
+  .info-value { font-size: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  th { background: #1565c0; color: #fff; font-size: 9px; padding: 6px 4px; text-align: left; text-transform: uppercase; }
+  td { padding: 5px 4px; font-size: 10px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .totals { margin-top: 12px; display: flex; justify-content: flex-end; }
+  .totals-table { width: 240px; }
+  .totals-table tr td { padding: 4px 8px; font-size: 11px; }
+  .totals-table .total-row { font-weight: 700; font-size: 13px; border-top: 2px solid #1565c0; }
+  .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e0e0e0; padding-top: 12px; }
+  .qr-area { text-align: center; }
+  .qr-area img { width: 90px; height: 90px; }
+  .hash-area { font-size: 9px; color: #666; text-align: right; }
+  .hash-area .hash { font-family: monospace; font-size: 8px; word-break: break-all; }
+  .reference { background: #fff3e0; border: 1px solid #ffb74d; border-radius: 4px; padding: 8px; margin-bottom: 12px; }
+  .reference .ref-title { font-weight: 700; font-size: 10px; color: #e65100; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="issuer-info">
+      <h1>{{issuer.name}}</h1>
+      {{#if issuer.tradeName}}<div class="trade">{{issuer.tradeName}}</div>{{/if}}
+      <div class="detail">{{issuer.address}}</div>
+    </div>
+    <div class="doc-box">
+      <div class="ruc">RUC {{issuer.ruc}}</div>
+      <div class="doc-type">{{docTypeName}}</div>
+      <div class="doc-number">{{fullNumber}}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Datos del Cliente</div>
+    <div class="info-grid">
+      <div class="info-row"><span class="info-label">Documento:</span><span class="info-value">{{receiver.doc}}</span></div>
+      <div class="info-row"><span class="info-label">Fecha Emisión:</span><span class="info-value">{{formatDate issueDate}}</span></div>
+      <div class="info-row"><span class="info-label">Razón Social:</span><span class="info-value">{{receiver.name}}</span></div>
+      {{#if dueDate}}<div class="info-row"><span class="info-label">Fecha Venc.:</span><span class="info-value">{{formatDate dueDate}}</span></div>{{/if}}
+      {{#if receiver.address}}<div class="info-row"><span class="info-label">Dirección:</span><span class="info-value">{{receiver.address}}</span></div>{{/if}}
+      <div class="info-row"><span class="info-label">Moneda:</span><span class="info-value">{{currency}}</span></div>
+    </div>
+  </div>
+
+  {{#if reference}}
+  <div class="reference">
+    <span class="ref-title">Documento de referencia: {{reference.fullNumber}}</span> — {{reference.reason}}
+  </div>
+  {{/if}}
+
+  <div class="section">
+    <div class="section-title">Detalle</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="text-center">#</th>
+          <th>Código</th>
+          <th>Descripción</th>
+          <th class="text-center">Cant.</th>
+          <th class="text-right">P. Unit.</th>
+          <th class="text-right">Dscto.</th>
+          <th class="text-right">V. Venta</th>
+          <th class="text-right">IGV</th>
+          <th class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr>
+          <td class="text-center">{{rowIndex @index}}</td>
+          <td>{{productCode}}</td>
+          <td>{{productName}}</td>
+          <td class="text-center">{{quantity}}</td>
+          <td class="text-right">{{formatCurrency unitPrice}}</td>
+          <td class="text-right">{{formatCurrency discount}}</td>
+          <td class="text-right">{{formatCurrency taxBase}}</td>
+          <td class="text-right">{{formatCurrency igvAmount}}</td>
+          <td class="text-right">{{formatCurrency lineTotal}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals">
+    <table class="totals-table">
+      <tr><td>Op. Gravada</td><td class="text-right">{{currency}} {{formatCurrency taxBase}}</td></tr>
+      {{#if discountTotal}}<tr><td>Descuento</td><td class="text-right">-{{currency}} {{formatCurrency discountTotal}}</td></tr>{{/if}}
+      <tr><td>IGV (18%)</td><td class="text-right">{{currency}} {{formatCurrency igvAmount}}</td></tr>
+      <tr class="total-row"><td>TOTAL</td><td class="text-right">{{currency}} {{formatCurrency total}}</td></tr>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="qr-area">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data={{qrContent}}" alt="QR"/>
+    </div>
+    <div class="hash-area">
+      <div>Representación impresa de la {{docTypeName}}</div>
+      <div>Autorizado mediante Resolución de Superintendencia</div>
+      {{#if hashCode}}<div class="hash">Hash: {{hashCode}}</div>{{/if}}
+    </div>
+  </div>
+</div>
+</body>
+</html>

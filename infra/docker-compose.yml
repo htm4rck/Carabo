@@ -14,9 +14,18 @@ services:
       RABBITMQ_HOST: tordo_rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: ${RABBITMQ_USER:-tordo}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-tordo123}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-changeme}
+      CERTS_BASE_PATH: /app/certs
+      STORAGE_PATH: /app/storage/documents
+      LAYOUT_BASE_URL: http://tordo_layout:47617/layout
+      SUNAT_GRE_CLIENT_ID: ${SUNAT_GRE_CLIENT_ID:-}
+      SUNAT_GRE_CLIENT_SECRET: ${SUNAT_GRE_CLIENT_SECRET:-}
+    volumes:
+      - ${CERTS_DIR:-./certs}:/app/certs:ro
+      - carabo_storage:/app/storage/documents
+    depends_on: []
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8998/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8998/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -31,13 +40,16 @@ services:
     container_name: carabo_ui
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/carabo/ui/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/carabo/ui/"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 15s
     networks:
       - tordo_network
+
+volumes:
+  carabo_storage:
 
 networks:
   tordo_network:

@@ -46,6 +46,10 @@ import { MatExpansionModule } from '@angular/material/expansion';
                 <i class="ri-file-list-3-line"></i>
                 <span class="title">Documentos</span>
               </a>
+              <a routerLink="/emit" class="sidebar-menu-link" routerLinkActive="active">
+                <i class="ri-send-plane-line"></i>
+                <span class="title">Emisión Manual</span>
+              </a>
 
               <span class="sub-title gray-color">OPERACIONES</span>
               <a routerLink="/batch/summaries" class="sidebar-menu-link" routerLinkActive="active">
@@ -55,6 +59,12 @@ import { MatExpansionModule } from '@angular/material/expansion';
               <a routerLink="/batch/voided" class="sidebar-menu-link" routerLinkActive="active">
                 <i class="ri-close-circle-line"></i>
                 <span class="title">Comunicaciones de Baja</span>
+              </a>
+
+              <span class="sub-title gray-color">REPORTES</span>
+              <a routerLink="/reports" class="sidebar-menu-link" routerLinkActive="active">
+                <i class="ri-bar-chart-2-line"></i>
+                <span class="title">Reportes Tributarios</span>
               </a>
             </mat-accordion>
           </div>

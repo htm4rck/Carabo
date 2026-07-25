@@ -19,4 +19,11 @@ public enum DocumentType {
 
     public String sunatCode() { return sunatCode; }
     public String description() { return description; }
+
+    public static DocumentType fromSunatCode(String code) {
+        for (DocumentType dt : values()) {
+            if (dt.sunatCode.equals(code)) return dt;
+        }
+        throw new IllegalArgumentException("Unknown SUNAT code: " + code);
+    }
 }

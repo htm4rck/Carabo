@@ -23,8 +23,9 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   login(user: string, password: string, signature: string): Observable<LoginResponse> {
+    const normalizedUser = String(user || '').trim();
     return this.http.post<LoginResponse>(
-      '/auth/login', { user, password },
+      '/auth/login', { user: normalizedUser, password: String(password || '') },
       { headers: new HttpHeaders({ signature }) }
     ).pipe(tap(res => {
       if (res.success && this.isBrowser) {
