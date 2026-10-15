@@ -60,7 +60,8 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             return;
         }
 
-        boolean root = "root".equalsIgnoreCase(String.valueOf(jwt.getClaim("licenseType")));
+        Object licenseType = jwt.getClaim("licenseType");
+        boolean root = isRootLicense(licenseType);
         HumanAccessService.Access access = humanAccessService.resolve(jwt.getSubject(), businessCode, root);
         if (!RolePolicy.permits(path, ctx.getMethod(), access)) {
             reject(ctx, 403, "Your Carabo role does not permit this operation");
@@ -101,5 +102,9 @@ public class ApiKeyFilter implements ContainerRequestFilter {
     private void reject(ContainerRequestContext ctx, int status, String message) {
         ctx.abortWith(Response.status(status).type("application/json")
             .entity("{\"error\":\"" + message.replace("\"", "") + "\"}").build());
+    }
+
+    static boolean isRootLicense(Object licenseType) {
+        return licenseType != null && "root".equalsIgnoreCase(licenseType.toString());
     }
 }
