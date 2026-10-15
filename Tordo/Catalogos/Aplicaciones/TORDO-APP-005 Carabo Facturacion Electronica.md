@@ -114,13 +114,13 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-001 | 0. Baseline | P0 | Preparar toolchain reproducible: Java 21, wrapper ejecutable, Node 22, npm lockfile y comandos únicos de build/test | Build local y CI reproducibles | Ninguna | DevOps + Backend | 1–2 d | Backend y frontend compilan desde cero en CI | 🟢 CI verde |
 | CAR-002 | 0. Baseline | P0 | Crear pipeline CI con compilación, pruebas, análisis estático, escaneo de dependencias e imágenes | Workflow con controles obligatorios | CAR-001 | DevOps | 2–3 d | Un PR no puede integrarse con controles fallidos | 🟡 Tests y builds obligatorios; faltan análisis, escaneo y branch protection |
 | CAR-003 | 0. Baseline | P0 | Definir contrato OpenAPI real, prefijo de rutas y estrategia de versionado | OpenAPI versionado y rutas coherentes en API, UI, Kong, Nginx y README | CAR-001 | Arquitectura + Backend | 2 d | Prueba smoke confirma todas las rutas publicadas | 🟡 Rutas DEV verificadas; contrato no versionado |
-| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟢 Flyway V1/V2; base limpia comprobada con 7 tablas |
+| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟢 Flyway V1–V3; migraciones y PostgreSQL real comprobados en CI |
 | CAR-005 | 1. Seguridad | P0 | Aplicar autorización por tenant en todos los recursos y servicios | Tenant derivado de la API key; consultas por ID y listados siempre filtrados | CAR-003 | Backend + Seguridad | 3–5 d | Pruebas demuestran que una API key nunca accede a otro tenant | 🟡 REST ligado al contexto; faltan fixtures cross-tenant y alcance MQ/jobs |
 | CAR-006 | 1. Seguridad | P0 | Separar DTOs de administración y ocultar secretos | Respuestas sin SOL password, certificado password, OSE token, webhook secret ni API key | CAR-005 | Backend | 2–3 d | Tests de contrato verifican que ningún secreto se serializa | 🟡 DTO seguro y test estructural; falta prueba HTTP con datos reales |
 | CAR-007 | 1. Seguridad | P0 | Definir rol administrativo distinto de la API key de tenant | Endpoints de alta/listado/edición de tenants restringidos | CAR-005 | Arquitectura + Seguridad | 3–5 d | Tenant común no puede administrar tenants | 🟡 JWT/JWKS y roles Carabo desplegados; smoke anónimo/API key pasa, falta sesión humana E2E |
 | CAR-008 | 1. Seguridad | P1 | Externalizar y cifrar secretos; definir rotación de API keys y certificados | Integración con secret store y runbook de rotación | CAR-006 | DevOps + Seguridad | 3–5 d | No hay secretos sensibles en BD en texto claro ni en respuestas/logs | Pendiente |
 | CAR-009 | 1. Seguridad | P1 | Endurecer XML y salidas HTTP: XXE, SSRF de callbacks, timeouts y límites de tamaño | Parsers y clientes HTTP seguros | CAR-005 | Backend + Seguridad | 2–4 d | Pruebas negativas de XXE/SSRF/timeouts pasan | Pendiente |
-| CAR-010 | 2. Núcleo fiscal | P0 | Sustituir `MAX + 1` por correlativos transaccionales por tenant/serie/tipo | Tabla o secuencia bloqueada con asignación atómica | CAR-004 | Backend + DBA | 3–4 d | Prueba concurrente no genera huecos indebidos ni duplicados | Pendiente |
+| CAR-010 | 2. Núcleo fiscal | P0 | Sustituir `MAX + 1` por correlativos transaccionales por tenant/serie/tipo | Tabla o secuencia bloqueada con asignación atómica | CAR-004 | Backend + DBA | 3–4 d | Prueba concurrente no genera huecos indebidos ni duplicados | 🟢 Contador atómico V3 desplegado; CI asignó 40/40 correlativos contiguos y únicos |
 | CAR-011 | 2. Núcleo fiscal | P0 | Validar reglas fiscales, redondeos y tipos de afectación | Motor de validación con casos gravados, exonerados, inafectos, gratuitos, descuentos y anticipos definidos en alcance | CAR-010 | Backend + Especialista fiscal | 5–8 d | Batería de casos dorados concilia bases, impuestos y total | 🟡 Base sin suite fiscal |
 | CAR-012 | 2. Núcleo fiscal | P0 | Validar UBL con XSD y reglas SUNAT antes del envío | Validador estructural y reporte de errores accionable | CAR-011 | Backend | 4–6 d | XML de cada tipo pasa XSD/reglas y casos inválidos son rechazados | Pendiente |
 | CAR-013 | 2. Núcleo fiscal | P0 | Certificar firma XML y manejo de certificados | Firma compatible con SUNAT, selección segura de alias y control de vigencia | CAR-008, CAR-012 | Backend + Seguridad | 3–5 d | Firma verificada externamente; certificados vencidos o inválidos fallan de forma controlada | 🟡 Implementación sin certificación |
@@ -128,13 +128,13 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-015 | 2. Núcleo fiscal | P1 | Completar RA/RC y consulta de tickets | Flujo asíncrono completo hasta CDR y estado final | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Casos aceptado, observado, rechazado y error transitorio probados | 🟡 Código sin evidencia E2E |
 | CAR-016 | 2. Núcleo fiscal | P1 | Completar GRE 2.0 o mantenerla deshabilitada | Ciclo envío-ticket-consulta-CDR y validación GRE | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Homologación GRE superada; hasta entonces feature flag desactivado | 🟡 Código no homologado |
 | CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟡 Consumer conectado; política pendiente |
-| CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | 🟡 Lookup sin garantía concurrente |
+| CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | 🟡 Header/IDs únicos y advisory locks desplegados; falta prueba E2E simultánea REST/MQ |
 | CAR-019 | 3. Integración | P1 | Implementar outbox para eventos/callbacks | Notificaciones persistidas y desacopladas de la transacción fiscal | CAR-014, CAR-017 | Backend | 4–6 d | Caída del receptor no pierde eventos y permite replay seguro | Pendiente |
 | CAR-020 | 3. Integración | P1 | Formalizar callbacks/webhooks | HMAC versionado, timestamp anti-replay, timeout, backoff y auditoría | CAR-009, CAR-019 | Backend | 3–4 d | Entrega, reintento, firma y replay están cubiertos por pruebas | 🟡 HMAC básico no durable |
 | CAR-021 | 3. Integración | P1 | Probar integración Tordo/Operation y Layout | Contratos, fixtures y pruebas de integración entre servicios | CAR-003, CAR-018, CAR-020 | Backend + Equipos Tordo | 4–6 d | Venta aprobada termina en documento, callback y PDF verificables | Pendiente |
 | CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | ⚪ Cliente genérico |
 | CAR-023 | 4. Calidad | P0 | Pruebas unitarias de dominio, UBL, firma, validación y numeración | Suite rápida de regresión | CAR-010–CAR-014 | Backend QA | 6–10 d | Cobertura de reglas críticas y todos los casos fiscales definidos | Pendiente |
-| CAR-024 | 4. Calidad | P0 | Pruebas de integración con PostgreSQL y RabbitMQ reales | Suite con contenedores para persistencia y mensajería | CAR-004, CAR-017 | Backend QA | 4–6 d | Pipeline reproduce fallos, reintentos e idempotencia | Pendiente |
+| CAR-024 | 4. Calidad | P0 | Pruebas de integración con PostgreSQL y RabbitMQ reales | Suite con contenedores para persistencia y mensajería | CAR-004, CAR-017 | Backend QA | 4–6 d | Pipeline reproduce fallos, reintentos e idempotencia | 🟡 PostgreSQL 16 y concurrencia integrados al CI; falta RabbitMQ/fallos/reintentos |
 | CAR-025 | 4. Calidad | P1 | Pruebas E2E de API y UI | Flujos de emisión, búsqueda, descarga, retry, reportes y configuración | CAR-021 | QA + Frontend | 5–8 d | Flujos críticos pasan en entorno efímero | Pendiente |
 | CAR-026 | 4. Calidad | P1 | Pruebas de carga, concurrencia y resiliencia | Límites operativos y SLO basados en evidencia | CAR-024 | QA + DevOps | 3–5 d | Se cumplen volumen diario, latencia y recuperación acordados | Pendiente |
 | CAR-027 | 4. Calidad | P1 | Homologación SUNAT con evidencias | Matriz de casos, XML, CDR y acta de resultado | CAR-012–CAR-016, CAR-023 | QA + Fiscal | 5–10 d | Todos los tipos en alcance están homologados | Pendiente |
@@ -217,7 +217,7 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 | API pública | `https://dev.tordo.io/carabo/api/health` → `200 OK` |
 | UI pública | `https://dev.tordo.io/carabo/ui/` → `200 OK` |
 | Contrato exploratorio | `/carabo/api/swagger/` y `/carabo/api/q/openapi` → `200` |
-| PostgreSQL/Flyway | DEV baselined en V2; base temporal limpia aplicó V1/V2 y creó 7 tablas; temporal eliminada |
+| PostgreSQL/Flyway | DEV en V3; migración de correlativos e índices idempotentes aplicada y validada en PostgreSQL 16 |
 | Seguridad HTTP | Sin API key, documentos responde `401`; administración usa credencial separada |
 | Layout | 5 plantillas `ELECTRONIC_*` cargadas |
 | RabbitMQ | Cola `carabo.document.emit`, un consumidor activo |
@@ -229,7 +229,7 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 |---|---|---|---|---|
 | ASB-01 | El límite REST ya deriva tenant de la API key; faltan prueba cruzada real y alcance MQ/jobs | Acceso cruzado | Crítica | Mitigación parcial |
 | ASB-02 | Las respuestas usan DTO sin secretos; falta prueba HTTP con tenant real | Fuga de secretos | Crítica | Mitigación parcial |
-| ASB-03 | La numeración usa `MAX(number)+1` | Duplicados concurrentes | Crítica | Pendiente |
+| ASB-03 | La numeración usaba `MAX(number)+1` | Duplicados concurrentes | Crítica | Resuelto en DEV con contador atómico V3 y prueba 40/40 |
 | ASB-04 | Existe suite mínima obligatoria; faltan dominio, integración y compliance | Evidencia insuficiente | Alta | Mitigación parcial |
 | ASB-05 | No se demostró validación XSD/reglas SUNAT | XML inválido/rechazos | Alta | Pendiente |
 | ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica | Pendiente |
@@ -260,9 +260,9 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | Dimensión | Avance | Estado | Evidencia/falta principal |
 |---|---:|---|---|
 | Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
-| Fundación técnica DEV | 82% | 🟢 | CI con tests, imágenes y Flyway verificados; dispatch y perfil efectivo siguen pendientes |
-| Producto funcional integral | 39% | 🟡 | REST más aislado; aún sin suite fiscal ni homologación |
-| MVP Perú | 46% | 🟡 | API/UI/DB/MQ operan; seguridad integral, validación e idempotencia bloquean |
+| Fundación técnica DEV | 86% | 🟢 | CI con tests API/UI/PostgreSQL, imágenes y Flyway V3; dispatch automático sigue pendiente |
+| Producto funcional integral | 42% | 🟡 | Correlativos e idempotencia base desplegados; aún sin suite fiscal ni homologación |
+| MVP Perú | 50% | 🟡 | API/UI/DB/MQ y correlativos operan; compliance fiscal, resiliencia MQ y homologación bloquean |
 | Preparación productiva | 8% | ⚪ | Sin homologación, piloto, restore, observabilidad ni runbooks |
 | Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
 
@@ -297,16 +297,16 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---:|---|---:|---|
 | 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
 | 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
-| 3 | Schema/migraciones | 70% | Aplicadas; ejecución todavía manual |
+| 3 | Schema/migraciones | 85% | Flyway V1–V3 automático y migraciones verificadas en PostgreSQL CI/DEV |
 | 4 | RabbitMQ conectado | 65% | Cola/consumer activos; faltan fallos/reentrega |
 | 5 | Tenant de prueba seguro | 55% | Tenant DEV, usuarios Columba y roles Carabo sembrados; falta E2E HTTP |
-| 6 | Correlativos/idempotencia | 15% | Implementación concurrente insuficiente |
+| 6 | Correlativos/idempotencia | 75% | Correlativo atómico probado 40/40; claves únicas y locks desplegados; falta E2E concurrente REST/MQ |
 | 7 | Factura/boleta/NC/ND válidas | 30% | Builders presentes; faltan casos/XSD |
 | 8 | Firma/certificado | 35% | Implementación sin certificación |
 | 9 | SUNAT sandbox/CDR | 10% | Cliente presente; flujo real no evidenciado |
 | 10 | XML/CDR/PDF custodiados | 35% | Volumen/endpoints; faltan E2E/backup |
 | 11 | Seguridad cross-tenant | 30% | Contexto y política de roles implementados; faltan fixtures adversariales |
-| 12 | Suite automática | 20% | Tests backend de política pasan; falta cobertura funcional/fiscal |
+| 12 | Suite automática | 30% | Tests backend/UI y PostgreSQL concurrente pasan; falta cobertura funcional/fiscal y RabbitMQ |
 | 13 | Observabilidad/backup/runbook | 5% | Sólo health/logs básicos |
 | 14 | Homologación/piloto | 0% | No iniciados |
 
@@ -353,3 +353,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 1.0 | 2026-10-15 | Baseline, evaluación as-built, despliegue DEV y tablero de trazabilidad | Control de ejecución activo |
 | 1.1 | 2026-10-15 | CI con pruebas, aislamiento REST, DTO seguro, credencial admin y Flyway V1/V2 | Primera ola en ejecución |
 | 1.2 | 2026-10-15 | Tordo Auth compartido con Columba, roles Carabo, JWT/JWKS, versión UI/API y nueva identidad visual Lato | Desplegado en DEV; smoke técnico pasa, login humano pendiente |
+| 1.3 | 2026-10-15 | Flyway V3, correlativos atómicos, idempotencia REST/MQ base, prueba PostgreSQL concurrente y contraste de navegación | Desplegado en DEV; falta E2E idempotente simultáneo |
