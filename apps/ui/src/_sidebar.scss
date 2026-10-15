@@ -10,13 +10,15 @@
   .carabo-mark i:nth-child(1){height:17px}.carabo-mark i:nth-child(2){height:30px}.carabo-mark i:nth-child(3){height:23px}
   .brand-copy { display:flex; flex-direction:column; line-height:1.1; min-width:0; }
   .brand-copy b { font-size:19px; letter-spacing:.13em; }
-  .brand-copy small { margin-top:6px; color:#bfd0c2; font-size:10px; letter-spacing:.025em; white-space:nowrap; }
+  .brand-copy small { margin-top:6px; color:#99b29e; font-size:10px; letter-spacing:.025em; white-space:nowrap; }
   .burger-menu { display:none; }
   .sidebar-inner { padding: 118px 14px 28px; }
-  .sub-title { display:block; margin:26px 12px 9px; color:#a9bead; font-size:10px; font-weight:800; letter-spacing:.13em; }
+  .sub-title { display:block; margin:26px 12px 9px; color:#77947c; font-size:10px; font-weight:800; letter-spacing:.13em; }
   .sub-title:first-child { margin-top:0; }
-  .mat-accordion .sidebar-menu-link { position:relative; display:flex; align-items:center; min-height:44px; padding:10px 12px; margin:3px 0; border-radius:7px; color:#edf4ee; font-size:13px; font-weight:700; transition:background .18s,color .18s,transform .18s; }
-  .mat-accordion .sidebar-menu-link i { width:25px; margin-right:9px; color:#b5d7b9; font-size:18px; line-height:1; }
+  .mat-accordion .sidebar-menu-link { position:relative; display:flex; align-items:center; min-height:44px; padding:10px 12px; margin:3px 0; border-radius:7px; color:#c6d8c9; font-size:13px; font-weight:600; transition:background .18s,color .18s,transform .18s; }
+  .mat-accordion .sidebar-menu-link i { width:25px; margin-right:9px; color:#8cbd8c; font-size:18px; line-height:1; }
+  .mat-accordion .sidebar-menu-link:not(.active) { color:#edf4ee; }
+  .mat-accordion .sidebar-menu-link:not(.active) i { color:#b5d7b9; }
   .mat-accordion .sidebar-menu-link:hover { color:#fff; background:rgba(255,255,255,.07); transform:translateX(2px); }
   .mat-accordion .sidebar-menu-link.active { color:#173317; background:var(--signalColor); box-shadow:0 8px 24px rgba(8,30,12,.23); }
   .mat-accordion .sidebar-menu-link.active i { color:#173317; }
