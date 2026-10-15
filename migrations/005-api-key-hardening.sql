@@ -1,11 +1,12 @@
 -- API keys are bearer credentials: store only a one-way SHA-256 fingerprint.
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- Use PostgreSQL's built-in SHA-256 function so this migration is independent
+-- from extension schemas and works with currentSchema=carabo.
 
 ALTER TABLE carabo.tenant
     ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(64);
 
 UPDATE carabo.tenant
-SET api_key_hash = ENCODE(DIGEST(api_key, 'sha256'), 'hex')
+SET api_key_hash = ENCODE(SHA256(CONVERT_TO(api_key, 'UTF8')), 'hex')
 WHERE api_key IS NOT NULL
   AND api_key_hash IS NULL;
 
