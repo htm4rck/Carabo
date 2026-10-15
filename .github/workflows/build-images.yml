@@ -54,7 +54,7 @@ jobs:
       matrix:
         include:
           - image: carabo
-            context: source/apps/api
+            context: source
             dockerfile: source/apps/api/Dockerfile
           - image: carabo-ui
             context: source/apps/ui

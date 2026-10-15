@@ -1,17 +1,18 @@
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
-COPY gradle/ gradle/
-COPY gradlew settings.gradle build.gradle gradle.properties ./
+COPY apps/api/gradle/ gradle/
+COPY apps/api/gradlew apps/api/settings.gradle apps/api/build.gradle apps/api/gradle.properties ./
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN sed -i '/org.gradle.java.home/d' gradle.properties
-COPY carabo-bom/ carabo-bom/
-COPY carabo-core/ carabo-core/
-COPY carabo-signer/ carabo-signer/
-COPY carabo-ose-client/ carabo-ose-client/
-COPY carabo-sunat-client/ carabo-sunat-client/
-COPY carabo-storage/ carabo-storage/
-COPY carabo-scheduler/ carabo-scheduler/
-COPY carabo-starter-quarkus/ carabo-starter-quarkus/
+COPY apps/api/carabo-bom/ carabo-bom/
+COPY apps/api/carabo-core/ carabo-core/
+COPY apps/api/carabo-signer/ carabo-signer/
+COPY apps/api/carabo-ose-client/ carabo-ose-client/
+COPY apps/api/carabo-sunat-client/ carabo-sunat-client/
+COPY apps/api/carabo-storage/ carabo-storage/
+COPY apps/api/carabo-scheduler/ carabo-scheduler/
+COPY apps/api/carabo-starter-quarkus/ carabo-starter-quarkus/
+COPY migrations/ /migrations/
 RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine

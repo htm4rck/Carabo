@@ -3,8 +3,8 @@ name: tordo-carabo
 services:
   api:
     build:
-      context: ../apps/api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: apps/api/Dockerfile
     container_name: carabo
     restart: unless-stopped
     environment:

@@ -275,14 +275,9 @@ docker compose up -d
 | `SUNAT_GRE_CLIENT_ID` | — | Client ID para GRE REST API |
 | `SUNAT_GRE_CLIENT_SECRET` | — | Client Secret para GRE REST API |
 
-## Migrations
+## Migraciones
 
-```bash
-# Ejecutar en orden contra la base de datos
-psql -U postgres -d tordo -f migrations/001-document-schema.sql
-psql -U postgres -d tordo -f migrations/002-seed-layout-templates.sql
-psql -U postgres -d tordo -f migrations/003-gre-and-apikey.sql
-```
+Flyway ejecuta automáticamente las migraciones del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2; en bases vacías aplica V1 y V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
 
 ## Integración con el Ecosistema Tordo
 
