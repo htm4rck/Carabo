@@ -26,6 +26,7 @@ public class ApiKeyFilter implements ContainerRequestFilter {
     @Inject TenantService tenantService;
     @Inject TenantContext tenantContext;
     @Inject HumanAccessService humanAccessService;
+    @Inject SecretResolver secretResolver;
     @Inject SecurityIdentity securityIdentity;
     @Inject JsonWebToken jwt;
     @ConfigProperty(name = "carabo.security.admin-key") Optional<String> adminKey;
@@ -89,7 +90,13 @@ public class ApiKeyFilter implements ContainerRequestFilter {
     }
 
     private void authenticateLegacyAdministrator(ContainerRequestContext ctx) {
-        String configuredKey = adminKey.filter(value -> !value.isBlank()).orElse(null);
+        String configuredKey;
+        try {
+            configuredKey = adminKey.map(secretResolver::resolve).filter(value -> !value.isBlank()).orElse(null);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            reject(ctx, 503, "Tenant administration secret is unavailable");
+            return;
+        }
         if (configuredKey == null) { reject(ctx, 503, "Tenant administration is not configured"); return; }
         String suppliedKey = ctx.getHeaderString(ADMIN_KEY_HEADER);
         if (suppliedKey == null || !MessageDigest.isEqual(configuredKey.getBytes(StandardCharsets.UTF_8), suppliedKey.getBytes(StandardCharsets.UTF_8))) {
