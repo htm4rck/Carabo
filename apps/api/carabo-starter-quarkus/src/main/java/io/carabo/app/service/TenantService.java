@@ -1,6 +1,7 @@
 package io.carabo.app.service;
 
 import io.carabo.core.entity.Tenant;
+import io.carabo.app.security.ApiKeyService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -18,6 +19,9 @@ public class TenantService {
 
     @Inject
     EntityManager em;
+
+    @Inject
+    ApiKeyService apiKeyService;
 
     private final Map<String, Tenant> cache = new ConcurrentHashMap<>();
 
@@ -52,14 +56,16 @@ public class TenantService {
     private final Map<String, Tenant> apiKeyCache = new ConcurrentHashMap<>();
 
     public Optional<Tenant> findByApiKey(String apiKey) {
-        Tenant cached = apiKeyCache.get(apiKey);
+        String apiKeyHash = apiKeyService.hash(apiKey);
+        if (apiKeyHash == null) return Optional.empty();
+        Tenant cached = apiKeyCache.get(apiKeyHash);
         if (cached != null) return Optional.of(cached);
         try {
             Tenant tenant = (Tenant) em.createQuery(
-                "SELECT t FROM Tenant t WHERE t.apiKey = :key")
-                .setParameter("key", apiKey)
+                "SELECT t FROM Tenant t WHERE t.apiKeyHash = :keyHash")
+                .setParameter("keyHash", apiKeyHash)
                 .getSingleResult();
-            apiKeyCache.put(apiKey, tenant);
+            apiKeyCache.put(apiKeyHash, tenant);
             return Optional.of(tenant);
         } catch (NoResultException e) {
             return Optional.empty();

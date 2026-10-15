@@ -57,7 +57,7 @@ public class DocumentValidator {
             errors.add("Moneda requerida");
         }
         // Validate series prefix matches doc type
-        if (doc.getSeries() != null && doc.getDocType() != null) {
+        if (doc.getSeries() != null && !doc.getSeries().isBlank() && doc.getDocType() != null) {
             String prefix = doc.getSeries().substring(0, 1).toUpperCase();
             if (doc.getDocType() == DocumentType.INVOICE && !prefix.equals("F")) {
                 errors.add("Serie de factura debe iniciar con F");
@@ -121,6 +121,16 @@ public class DocumentValidator {
             if (line.getUnitPrice() == null || line.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
                 errors.add(prefix + "precio unitario inválido");
             }
+            var profile = PeruTaxRules.profile(line.getAffectationCode());
+            if (profile == null) {
+                errors.add(prefix + "código de afectación IGV no soportado: " + line.getAffectationCode());
+            } else if (line.getTaxBase() != null && line.getIgvAmount() != null) {
+                BigDecimal expectedTax = line.getTaxBase().multiply(profile.rate())
+                    .divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+                if (line.getIgvAmount().subtract(expectedTax).abs().compareTo(new BigDecimal("0.02")) > 0) {
+                    errors.add(prefix + "impuesto no cuadra para afectación " + line.getAffectationCode());
+                }
+            }
         }
     }
 
@@ -131,10 +141,12 @@ public class DocumentValidator {
         if (doc.getTaxBase() == null || doc.getTaxBase().compareTo(BigDecimal.ZERO) < 0) {
             errors.add("Base imponible inválida");
         }
-        // Verify IGV = taxBase * 0.18 (with tolerance)
-        if (doc.getTaxBase() != null && doc.getIgvAmount() != null) {
-            BigDecimal expectedIgv = doc.getTaxBase().multiply(new BigDecimal("0.18"))
-                .setScale(2, java.math.RoundingMode.HALF_UP);
+        // Mixed taxable/exempt/unaffected documents reconcile from their lines.
+        if (doc.getLines() != null && doc.getIgvAmount() != null) {
+            BigDecimal expectedIgv = doc.getLines().stream()
+                .map(DocumentLine::getIgvAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal diff = doc.getIgvAmount().subtract(expectedIgv).abs();
             if (diff.compareTo(new BigDecimal("0.02")) > 0) {
                 errors.add("IGV no cuadra: esperado " + expectedIgv + ", recibido " + doc.getIgvAmount());

@@ -76,6 +76,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f migrations/001-document-schema.sql
           psql -v ON_ERROR_STOP=1 -f migrations/003-gre-and-apikey.sql
           psql -v ON_ERROR_STOP=1 -f migrations/004-correlatives-and-idempotency.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/005-api-key-hardening.sql
       - name: Verify concurrent allocation
         run: bash scripts/verify-correlative-concurrency.sh 40 12
 

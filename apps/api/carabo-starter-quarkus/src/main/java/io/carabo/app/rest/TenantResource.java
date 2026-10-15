@@ -1,6 +1,7 @@
 package io.carabo.app.rest;
 
 import io.carabo.app.service.TenantService;
+import io.carabo.app.security.ApiKeyService;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.SendMode;
 import jakarta.inject.Inject;
@@ -13,6 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Path("/tenants")
 @Produces(MediaType.APPLICATION_JSON)
@@ -25,6 +27,9 @@ public class TenantResource {
 
     @Inject
     TenantService tenantService;
+
+    @Inject
+    ApiKeyService apiKeyService;
 
     @POST
     @Transactional
@@ -55,10 +60,11 @@ public class TenantResource {
         tenant.setWebhookSecret(req.webhookSecret);
         tenant.setCountryCode(req.countryCode != null ? req.countryCode : "PE");
         tenant.setMaxDocumentsPerDay(req.maxDocumentsPerDay != null ? req.maxDocumentsPerDay : 1000);
-        // Generate API key
-        tenant.setApiKey(java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 32));
+        String apiKey = apiKeyService.generate();
+        tenant.setApiKeyHash(apiKeyService.hash(apiKey));
+        tenant.setApiKeyRotatedAt(LocalDateTime.now());
         em.persist(tenant);
-        return Response.status(201).entity(toCreatedResponse(tenant)).build();
+        return Response.status(201).entity(new CreatedTenantResponse(toResponse(tenant), apiKey)).build();
     }
 
     @GET
@@ -123,6 +129,22 @@ public class TenantResource {
         return Response.noContent().build();
     }
 
+    @POST
+    @Path("/{id}/regenerate-key")
+    @Transactional
+    @Operation(summary = "Rotar API key", description = "Revoca inmediatamente la clave anterior y retorna la nueva una sola vez")
+    public Response regenerateApiKey(@PathParam("id") UUID id) {
+        Tenant tenant = em.find(Tenant.class, id);
+        if (tenant == null) return Response.status(404).build();
+
+        String apiKey = apiKeyService.generate();
+        tenant.setApiKeyHash(apiKeyService.hash(apiKey));
+        tenant.setApiKeyRotatedAt(LocalDateTime.now());
+        em.merge(tenant);
+        tenantService.evict(tenant.getBusinessCode());
+        return Response.ok(new RotatedApiKeyResponse(apiKey, tenant.getApiKeyRotatedAt())).build();
+    }
+
     public static class CreateTenantRequest {
         public String businessCode;
         public String businessName;
@@ -179,11 +201,8 @@ public class TenantResource {
         response.active = tenant.isActive();
         response.createdAt = tenant.getCreatedAt();
         response.updatedAt = tenant.getUpdatedAt();
+        response.apiKeyRotatedAt = tenant.getApiKeyRotatedAt();
         return response;
-    }
-
-    private CreatedTenantResponse toCreatedResponse(Tenant tenant) {
-        return new CreatedTenantResponse(toResponse(tenant), tenant.getApiKey());
     }
 
     /** Public administration view. Credentials and password fields are omitted. */
@@ -213,8 +232,10 @@ public class TenantResource {
         public boolean active;
         public java.time.LocalDateTime createdAt;
         public java.time.LocalDateTime updatedAt;
+        public java.time.LocalDateTime apiKeyRotatedAt;
     }
 
     /** API key is returned once at creation and never by read/update endpoints. */
     public record CreatedTenantResponse(TenantResponse tenant, String apiKey) {}
+    public record RotatedApiKeyResponse(String apiKey, LocalDateTime rotatedAt) {}
 }

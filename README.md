@@ -70,7 +70,7 @@ Carabo/
 │   │       ├── scheduler/                # Scheduler de reintentos automáticos
 │   │       └── security/                 # API Key filter por tenant
 │   └── ui/                               # Frontend Angular 20
-├── migrations/                           # SQL migrations (001-004)
+├── migrations/                           # SQL migrations (001-005)
 ├── templates/                            # Plantillas Handlebars para PDF
 ├── infra/
 │   └── docker-compose.yml                # Despliegue containerizado
@@ -215,6 +215,8 @@ Cada tenant (empresa) se configura independientemente:
 - **Aislamiento REST**: El tenant se deriva de la API key; un `businessCode` enviado por el cliente no cambia el ámbito
 - **Administración separada**: `/tenants` exige `X-Admin-Key`; las API keys de tenant no administran empresas
 - **Respuestas seguras**: Credenciales SOL/OSE, contraseñas de certificados y secretos de webhook no se serializan
+- **API keys no reversibles**: PostgreSQL conserva únicamente la huella SHA-256; la credencial se muestra una vez al crearla o rotarla
+- **Secret store montado**: Los campos sensibles aceptan referencias `secret://nombre`, resueltas desde un volumen de solo lectura
 - **Certificados aislados**: Montados como volumen read-only
 - **Webhook signing**: HMAC-SHA256 para verificar autenticidad de callbacks
 - **Schema isolation**: Todos los datos en schema `carabo` separado
@@ -280,12 +282,13 @@ docker compose up -d
 | `STORAGE_PATH` | `/app/storage/documents` | Directorio de almacenamiento |
 | `LAYOUT_BASE_URL` | `http://localhost:47617/layout` | URL del servicio Layout (PDF) |
 | `CARABO_ADMIN_KEY` | — | Credencial obligatoria enviada como `X-Admin-Key` para administrar tenants |
+| `CARABO_SECRETS_PATH` | `/run/secrets/carabo` | Directorio de secretos montados referenciados mediante `secret://nombre` |
 | `SUNAT_GRE_CLIENT_ID` | — | Client ID para GRE REST API |
 | `SUNAT_GRE_CLIENT_SECRET` | — | Client Secret para GRE REST API |
 
 ## Migraciones
 
-Flyway ejecuta automáticamente las migraciones del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2; en bases vacías aplica V1 y V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
+Flyway ejecuta automáticamente las migraciones V1–V4 del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
 
 ## Integración con el Ecosistema Tordo
 

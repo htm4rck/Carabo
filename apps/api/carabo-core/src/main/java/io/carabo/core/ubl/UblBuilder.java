@@ -4,6 +4,7 @@ import io.carabo.core.entity.Document;
 import io.carabo.core.entity.DocumentLine;
 import io.carabo.core.entity.DocumentTax;
 import io.carabo.core.enums.DocumentType;
+import io.carabo.core.validation.PeruTaxRules;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
@@ -250,18 +251,21 @@ public class UblBuilder {
             .append(doc.getIgvAmount().add(doc.getIscAmount() != null ? doc.getIscAmount() : BigDecimal.ZERO)).append("</cbc:TaxAmount>\n");
 
         for (DocumentTax tax : doc.getTaxes()) {
+            var profile = PeruTaxRules.profileByTaxCode(tax.getTaxCode());
             xml.append("    <cac:TaxSubtotal>\n");
             xml.append("      <cbc:TaxableAmount currencyID=\"").append(doc.getCurrency()).append("\">")
                 .append(tax.getTaxBase()).append("</cbc:TaxableAmount>\n");
             xml.append("      <cbc:TaxAmount currencyID=\"").append(doc.getCurrency()).append("\">")
                 .append(tax.getTaxAmount()).append("</cbc:TaxAmount>\n");
             xml.append("      <cac:TaxCategory>\n");
-            xml.append("        <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n");
+            xml.append("        <cbc:ID schemeID=\"UN/ECE 5305\">")
+                .append(profile != null ? profile.categoryCode() : "S").append("</cbc:ID>\n");
             xml.append("        <cbc:Percent>").append(tax.getTaxRate()).append("</cbc:Percent>\n");
             xml.append("        <cac:TaxScheme>\n");
             xml.append("          <cbc:ID>").append(tax.getTaxCode()).append("</cbc:ID>\n");
             xml.append("          <cbc:Name>").append(tax.getTaxName()).append("</cbc:Name>\n");
-            xml.append("          <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>\n");
+            xml.append("          <cbc:TaxTypeCode>")
+                .append(profile != null ? profile.taxTypeCode() : "VAT").append("</cbc:TaxTypeCode>\n");
             xml.append("        </cac:TaxScheme>\n");
             xml.append("      </cac:TaxCategory>\n");
             xml.append("    </cac:TaxSubtotal>\n");
@@ -287,6 +291,7 @@ public class UblBuilder {
 
     private void appendLines(StringBuilder xml, Document doc, String lineTag) {
         for (DocumentLine line : doc.getLines()) {
+            var profile = PeruTaxRules.profile(line.getAffectationCode());
             xml.append("  <cac:").append(lineTag).append(">\n");
             xml.append("    <cbc:ID>").append(line.getLineNumber()).append("</cbc:ID>\n");
             xml.append("    <cbc:InvoicedQuantity unitCode=\"").append(line.getUnitCode()).append("\">")
@@ -313,10 +318,14 @@ public class UblBuilder {
             xml.append("        <cbc:TaxAmount currencyID=\"").append(doc.getCurrency()).append("\">")
                 .append(line.getIgvAmount()).append("</cbc:TaxAmount>\n");
             xml.append("        <cac:TaxCategory>\n");
-            xml.append("          <cbc:ID schemeID=\"UN/ECE 5305\">S</cbc:ID>\n");
+            xml.append("          <cbc:ID schemeID=\"UN/ECE 5305\">")
+                .append(profile != null ? profile.categoryCode() : "S").append("</cbc:ID>\n");
             xml.append("          <cbc:Percent>").append(line.getIgvRate()).append("</cbc:Percent>\n");
             xml.append("          <cbc:TaxExemptionReasonCode>").append(line.getAffectationCode()).append("</cbc:TaxExemptionReasonCode>\n");
-            xml.append("          <cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme>\n");
+            xml.append("          <cac:TaxScheme><cbc:ID>").append(profile != null ? profile.taxCode() : "1000")
+                .append("</cbc:ID><cbc:Name>").append(profile != null ? profile.taxName() : "IGV")
+                .append("</cbc:Name><cbc:TaxTypeCode>").append(profile != null ? profile.taxTypeCode() : "VAT")
+                .append("</cbc:TaxTypeCode></cac:TaxScheme>\n");
             xml.append("        </cac:TaxCategory>\n");
             xml.append("      </cac:TaxSubtotal>\n");
             xml.append("    </cac:TaxTotal>\n");

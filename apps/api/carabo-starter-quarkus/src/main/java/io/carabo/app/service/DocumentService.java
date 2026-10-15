@@ -1,5 +1,6 @@
 package io.carabo.app.service;
 
+import io.carabo.app.security.SecretResolver;
 import io.carabo.core.dto.DocumentCallback;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
@@ -9,6 +10,7 @@ import io.carabo.core.enums.DocumentType;
 import io.carabo.core.enums.SendMode;
 import io.carabo.core.ubl.UblBuilder;
 import io.carabo.core.validation.DocumentValidator;
+import io.carabo.core.validation.PeruTaxRules;
 import io.carabo.ose.OseClient;
 import io.carabo.signer.XmlSigner;
 import io.carabo.storage.DocumentStorage;
@@ -30,6 +32,8 @@ import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,7 +43,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class DocumentService {
 
     private static final Logger LOG = Logger.getLogger(DocumentService.class);
-    private static final BigDecimal IGV_RATE = new BigDecimal("0.18");
     private static final int MAX_RETRIES = 3;
 
     @Inject
@@ -56,6 +59,9 @@ public class DocumentService {
 
     @Inject
     IdempotencyService idempotencyService;
+
+    @Inject
+    SecretResolver secretResolver;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -269,14 +275,14 @@ public class DocumentService {
 
     private SendResult sendViaSunat(String fileName, String signedXml, Tenant tenant) {
         SunatBillService sunat = new SunatBillService(
-            tenant.getSunatEndpoint(), tenant.getSolUser(), tenant.getSolPassword());
+            tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
         SunatBillService.SendBillResult result = sunat.sendBill(fileName, signedXml);
         return new SendResult(result.accepted(), null, result.ticket(),
             result.responseCode(), result.responseMsg(), result.cdrXml());
     }
 
     private SendResult sendViaOse(String fileName, String signedXml, Tenant tenant) {
-        OseClient ose = new OseClient(tenant.getOseBaseUrl(), tenant.getOseApiToken());
+        OseClient ose = new OseClient(tenant.getOseBaseUrl(), secretResolver.resolve(tenant.getOseApiToken()));
         OseClient.OseResult result = ose.send(fileName, signedXml);
         return new SendResult(result.accepted(), result.digestValue(), null,
             result.responseCode(), result.responseMsg(), result.cdrXml());
@@ -285,7 +291,7 @@ public class DocumentService {
     private XmlSigner createSigner(Tenant tenant) {
         try {
             String certPath = Path.of(certsBasePath, tenant.getCertificateFile()).toString();
-            return new XmlSigner(new FileInputStream(certPath), tenant.getCertificatePassword());
+            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()));
         } catch (Exception e) {
             throw new RuntimeException("Cannot load certificate for tenant " + tenant.getBusinessCode(), e);
         }
@@ -344,6 +350,8 @@ public class DocumentService {
         BigDecimal totalTaxBase = BigDecimal.ZERO;
         BigDecimal totalIgv = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        Map<String, BigDecimal[]> taxesByAffectation = new LinkedHashMap<>();
 
         List<EmitDocumentRequest.Line> requestLines = req.getLines() != null ? req.getLines() : List.of();
         for (int i = 0; i < requestLines.size(); i++) {
@@ -357,35 +365,53 @@ public class DocumentService {
             line.setQuantity(reqLine.getQuantity());
             line.setUnitPrice(reqLine.getUnitPrice());
             line.setDiscount(reqLine.getDiscount() != null ? reqLine.getDiscount() : BigDecimal.ZERO);
-            line.setAffectationCode(reqLine.getAffectationCode() != null ? reqLine.getAffectationCode() : "10");
+            String affectationCode = reqLine.getAffectationCode() != null ? reqLine.getAffectationCode() : "10";
+            var taxProfile = PeruTaxRules.profile(affectationCode);
+            line.setAffectationCode(affectationCode);
 
             BigDecimal lineBase = reqLine.getQuantity().multiply(reqLine.getUnitPrice())
                 .subtract(line.getDiscount()).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal lineIgv = lineBase.multiply(IGV_RATE).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal taxRate = taxProfile != null ? taxProfile.rate() : BigDecimal.ZERO;
+            BigDecimal lineIgv = lineBase.multiply(taxRate)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
             line.setTaxBase(lineBase);
             line.setIgvAmount(lineIgv);
-            line.setGrossPrice(reqLine.getUnitPrice().multiply(BigDecimal.ONE.add(IGV_RATE)).setScale(6, RoundingMode.HALF_UP));
+            line.setIgvRate(taxRate);
+            line.setGrossPrice(reqLine.getUnitPrice()
+                .multiply(BigDecimal.ONE.add(taxRate.divide(new BigDecimal("100"))))
+                .setScale(6, RoundingMode.HALF_UP));
             line.setLineTotal(lineBase.add(lineIgv));
 
             doc.getLines().add(line);
             totalTaxBase = totalTaxBase.add(lineBase);
             totalIgv = totalIgv.add(lineIgv);
             totalAmount = totalAmount.add(line.getLineTotal());
+            totalDiscount = totalDiscount.add(line.getDiscount());
+            if (taxProfile != null) {
+                BigDecimal[] aggregate = taxesByAffectation.computeIfAbsent(
+                    affectationCode, ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                aggregate[0] = aggregate[0].add(lineBase);
+                aggregate[1] = aggregate[1].add(lineIgv);
+            }
         }
 
         doc.setTaxBase(totalTaxBase);
         doc.setIgvAmount(totalIgv);
         doc.setTotal(totalAmount);
+        doc.setDiscountTotal(totalDiscount);
 
-        DocumentTax igvTax = new DocumentTax();
-        igvTax.setDocument(doc);
-        igvTax.setTaxCode("1000");
-        igvTax.setTaxName("IGV");
-        igvTax.setTaxBase(totalTaxBase);
-        igvTax.setTaxAmount(totalIgv);
-        igvTax.setTaxRate(new BigDecimal("18.00"));
-        doc.getTaxes().add(igvTax);
+        taxesByAffectation.forEach((code, aggregate) -> {
+            var profile = PeruTaxRules.profile(code);
+            DocumentTax tax = new DocumentTax();
+            tax.setDocument(doc);
+            tax.setTaxCode(profile.taxCode());
+            tax.setTaxName(profile.taxName());
+            tax.setTaxBase(aggregate[0]);
+            tax.setTaxAmount(aggregate[1]);
+            tax.setTaxRate(profile.rate());
+            doc.getTaxes().add(tax);
+        });
 
         // Reference (NC/ND)
         if (req.getReference() != null) {
@@ -458,7 +484,7 @@ public class DocumentService {
 
             // Sign webhook with HMAC-SHA256 if secret is configured
             if (tenant.getWebhookSecret() != null && !tenant.getWebhookSecret().isBlank()) {
-                String signature = hmacSha256(json, tenant.getWebhookSecret());
+                String signature = hmacSha256(json, secretResolver.resolve(tenant.getWebhookSecret()));
                 reqBuilder.header("X-Carabo-Signature", signature);
             }
 

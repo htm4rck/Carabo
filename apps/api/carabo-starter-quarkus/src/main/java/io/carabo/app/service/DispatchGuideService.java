@@ -1,5 +1,6 @@
 package io.carabo.app.service;
 
+import io.carabo.app.security.SecretResolver;
 import io.carabo.core.dto.EmitDispatchGuideRequest;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.entity.gre.DispatchGuide;
@@ -38,6 +39,9 @@ public class DispatchGuideService {
 
     @Inject
     IdempotencyService idempotencyService;
+
+    @Inject
+    SecretResolver secretResolver;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -160,7 +164,8 @@ public class DispatchGuideService {
             boolean isBeta = "BETA".equals(tenant.getEnvironment());
             String solUser = tenant.getIssuerRuc() + tenant.getSolUser();
             SunatGreClient greClient = new SunatGreClient(
-                greClientId.orElse(""), greClientSecret.orElse(""), solUser, tenant.getSolPassword(), isBeta);
+                greClientId.orElse(""), greClientSecret.orElse(""), solUser,
+                secretResolver.resolve(tenant.getSolPassword()), isBeta);
 
             String filename = gre.getIssuerRuc() + "-09-" + gre.getFullNumber();
             SunatGreClient.GreSendResult result = greClient.send(filename, signResult.signedXml());
@@ -210,7 +215,7 @@ public class DispatchGuideService {
     private XmlSigner createSigner(Tenant tenant) {
         try {
             String certPath = Path.of(certsBasePath, tenant.getCertificateFile()).toString();
-            return new XmlSigner(new FileInputStream(certPath), tenant.getCertificatePassword());
+            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()));
         } catch (Exception e) {
             throw new RuntimeException("Cannot load certificate for tenant " + tenant.getBusinessCode(), e);
         }

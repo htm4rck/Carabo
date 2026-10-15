@@ -17,8 +17,9 @@
   .sub-title:first-child { margin-top:0; }
   .mat-accordion .sidebar-menu-link { position:relative; display:flex; align-items:center; min-height:44px; padding:10px 12px; margin:3px 0; border-radius:7px; color:#c6d8c9; font-size:13px; font-weight:600; transition:background .18s,color .18s,transform .18s; }
   .mat-accordion .sidebar-menu-link i { width:25px; margin-right:9px; color:#8cbd8c; font-size:18px; line-height:1; }
-  .mat-accordion .sidebar-menu-link:not(.active) { color:#edf4ee; }
-  .mat-accordion .sidebar-menu-link:not(.active) i { color:#b5d7b9; }
+  .mat-accordion .sidebar-menu-link:not(.active) { color:#fff; opacity:1; }
+  .mat-accordion .sidebar-menu-link:not(.active) .title { color:#fff!important; opacity:1!important; -webkit-text-fill-color:#fff; }
+  .mat-accordion .sidebar-menu-link:not(.active) i { color:var(--signalColor); opacity:1; }
   .mat-accordion .sidebar-menu-link:hover { color:#fff; background:rgba(255,255,255,.07); transform:translateX(2px); }
   .mat-accordion .sidebar-menu-link.active { color:#173317; background:var(--signalColor); box-shadow:0 8px 24px rgba(8,30,12,.23); }
   .mat-accordion .sidebar-menu-link.active i { color:#173317; }

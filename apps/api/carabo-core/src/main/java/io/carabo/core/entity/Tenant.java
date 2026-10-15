@@ -98,9 +98,12 @@ public class Tenant {
     @Column(name = "max_documents_per_day")
     private Integer maxDocumentsPerDay = 1000;
 
-    // API Key for authentication
-    @Column(name = "api_key", length = 64, unique = true)
-    private String apiKey;
+    // One-way fingerprint of the API key. The bearer credential is returned only on creation/rotation.
+    @Column(name = "api_key_hash", length = 64, unique = true)
+    private String apiKeyHash;
+
+    @Column(name = "api_key_rotated_at")
+    private LocalDateTime apiKeyRotatedAt;
 
     // Country / tax authority
     @Column(name = "country_code", length = 3)
@@ -181,6 +184,8 @@ public class Tenant {
     public void setMaxDocumentsPerDay(Integer maxDocumentsPerDay) { this.maxDocumentsPerDay = maxDocumentsPerDay; }
     public String getCountryCode() { return countryCode; }
     public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
-    public String getApiKey() { return apiKey; }
-    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+    public String getApiKeyHash() { return apiKeyHash; }
+    public void setApiKeyHash(String apiKeyHash) { this.apiKeyHash = apiKeyHash; }
+    public LocalDateTime getApiKeyRotatedAt() { return apiKeyRotatedAt; }
+    public void setApiKeyRotatedAt(LocalDateTime apiKeyRotatedAt) { this.apiKeyRotatedAt = apiKeyRotatedAt; }
 }

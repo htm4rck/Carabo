@@ -1,5 +1,6 @@
 package io.carabo.app.service;
 
+import io.carabo.app.security.SecretResolver;
 import io.carabo.core.entity.Document;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.DocumentStatus;
@@ -30,6 +31,9 @@ public class BatchService {
 
     @Inject
     TenantService tenantService;
+
+    @Inject
+    SecretResolver secretResolver;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -64,7 +68,7 @@ public class BatchService {
             XmlSigner.SignResult signed = signer.sign(xml);
 
             SunatBillService sunat = new SunatBillService(
-                tenant.getSunatEndpoint(), tenant.getSolUser(), tenant.getSolPassword());
+                tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
             return new BatchResult(true, ticket, "Resumen enviado, ticket: " + ticket, boletas.size());
@@ -102,7 +106,7 @@ public class BatchService {
             XmlSigner.SignResult signed = signer.sign(xml);
 
             SunatBillService sunat = new SunatBillService(
-                tenant.getSunatEndpoint(), tenant.getSolUser(), tenant.getSolPassword());
+                tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
             // Mark documents as VOID_REQUESTED
@@ -125,7 +129,7 @@ public class BatchService {
     public BatchResult checkTicket(String businessCode, String ticket) {
         Tenant tenant = tenantService.resolve(businessCode);
         SunatBillService sunat = new SunatBillService(
-            tenant.getSunatEndpoint(), tenant.getSolUser(), tenant.getSolPassword());
+            tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
         SunatBillService.SendBillResult result = sunat.getStatus(ticket);
 
         return new BatchResult(result.accepted(), ticket, result.responseMsg(), 0);
@@ -213,7 +217,7 @@ public class BatchService {
     private XmlSigner createSigner(Tenant tenant) {
         try {
             String certPath = Path.of(certsBasePath, tenant.getCertificateFile()).toString();
-            return new XmlSigner(new FileInputStream(certPath), tenant.getCertificatePassword());
+            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()));
         } catch (Exception e) {
             throw new RuntimeException("Cannot load certificate for " + tenant.getBusinessCode(), e);
         }
