@@ -174,13 +174,13 @@ Aplicación ejecutable que integra todos los módulos:
 
 | Código | Tipo | Envío | Estado |
 |--------|------|-------|--------|
-| 01 | Factura electrónica | SOAP / OSE | ✅ Producción |
-| 03 | Boleta electrónica | SOAP / OSE | ✅ Producción |
-| 07 | Nota de crédito electrónica | SOAP / OSE | ✅ Producción |
-| 08 | Nota de débito electrónica | SOAP / OSE | ✅ Producción |
-| 09 | Guía de remisión electrónica | REST GRE 2.0 | ✅ Producción |
-| RA | Comunicación de baja | SOAP | ✅ Producción |
-| RC | Resumen diario de boletas | SOAP | ✅ Producción |
+| 01 | Factura electrónica | SOAP / OSE | Implementado; homologación pendiente |
+| 03 | Boleta electrónica | SOAP / OSE | Implementado; homologación pendiente |
+| 07 | Nota de crédito electrónica | SOAP / OSE | Implementado; homologación pendiente |
+| 08 | Nota de débito electrónica | SOAP / OSE | Implementado; homologación pendiente |
+| 09 | Guía de remisión electrónica | REST GRE 2.0 | Experimental; mantener desactivado |
+| RA | Comunicación de baja | SOAP | Implementado; prueba E2E pendiente |
+| RC | Resumen diario de boletas | SOAP | Implementado; prueba E2E pendiente |
 
 ## Modos de Envío
 
