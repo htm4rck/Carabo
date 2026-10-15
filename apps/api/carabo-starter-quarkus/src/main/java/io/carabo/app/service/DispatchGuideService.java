@@ -176,6 +176,15 @@ public class DispatchGuideService {
         return Optional.ofNullable(em.find(DispatchGuide.class, id));
     }
 
+    public Optional<DispatchGuide> findById(UUID id, String businessCode) {
+        return em.createQuery(
+                "SELECT g FROM DispatchGuide g WHERE g.id = :id AND g.businessCode = :bc", DispatchGuide.class)
+            .setParameter("id", id)
+            .setParameter("bc", businessCode)
+            .getResultStream()
+            .findFirst();
+    }
+
     @SuppressWarnings("unchecked")
     public java.util.List<DispatchGuide> findByBusiness(String businessCode, int offset, int limit) {
         return em.createQuery(

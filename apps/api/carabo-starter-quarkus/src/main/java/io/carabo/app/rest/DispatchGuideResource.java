@@ -2,6 +2,7 @@ package io.carabo.app.rest;
 
 import io.carabo.app.client.LayoutClient;
 import io.carabo.app.service.DispatchGuideService;
+import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDispatchGuideRequest;
 import io.carabo.core.entity.gre.DispatchGuide;
 import jakarta.inject.Inject;
@@ -25,10 +26,14 @@ public class DispatchGuideResource {
     @Inject
     LayoutClient layoutClient;
 
+    @Inject
+    TenantContext tenantContext;
+
     @POST
     @Path("/emit")
     @Operation(summary = "Emitir guía de remisión electrónica")
     public Response emit(EmitDispatchGuideRequest request) {
+        request.setBusinessCode(tenantContext.businessCode());
         DispatchGuide gre = service.emit(request);
         return Response.status(201).entity(toSummary(gre)).build();
     }
@@ -37,7 +42,7 @@ public class DispatchGuideResource {
     @Path("/{id}")
     @Operation(summary = "Obtener GRE por ID")
     public Response getById(@PathParam("id") UUID id) {
-        return service.findById(id)
+        return service.findById(id, tenantContext.businessCode())
             .map(g -> Response.ok(toSummary(g)).build())
             .orElse(Response.status(404).build());
     }
@@ -49,8 +54,7 @@ public class DispatchGuideResource {
         @QueryParam("offset") @DefaultValue("0") int offset,
         @QueryParam("limit") @DefaultValue("50") int limit
     ) {
-        if (businessCode == null) return Response.status(400).entity("{\"error\":\"businessCode required\"}").build();
-        var guides = service.findByBusiness(businessCode, offset, Math.min(limit, 200));
+        var guides = service.findByBusiness(tenantContext.businessCode(), offset, Math.min(limit, 200));
         return Response.ok(guides.stream().map(this::toSummary).toList()).build();
     }
 
@@ -59,7 +63,7 @@ public class DispatchGuideResource {
     @Produces("application/pdf")
     public Response getPdf(@PathParam("id") UUID id) {
         // GRE PDF via layout - uses ELECTRONIC_DISPATCH_GUIDE template
-        return service.findById(id).map(gre -> {
+        return service.findById(id, tenantContext.businessCode()).map(gre -> {
             // Build minimal Document-like data for layout
             // For now return 501 until GRE template is fully implemented
             return Response.status(501).entity("GRE PDF template pending").build();

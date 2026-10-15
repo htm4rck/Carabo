@@ -4,6 +4,7 @@ import io.carabo.app.client.LayoutClient;
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentQueryService;
 import io.carabo.app.service.DocumentService;
+import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
 import io.carabo.core.entity.Document;
@@ -40,11 +41,15 @@ public class DocumentResource {
     @Inject
     LayoutClient layoutClient;
 
+    @Inject
+    TenantContext tenantContext;
+
     @POST
     @Path("/emit")
     @Operation(summary = "Emitir documento electrónico", description = "Valida, firma, envía a SUNAT/OSE y retorna resultado")
     @APIResponse(responseCode = "200", description = "Documento procesado")
     public Response emit(EmitDocumentRequest request) {
+        request.setBusinessCode(tenantContext.businessCode());
         EmitDocumentResponse response = documentService.emit(request);
         return Response.ok(response).build();
     }
@@ -53,7 +58,7 @@ public class DocumentResource {
     @Path("/{id}")
     @Operation(summary = "Obtener documento por ID")
     public Response getById(@PathParam("id") UUID id) {
-        return documentService.findById(id)
+        return documentService.findById(id, tenantContext.businessCode())
             .map(doc -> Response.ok(toSummary(doc)).build())
             .orElse(Response.status(404).build());
     }
@@ -73,7 +78,7 @@ public class DocumentResource {
         @QueryParam("limit") @DefaultValue("50") int limit
     ) {
         var params = new DocumentQueryService.QueryParams();
-        params.businessCode = businessCode;
+        params.businessCode = tenantContext.businessCode();
         params.docType = docType != null ? DocumentType.fromSunatCode(docType) : null;
         params.status = status != null ? DocumentStatus.valueOf(status) : null;
         params.dateFrom = dateFrom != null ? LocalDate.parse(dateFrom) : null;
@@ -96,7 +101,7 @@ public class DocumentResource {
     @Produces(MediaType.APPLICATION_XML)
     @Operation(summary = "Descargar XML firmado")
     public Response getXml(@PathParam("id") UUID id) {
-        return documentService.getSignedXml(id)
+        return documentService.getSignedXml(id, tenantContext.businessCode())
             .map(xml -> Response.ok(xml).build())
             .orElse(Response.status(404).build());
     }
@@ -106,7 +111,7 @@ public class DocumentResource {
     @Produces(MediaType.APPLICATION_XML)
     @Operation(summary = "Descargar CDR (Constancia de Recepción)")
     public Response getCdr(@PathParam("id") UUID id) {
-        return documentService.getCdr(id)
+        return documentService.getCdr(id, tenantContext.businessCode())
             .map(cdr -> Response.ok(cdr).build())
             .orElse(Response.status(404).build());
     }
@@ -116,7 +121,7 @@ public class DocumentResource {
     @Produces("application/pdf")
     @Operation(summary = "Generar PDF representación impresa", description = "Genera PDF A4 o ticket via tordo.layout")
     public Response getPdf(@PathParam("id") UUID id, @Parameter(description = "A4 o TICKET_80MM") @QueryParam("format") String format) {
-        return documentService.findById(id).map(doc -> {
+        return documentService.findById(id, tenantContext.businessCode()).map(doc -> {
             byte[] pdf = layoutClient.generatePdf(doc, format);
             if (pdf == null) return Response.status(502).entity("PDF generation failed").build();
             return Response.ok(pdf)
@@ -129,8 +134,10 @@ public class DocumentResource {
     @Path("/{id}/retry")
     @Operation(summary = "Reintentar envío de documento fallido")
     public Response retry(@PathParam("id") UUID id) {
-        documentService.retry(id);
-        return documentService.findById(id)
+        if (!documentService.retry(id, tenantContext.businessCode())) {
+            return Response.status(404).build();
+        }
+        return documentService.findById(id, tenantContext.businessCode())
             .map(doc -> Response.ok(toSummary(doc)).build())
             .orElse(Response.status(404).build());
     }
@@ -142,7 +149,7 @@ public class DocumentResource {
     @Operation(summary = "Generar resumen diario de boletas (RC)")
     public Response dailySummary(SummaryRequest request) {
         var result = batchService.sendDailySummary(
-            request.businessCode,
+            tenantContext.businessCode(),
             request.date != null ? LocalDate.parse(request.date) : LocalDate.now().minusDays(1)
         );
         return Response.ok(result).build();
@@ -153,7 +160,7 @@ public class DocumentResource {
     @Operation(summary = "Enviar comunicación de baja (RA)")
     public Response voidDocuments(VoidRequest request) {
         var result = batchService.sendVoidedCommunication(
-            request.businessCode, request.documentIds, request.reason);
+            tenantContext.businessCode(), request.documentIds, request.reason);
         return Response.ok(result).build();
     }
 
@@ -161,7 +168,7 @@ public class DocumentResource {
     @Path("/batch/ticket/{businessCode}/{ticket}")
     @Operation(summary = "Consultar estado de ticket SUNAT")
     public Response checkTicket(@PathParam("businessCode") String businessCode, @PathParam("ticket") String ticket) {
-        var result = batchService.checkTicket(businessCode, ticket);
+        var result = batchService.checkTicket(tenantContext.businessCode(), ticket);
         return Response.ok(result).build();
     }
 

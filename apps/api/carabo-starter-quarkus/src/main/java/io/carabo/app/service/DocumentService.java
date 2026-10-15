@@ -179,13 +179,39 @@ public class DocumentService {
         return Optional.ofNullable(em.find(Document.class, id));
     }
 
+    public Optional<Document> findById(UUID id, String businessCode) {
+        return em.createQuery(
+                "SELECT d FROM Document d WHERE d.id = :id AND d.businessCode = :bc", Document.class)
+            .setParameter("id", id)
+            .setParameter("bc", businessCode)
+            .getResultStream()
+            .findFirst();
+    }
+
+    @Transactional
+    public boolean retry(UUID documentId, String businessCode) {
+        if (findById(documentId, businessCode).isEmpty()) return false;
+        retry(documentId);
+        return true;
+    }
+
     public Optional<String> getSignedXml(UUID id) {
         return findById(id).flatMap(doc ->
             getStorage().getSignedXml(doc.getBusinessCode(), doc.getSeries(), doc.getNumber()));
     }
 
+    public Optional<String> getSignedXml(UUID id, String businessCode) {
+        return findById(id, businessCode).flatMap(doc ->
+            getStorage().getSignedXml(doc.getBusinessCode(), doc.getSeries(), doc.getNumber()));
+    }
+
     public Optional<String> getCdr(UUID id) {
         return findById(id).flatMap(doc ->
+            getStorage().getCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber()));
+    }
+
+    public Optional<String> getCdr(UUID id, String businessCode) {
+        return findById(id, businessCode).flatMap(doc ->
             getStorage().getCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber()));
     }
 

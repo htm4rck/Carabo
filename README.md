@@ -123,7 +123,7 @@ Jobs automáticos:
 
 ### carabo-starter-quarkus
 Aplicación ejecutable que integra todos los módulos:
-- REST API con autenticación por API Key per tenant
+- REST API con API key por tenant y credencial administrativa separada
 - Consumer RabbitMQ para emisión asincrónica
 - Integración con Layout service para generación de PDF
 - Swagger UI en `/swagger`
@@ -204,6 +204,9 @@ Cada tenant (empresa) se configura independientemente:
 ## Seguridad
 
 - **API Key per tenant**: Cada empresa tiene su propia API Key (64 chars)
+- **Aislamiento REST**: El tenant se deriva de la API key; un `businessCode` enviado por el cliente no cambia el ámbito
+- **Administración separada**: `/tenants` exige `X-Admin-Key`; las API keys de tenant no administran empresas
+- **Respuestas seguras**: Credenciales SOL/OSE, contraseñas de certificados y secretos de webhook no se serializan
 - **Certificados aislados**: Montados como volumen read-only
 - **Webhook signing**: HMAC-SHA256 para verificar autenticidad de callbacks
 - **Schema isolation**: Todos los datos en schema `carabo` separado
@@ -268,6 +271,7 @@ docker compose up -d
 | `CERTS_BASE_PATH` | `/app/certs` | Directorio de certificados |
 | `STORAGE_PATH` | `/app/storage/documents` | Directorio de almacenamiento |
 | `LAYOUT_BASE_URL` | `http://localhost:47617/layout` | URL del servicio Layout (PDF) |
+| `CARABO_ADMIN_KEY` | — | Credencial obligatoria enviada como `X-Admin-Key` para administrar tenants |
 | `SUNAT_GRE_CLIENT_ID` | — | Client ID para GRE REST API |
 | `SUNAT_GRE_CLIENT_SECRET` | — | Client Secret para GRE REST API |
 

@@ -58,7 +58,7 @@ public class TenantResource {
         // Generate API key
         tenant.setApiKey(java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 32));
         em.persist(tenant);
-        return Response.status(201).entity(tenant).build();
+        return Response.status(201).entity(toCreatedResponse(tenant)).build();
     }
 
     @GET
@@ -66,7 +66,7 @@ public class TenantResource {
     @Operation(summary = "Obtener tenant por businessCode")
     public Response getByBusinessCode(@PathParam("businessCode") String businessCode) {
         return tenantService.findByBusinessCode(businessCode)
-            .map(t -> Response.ok(t).build())
+            .map(t -> Response.ok(toResponse(t)).build())
             .orElse(Response.status(404).build());
     }
 
@@ -75,7 +75,7 @@ public class TenantResource {
     public Response listAll() {
         var tenants = em.createQuery("SELECT t FROM Tenant t ORDER BY t.businessCode", Tenant.class)
             .getResultList();
-        return Response.ok(tenants).build();
+        return Response.ok(tenants.stream().map(this::toResponse).toList()).build();
     }
 
     @PUT
@@ -107,7 +107,7 @@ public class TenantResource {
 
         em.merge(tenant);
         tenantService.evict(tenant.getBusinessCode());
-        return Response.ok(tenant).build();
+        return Response.ok(toResponse(tenant)).build();
     }
 
     @DELETE
@@ -151,4 +151,70 @@ public class TenantResource {
     }
 
     public static class UpdateTenantRequest extends CreateTenantRequest {}
+
+    private TenantResponse toResponse(Tenant tenant) {
+        var response = new TenantResponse();
+        response.id = tenant.getId();
+        response.businessCode = tenant.getBusinessCode();
+        response.businessName = tenant.getBusinessName();
+        response.issuerRuc = tenant.getIssuerRuc();
+        response.issuerName = tenant.getIssuerName();
+        response.issuerTrade = tenant.getIssuerTrade();
+        response.issuerAddress = tenant.getIssuerAddress();
+        response.issuerUbigeo = tenant.getIssuerUbigeo();
+        response.sendMode = tenant.getSendMode() != null ? tenant.getSendMode().name() : null;
+        response.sunatEndpoint = tenant.getSunatEndpoint();
+        response.oseBaseUrl = tenant.getOseBaseUrl();
+        response.certificateFile = tenant.getCertificateFile();
+        response.certificateValidFrom = tenant.getCertificateValidFrom();
+        response.certificateValidTo = tenant.getCertificateValidTo();
+        response.invoiceSeries = tenant.getInvoiceSeries();
+        response.receiptSeries = tenant.getReceiptSeries();
+        response.creditNoteSeries = tenant.getCreditNoteSeries();
+        response.debitNoteSeries = tenant.getDebitNoteSeries();
+        response.environment = tenant.getEnvironment();
+        response.webhookUrl = tenant.getWebhookUrl();
+        response.countryCode = tenant.getCountryCode();
+        response.maxDocumentsPerDay = tenant.getMaxDocumentsPerDay();
+        response.active = tenant.isActive();
+        response.createdAt = tenant.getCreatedAt();
+        response.updatedAt = tenant.getUpdatedAt();
+        return response;
+    }
+
+    private CreatedTenantResponse toCreatedResponse(Tenant tenant) {
+        return new CreatedTenantResponse(toResponse(tenant), tenant.getApiKey());
+    }
+
+    /** Public administration view. Credentials and password fields are omitted. */
+    public static class TenantResponse {
+        public UUID id;
+        public String businessCode;
+        public String businessName;
+        public String issuerRuc;
+        public String issuerName;
+        public String issuerTrade;
+        public String issuerAddress;
+        public String issuerUbigeo;
+        public String sendMode;
+        public String sunatEndpoint;
+        public String oseBaseUrl;
+        public String certificateFile;
+        public java.time.LocalDate certificateValidFrom;
+        public java.time.LocalDate certificateValidTo;
+        public String invoiceSeries;
+        public String receiptSeries;
+        public String creditNoteSeries;
+        public String debitNoteSeries;
+        public String environment;
+        public String webhookUrl;
+        public String countryCode;
+        public Integer maxDocumentsPerDay;
+        public boolean active;
+        public java.time.LocalDateTime createdAt;
+        public java.time.LocalDateTime updatedAt;
+    }
+
+    /** API key is returned once at creation and never by read/update endpoints. */
+    public record CreatedTenantResponse(TenantResponse tenant, String apiKey) {}
 }

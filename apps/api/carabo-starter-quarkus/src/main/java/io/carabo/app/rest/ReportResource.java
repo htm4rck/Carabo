@@ -2,6 +2,7 @@ package io.carabo.app.rest;
 
 import io.carabo.app.service.ExcelExportService;
 import io.carabo.app.service.ReportService;
+import io.carabo.app.security.TenantContext;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -23,6 +24,9 @@ public class ReportResource {
     @Inject
     ExcelExportService excelService;
 
+    @Inject
+    TenantContext tenantContext;
+
     @GET
     @Path("/sales")
     @Operation(summary = "Reporte de ventas por periodo", description = "Agrupa documentos aceptados por tipo con totales de base, IGV y monto")
@@ -31,10 +35,10 @@ public class ReportResource {
         @QueryParam("from") String from,
         @QueryParam("to") String to
     ) {
-        if (businessCode == null || from == null || to == null) {
-            return Response.status(400).entity("{\"error\":\"businessCode, from, to required\"}").build();
+        if (from == null || to == null) {
+            return Response.status(400).entity("{\"error\":\"from and to are required\"}").build();
         }
-        var report = reportService.salesReport(businessCode, LocalDate.parse(from), LocalDate.parse(to));
+        var report = reportService.salesReport(tenantContext.businessCode(), LocalDate.parse(from), LocalDate.parse(to));
         return Response.ok(report).build();
     }
 
@@ -46,10 +50,10 @@ public class ReportResource {
         @QueryParam("year") int year,
         @QueryParam("month") int month
     ) {
-        if (businessCode == null || year == 0 || month == 0) {
-            return Response.status(400).entity("{\"error\":\"businessCode, year, month required\"}").build();
+        if (year == 0 || month == 0) {
+            return Response.status(400).entity("{\"error\":\"year and month are required\"}").build();
         }
-        var report = reportService.monthlyReport(businessCode, year, month);
+        var report = reportService.monthlyReport(tenantContext.businessCode(), year, month);
         return Response.ok(report).build();
     }
 
@@ -62,12 +66,13 @@ public class ReportResource {
         @QueryParam("from") String from,
         @QueryParam("to") String to
     ) {
-        if (businessCode == null || from == null || to == null) {
-            return Response.status(400).entity("{\"error\":\"businessCode, from, to required\"}").build();
+        if (from == null || to == null) {
+            return Response.status(400).entity("{\"error\":\"from and to are required\"}").build();
         }
-        byte[] xlsx = excelService.exportDocuments(businessCode, LocalDate.parse(from), LocalDate.parse(to));
+        String authenticatedBusiness = tenantContext.businessCode();
+        byte[] xlsx = excelService.exportDocuments(authenticatedBusiness, LocalDate.parse(from), LocalDate.parse(to));
         return Response.ok(xlsx)
-            .header("Content-Disposition", "attachment; filename=\"registro-ventas-" + businessCode + "-" + from + "-" + to + ".xlsx\"")
+            .header("Content-Disposition", "attachment; filename=\"registro-ventas-" + authenticatedBusiness + "-" + from + "-" + to + ".xlsx\"")
             .build();
     }
 }
