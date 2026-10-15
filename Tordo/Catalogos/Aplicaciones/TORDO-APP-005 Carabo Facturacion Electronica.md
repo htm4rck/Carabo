@@ -1,5 +1,18 @@
 # TORDO-APP-005 — Carabo Facturación Electrónica
 
+| Metadato | Valor |
+|---|---|
+| Código | TORDO-APP-005 |
+| Versión | 1.0 — baseline, ejecución y tablero de trazabilidad |
+| Fecha | 2026-10-15 |
+| Estado | Desplegado parcialmente en DEV; no homologado ni listo para producción |
+| Primer país | Perú — SUNAT |
+| Audiencia | Producto, Arquitectura, Desarrollo, QA, DevOps, Seguridad, Operaciones y especialista fiscal |
+
+> **Control de alcance.** Esta ficha distingue alcance escrito, código existente, capacidad verificable en DEV y capacidad aceptada para producción. Una clase, endpoint o pantalla no demuestra cumplimiento tributario. Ningún tipo documental, GRE, OSE o país se declara productivo sin pruebas, homologación y evidencia operativa.
+
+> **Lectura rápida.** El [tablero integral](#tablero-integral-de-avance-y-trazabilidad) registra el estado real; la tabla `CAR-001..034` guía la ejecución. “Build verde” no significa “flujo fiscal homologado” y “desplegado en DEV” no significa “aceptado para producción”.
+
 ## Objetivo
 
 Poner en producción un servicio multitenant de facturación electrónica para Perú que genere, firme, envíe, consulte y conserve comprobantes electrónicos, con integración confiable con Tordo/Operation, SUNAT u OSE y Tordo/Layout.
@@ -40,42 +53,94 @@ Fuera de la primera salida:
 - Activación productiva de GRE hasta completar el ciclo de ticket/consulta y homologación.
 - Soporte genérico para múltiples OSE sin adaptadores y pruebas por proveedor.
 
+## Objetivos y resultados
+
+| ID | Objetivo | Métrica orientativa | Prioridad |
+|---|---|---|---|
+| OBJ-01 | Emitir sin pérdida ni duplicidad | Conciliación venta-documento; duplicados | P0 |
+| OBJ-02 | Aislar empresas y secretos | Pruebas cross-tenant; secretos expuestos | P0 |
+| OBJ-03 | Mantener trazabilidad fiscal | % con XML, firma, CDR, logs y correlación | P0 |
+| OBJ-04 | Resistir fallos externos | Edad de pendientes; retries; DLQ | P0 |
+| OBJ-05 | Integrar venta y representación | % ventas con documento, callback y PDF conciliados | P1 |
+| OBJ-06 | Extender canales y países con evidencia | Tipos/canales/países homologados | P2/P3 |
+
+## Arquitectura construida
+
+```mermaid
+flowchart LR
+  OP[Tordo/Operation] -->|carabo.document.emit| MQ[RabbitMQ]
+  MQ --> API[Carabo API · Quarkus]
+  UI[Carabo UI · Angular] -->|Kong /carabo/api| API
+  API --> DB[(PostgreSQL · carabo)]
+  API --> STORE[(XML / CDR / PDF)]
+  API --> SIGN[Firma PKCS12]
+  SIGN --> SUNAT[SUNAT SOAP / GRE REST]
+  SIGN --> OSE[OSE]
+  API --> LAYOUT[Tordo/Layout]
+  API -->|callback firmado| OP
+```
+
+## Inventario funcional
+
+| ID | Capacidad | Criterio de completitud | Prioridad |
+|---|---|---|---|
+| FUN-001 | Tenants/configuración fiscal | Alta segura, series, canal, certificados y rotación | P0 |
+| FUN-002 | Factura/boleta/NC/ND | Validación, numeración, firma, envío y estado final | P0 |
+| FUN-003 | UBL Perú | XML por tipo validado contra XSD y reglas SUNAT | P0 |
+| FUN-004 | Firma digital | Firma externa verificable, alias y vigencia | P0 |
+| FUN-005 | SUNAT directo | Envío, CDR, códigos, observaciones y consulta | P0 |
+| FUN-006 | OSE | Adaptador y suite contractual por proveedor | P2 |
+| FUN-007 | Custodia documental | Cifrado, checksum, retención, backup y restore | P0/P1 |
+| FUN-008 | Consulta/descarga | Filtros y recursos aislados por tenant | P0 |
+| FUN-009 | PDF | A4/ticket mediante Layout y plantilla aprobada | P1 |
+| FUN-010 | Reintentos | Política por error, backoff y estados idempotentes | P0 |
+| FUN-011 | RabbitMQ | ACK/NACK, deduplicación, retry, DLQ y correlación | P0 |
+| FUN-012 | Callback/webhook | Outbox, firma, anti-replay y auditoría | P1 |
+| FUN-013 | RA/RC | Envío, ticket, consulta y resultado final | P1 |
+| FUN-014 | GRE 2.0 | UBL, OAuth, ticket, consulta, CDR y homologación | P2 |
+| FUN-015 | Reportes | KPIs conciliables y exportación aislada | P1 |
+| FUN-016 | Operación web | Emitir, consultar, descargar y reintentar | P1 |
+| FUN-017 | Administración web | Configurar sin exponer secretos | P1 |
+| FUN-018 | Seguridad multitenant | Contexto obligatorio en REST, jobs, storage y reportes | P0 |
+| FUN-019 | Observabilidad/soporte | Logs, métricas, trazas, alertas y runbooks | P1 |
+| FUN-020 | Expansión regional | Compliance y homologación por país | P3 |
+
 ## Tabla de ejecución
 
 Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` completa la operación; `P3` es evolución. Las estimaciones son jornadas-persona y deben recalibrarse al asignar responsables.
 
 | ID | Fase | Prioridad | Trabajo | Entregable / resultado | Dependencias | Responsable sugerido | Estimación | Criterio de cierre | Estado inicial |
 |---|---|---:|---|---|---|---|---:|---|---|
-| CAR-001 | 0. Baseline | P0 | Preparar toolchain reproducible: Java 21, wrapper ejecutable, Node 22, npm lockfile y comandos únicos de build/test | Build local y CI reproducibles | Ninguna | DevOps + Backend | 1–2 d | Backend y frontend compilan desde cero en CI | Pendiente |
-| CAR-002 | 0. Baseline | P0 | Crear pipeline CI con compilación, pruebas, análisis estático, escaneo de dependencias e imágenes | Workflow con controles obligatorios | CAR-001 | DevOps | 2–3 d | Un PR no puede integrarse con controles fallidos | Pendiente |
-| CAR-003 | 0. Baseline | P0 | Definir contrato OpenAPI real, prefijo de rutas y estrategia de versionado | OpenAPI versionado y rutas coherentes en API, UI, Kong, Nginx y README | CAR-001 | Arquitectura + Backend | 2 d | Prueba smoke confirma todas las rutas publicadas | Pendiente |
-| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | Pendiente |
+| CAR-001 | 0. Baseline | P0 | Preparar toolchain reproducible: Java 21, wrapper ejecutable, Node 22, npm lockfile y comandos únicos de build/test | Build local y CI reproducibles | Ninguna | DevOps + Backend | 1–2 d | Backend y frontend compilan desde cero en CI | 🟢 CI verde |
+| CAR-002 | 0. Baseline | P0 | Crear pipeline CI con compilación, pruebas, análisis estático, escaneo de dependencias e imágenes | Workflow con controles obligatorios | CAR-001 | DevOps | 2–3 d | Un PR no puede integrarse con controles fallidos | 🟡 Build de imágenes; faltan pruebas y análisis |
+| CAR-003 | 0. Baseline | P0 | Definir contrato OpenAPI real, prefijo de rutas y estrategia de versionado | OpenAPI versionado y rutas coherentes en API, UI, Kong, Nginx y README | CAR-001 | Arquitectura + Backend | 2 d | Prueba smoke confirma todas las rutas publicadas | 🟡 Rutas DEV verificadas; contrato no versionado |
+| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟡 SQL aplicado manualmente en DEV |
 | CAR-005 | 1. Seguridad | P0 | Aplicar autorización por tenant en todos los recursos y servicios | Tenant derivado de la API key; consultas por ID y listados siempre filtrados | CAR-003 | Backend + Seguridad | 3–5 d | Pruebas demuestran que una API key nunca accede a otro tenant | Pendiente |
 | CAR-006 | 1. Seguridad | P0 | Separar DTOs de administración y ocultar secretos | Respuestas sin SOL password, certificado password, OSE token, webhook secret ni API key | CAR-005 | Backend | 2–3 d | Tests de contrato verifican que ningún secreto se serializa | Pendiente |
 | CAR-007 | 1. Seguridad | P0 | Definir rol administrativo distinto de la API key de tenant | Endpoints de alta/listado/edición de tenants restringidos | CAR-005 | Arquitectura + Seguridad | 3–5 d | Tenant común no puede administrar tenants | Pendiente |
 | CAR-008 | 1. Seguridad | P1 | Externalizar y cifrar secretos; definir rotación de API keys y certificados | Integración con secret store y runbook de rotación | CAR-006 | DevOps + Seguridad | 3–5 d | No hay secretos sensibles en BD en texto claro ni en respuestas/logs | Pendiente |
 | CAR-009 | 1. Seguridad | P1 | Endurecer XML y salidas HTTP: XXE, SSRF de callbacks, timeouts y límites de tamaño | Parsers y clientes HTTP seguros | CAR-005 | Backend + Seguridad | 2–4 d | Pruebas negativas de XXE/SSRF/timeouts pasan | Pendiente |
 | CAR-010 | 2. Núcleo fiscal | P0 | Sustituir `MAX + 1` por correlativos transaccionales por tenant/serie/tipo | Tabla o secuencia bloqueada con asignación atómica | CAR-004 | Backend + DBA | 3–4 d | Prueba concurrente no genera huecos indebidos ni duplicados | Pendiente |
-| CAR-011 | 2. Núcleo fiscal | P0 | Validar reglas fiscales, redondeos y tipos de afectación | Motor de validación con casos gravados, exonerados, inafectos, gratuitos, descuentos y anticipos definidos en alcance | CAR-010 | Backend + Especialista fiscal | 5–8 d | Batería de casos dorados concilia bases, impuestos y total | Pendiente |
+| CAR-011 | 2. Núcleo fiscal | P0 | Validar reglas fiscales, redondeos y tipos de afectación | Motor de validación con casos gravados, exonerados, inafectos, gratuitos, descuentos y anticipos definidos en alcance | CAR-010 | Backend + Especialista fiscal | 5–8 d | Batería de casos dorados concilia bases, impuestos y total | 🟡 Base sin suite fiscal |
 | CAR-012 | 2. Núcleo fiscal | P0 | Validar UBL con XSD y reglas SUNAT antes del envío | Validador estructural y reporte de errores accionable | CAR-011 | Backend | 4–6 d | XML de cada tipo pasa XSD/reglas y casos inválidos son rechazados | Pendiente |
-| CAR-013 | 2. Núcleo fiscal | P0 | Certificar firma XML y manejo de certificados | Firma compatible con SUNAT, selección segura de alias y control de vigencia | CAR-008, CAR-012 | Backend + Seguridad | 3–5 d | Firma verificada externamente; certificados vencidos o inválidos fallan de forma controlada | Pendiente |
+| CAR-013 | 2. Núcleo fiscal | P0 | Certificar firma XML y manejo de certificados | Firma compatible con SUNAT, selección segura de alias y control de vigencia | CAR-008, CAR-012 | Backend + Seguridad | 3–5 d | Firma verificada externamente; certificados vencidos o inválidos fallan de forma controlada | 🟡 Implementación sin certificación |
 | CAR-014 | 2. Núcleo fiscal | P0 | Completar estados y transiciones del documento | Máquina de estados explícita e idempotente | CAR-011 | Backend | 3–4 d | No existen regresiones de estado y cada transición queda auditada | Pendiente |
-| CAR-015 | 2. Núcleo fiscal | P1 | Completar RA/RC y consulta de tickets | Flujo asíncrono completo hasta CDR y estado final | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Casos aceptado, observado, rechazado y error transitorio probados | Pendiente |
-| CAR-016 | 2. Núcleo fiscal | P1 | Completar GRE 2.0 o mantenerla deshabilitada | Ciclo envío-ticket-consulta-CDR y validación GRE | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Homologación GRE superada; hasta entonces feature flag desactivado | Pendiente |
-| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | Pendiente |
-| CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | Pendiente |
+| CAR-015 | 2. Núcleo fiscal | P1 | Completar RA/RC y consulta de tickets | Flujo asíncrono completo hasta CDR y estado final | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Casos aceptado, observado, rechazado y error transitorio probados | 🟡 Código sin evidencia E2E |
+| CAR-016 | 2. Núcleo fiscal | P1 | Completar GRE 2.0 o mantenerla deshabilitada | Ciclo envío-ticket-consulta-CDR y validación GRE | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Homologación GRE superada; hasta entonces feature flag desactivado | 🟡 Código no homologado |
+| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟡 Consumer conectado; política pendiente |
+| CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | 🟡 Lookup sin garantía concurrente |
 | CAR-019 | 3. Integración | P1 | Implementar outbox para eventos/callbacks | Notificaciones persistidas y desacopladas de la transacción fiscal | CAR-014, CAR-017 | Backend | 4–6 d | Caída del receptor no pierde eventos y permite replay seguro | Pendiente |
-| CAR-020 | 3. Integración | P1 | Formalizar callbacks/webhooks | HMAC versionado, timestamp anti-replay, timeout, backoff y auditoría | CAR-009, CAR-019 | Backend | 3–4 d | Entrega, reintento, firma y replay están cubiertos por pruebas | Pendiente |
+| CAR-020 | 3. Integración | P1 | Formalizar callbacks/webhooks | HMAC versionado, timestamp anti-replay, timeout, backoff y auditoría | CAR-009, CAR-019 | Backend | 3–4 d | Entrega, reintento, firma y replay están cubiertos por pruebas | 🟡 HMAC básico no durable |
 | CAR-021 | 3. Integración | P1 | Probar integración Tordo/Operation y Layout | Contratos, fixtures y pruebas de integración entre servicios | CAR-003, CAR-018, CAR-020 | Backend + Equipos Tordo | 4–6 d | Venta aprobada termina en documento, callback y PDF verificables | Pendiente |
-| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | Pendiente |
+| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | ⚪ Cliente genérico |
 | CAR-023 | 4. Calidad | P0 | Pruebas unitarias de dominio, UBL, firma, validación y numeración | Suite rápida de regresión | CAR-010–CAR-014 | Backend QA | 6–10 d | Cobertura de reglas críticas y todos los casos fiscales definidos | Pendiente |
 | CAR-024 | 4. Calidad | P0 | Pruebas de integración con PostgreSQL y RabbitMQ reales | Suite con contenedores para persistencia y mensajería | CAR-004, CAR-017 | Backend QA | 4–6 d | Pipeline reproduce fallos, reintentos e idempotencia | Pendiente |
 | CAR-025 | 4. Calidad | P1 | Pruebas E2E de API y UI | Flujos de emisión, búsqueda, descarga, retry, reportes y configuración | CAR-021 | QA + Frontend | 5–8 d | Flujos críticos pasan en entorno efímero | Pendiente |
 | CAR-026 | 4. Calidad | P1 | Pruebas de carga, concurrencia y resiliencia | Límites operativos y SLO basados en evidencia | CAR-024 | QA + DevOps | 3–5 d | Se cumplen volumen diario, latencia y recuperación acordados | Pendiente |
 | CAR-027 | 4. Calidad | P1 | Homologación SUNAT con evidencias | Matriz de casos, XML, CDR y acta de resultado | CAR-012–CAR-016, CAR-023 | QA + Fiscal | 5–10 d | Todos los tipos en alcance están homologados | Pendiente |
-| CAR-028 | 5. Operación | P1 | Añadir observabilidad | Logs estructurados sin secretos, correlation ID, métricas, trazas y dashboards | CAR-017, CAR-019 | DevOps + Backend | 4–6 d | Alertas detectan cola detenida, tasa de rechazo, latencia y expiración de certificados | Pendiente |
+| CAR-028 | 5. Operación | P1 | Añadir observabilidad | Logs estructurados sin secretos, correlation ID, métricas, trazas y dashboards | CAR-017, CAR-019 | DevOps + Backend | 4–6 d | Alertas detectan cola detenida, tasa de rechazo, latencia y expiración de certificados | ⚪ Health y logs básicos |
 | CAR-029 | 5. Operación | P1 | Definir almacenamiento, retención, cifrado y respaldo | Política y jobs de backup de BD/XML/CDR/PDF | CAR-008 | DevOps + Seguridad | 3–5 d | Restauración completa probada con RPO/RTO acordados | Pendiente |
-| CAR-030 | 5. Operación | P1 | Endurecer despliegue | Imágenes fijadas, usuario no root, health/readiness, recursos y rollback | CAR-002, CAR-028 | DevOps | 3–5 d | Despliegue y rollback ensayados sin pérdida de documentos | Pendiente |
+| CAR-030 | 5. Operación | P1 | Endurecer despliegue | Imágenes fijadas, usuario no root, health/readiness, recursos y rollback | CAR-002, CAR-028 | DevOps | 3–5 d | Despliegue y rollback ensayados sin pérdida de documentos | 🟡 Imágenes CI y health DEV |
 | CAR-031 | 5. Operación | P1 | Crear runbooks y soporte | Procedimientos para caída SUNAT/OSE, DLQ, certificados, reenvíos y recuperación | CAR-027–CAR-030 | Operaciones | 2–4 d | Guardia puede resolver simulacros usando solo el runbook | Pendiente |
 | CAR-032 | 6. Salida | P1 | Piloto controlado con un tenant y series de prueba | Operación paralela, monitoreo y conciliación diaria | CAR-025–CAR-031 | Producto + Operaciones | 5–10 d | Cero pérdida/duplicidad y conciliación 100 % durante el piloto | Pendiente |
 | CAR-033 | 6. Salida | P1 | Go-live progresivo | Activación por tenant con feature flags y plan de reversa | CAR-032 | Producto + Operaciones | 2–5 d | Checklist aprobado y SLO estable durante ventana acordada | Pendiente |
@@ -139,3 +204,149 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 - No cerrar una tarea por “código terminado”; debe cumplirse el criterio de cierre y enlazarse la evidencia.
 - No iniciar el piloto con un P0 abierto.
 - No activar un tipo documental, GRE, OSE o país sin su propia evidencia contractual y de homologación.
+
+## Evaluación contra el estado construido
+
+### Evidencia verificable al 2026-10-15
+
+| Evidencia | Resultado |
+|---|---|
+| GitHub Actions Carabo `38767751171` | API y UI construidas con éxito fuera del host DEV |
+| Commit Carabo | `f2319ab` en `develop` |
+| Commit Tordo.Platform | `3202dbf` en `develop` |
+| API pública | `https://dev.tordo.io/carabo/api/health` → `200 OK` |
+| UI pública | `https://dev.tordo.io/carabo/ui/` → `200 OK` |
+| Contrato exploratorio | `/carabo/api/swagger/` y `/carabo/api/q/openapi` → `200` |
+| PostgreSQL | 7 tablas en schema `carabo` |
+| Layout | 5 plantillas `ELECTRONIC_*` cargadas |
+| RabbitMQ | Cola `carabo.document.emit`, un consumidor activo |
+| Runtime | Quarkus 3.18.4, Java 21, perfil prod y broker conectado |
+
+### Hallazgos bloqueantes
+
+| ID | Hallazgo | Impacto | Severidad |
+|---|---|---|---|
+| ASB-01 | Recursos aceptan `businessCode`/ID sin ligarlos siempre al tenant autenticado | Acceso cruzado | Crítica |
+| ASB-02 | La entidad `Tenant` expone credenciales y secretos en respuestas | Fuga de secretos | Crítica |
+| ASB-03 | La numeración usa `MAX(number)+1` | Duplicados concurrentes | Crítica |
+| ASB-04 | No existen pruebas automatizadas | Sin evidencia de regresión/compliance | Crítica |
+| ASB-05 | No se demostró validación XSD/reglas SUNAT | XML inválido/rechazos | Alta |
+| ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica |
+| ASB-07 | Callback no persistente | Notificaciones perdidas | Alta |
+| ASB-08 | Migraciones manuales | Drift y despliegue no reproducible | Alta |
+| ASB-09 | No existe evidencia de secret store/cifrado de credenciales | Compromiso de tenant | Crítica |
+| ASB-10 | README declara “Producción” sin homologación | Expectativa incorrecta | Alta |
+| ASB-11 | CL/CO/MX están registrados aunque sus estrategias son stubs | Falso soporte regional | Alta |
+| ASB-12 | El job de dispatch CI→Tordo.Platform falló después del build | Deploy manual | Alta |
+| ASB-13 | El `/etc/tordo/dev.env` efectivo debe incorporar el perfil `carabo` | Un redeploy global puede retirarlo | Alta |
+
+## Tablero integral de avance y trazabilidad
+
+### Método de medición
+
+| Estado | Rango | Significado |
+|---|---:|---|
+| ✅ Aceptado | 100% | UAT/operación aprobó y no hay bloqueantes |
+| 🟢 Verificable DEV | 75–99% | Build, despliegue y prueba funcional con evidencia |
+| 🟡 Parcial | 25–74% | Existe una parte útil; faltan criterios relevantes |
+| ⚪ Incipiente | 1–24% | Código/diseño inicial sin flujo verificable |
+| ⛔ No iniciado | 0% | No existe evidencia implementada |
+
+Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint saludable demuestra despliegue, no cumplimiento fiscal. Para 100% se requiere aceptación y cierre de defectos bloqueantes.
+
+### Resumen ejecutivo de avance
+
+| Dimensión | Avance | Estado | Evidencia/falta principal |
+|---|---:|---|---|
+| Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
+| Fundación técnica DEV | 70% | 🟡 | CI y despliegue operan; migración y dispatch no son totalmente automáticos |
+| Producto funcional integral | 36% | 🟡 | Implementación amplia sin suite fiscal ni homologación |
+| MVP Perú | 42% | 🟡 | API/UI/DB/MQ operan; seguridad, validación e idempotencia bloquean |
+| Preparación productiva | 8% | ⚪ | Sin homologación, piloto, restore, observabilidad ni runbooks |
+| Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
+
+### Matriz de capacidades
+
+| ID | Avance | Estado/evidencia | Falta principal | Validación |
+|---|---:|---|---|---|
+| FUN-001 | 40% | 🟡 Entidad, API y UI | DTO seguro, rol admin, secret store y rotación | No lista |
+| FUN-002 | 55% | 🟡 Pipeline de emisión | Casos fiscales, concurrencia y homologación | No lista |
+| FUN-003 | 35% | 🟡 Builder UBL | XSD/reglas y casos por tipo | No lista |
+| FUN-004 | 45% | 🟡 XMLDSig | Validación externa, alias y vigencia | No lista |
+| FUN-005 | 35% | 🟡 Cliente SUNAT | Sandbox/E2E/CDR/errores | No lista |
+| FUN-006 | 25% | 🟡 Cliente OSE genérico | Proveedor y contrato real | No lista |
+| FUN-007 | 50% | 🟡 Volumen y rutas por tenant | Cifrado, checksum, retención y restore | No lista |
+| FUN-008 | 55% | 🟡 API/UI de consulta | Aislamiento y E2E de descargas | No lista |
+| FUN-009 | 35% | 🟡 Layout client y plantillas | PDF E2E y aprobación | No lista |
+| FUN-010 | 30% | 🟡 Retry/scheduler básicos | Política por error y estados | No lista |
+| FUN-011 | 40% | 🟡 Cola/consumer conectados | ACK/NACK, DLQ y deduplicación | No lista |
+| FUN-012 | 35% | 🟡 Callback/HMAC básicos | Outbox, retry y anti-replay | No lista |
+| FUN-013 | 30% | 🟡 Servicios RA/RC | Tickets/CDR/E2E | No lista |
+| FUN-014 | 30% | 🟡 GRE builder/client/API | Ciclo completo y homologación | No lista |
+| FUN-015 | 45% | 🟡 Reportes/Excel | Conciliación, permisos y pruebas | No lista |
+| FUN-016 | 55% | 🟡 UI desplegada | UAT y errores integrales | Condicionada a tenant seguro |
+| FUN-017 | 40% | 🟡 UI/API tenant | Seguridad bloqueante | No lista |
+| FUN-018 | 20% | ⚪ API key filter | Aislamiento completo y rol admin | No lista |
+| FUN-019 | 10% | ⚪ Health/logs de framework | Métricas, trazas, alertas y runbooks | No lista |
+| FUN-020 | 5% | ⚪ Interfaces/stubs | Implementación y compliance por país | No lista |
+
+### Checklist del MVP Perú
+
+| # | Entregable | Avance | Evidencia/falta |
+|---:|---|---:|---|
+| 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
+| 2 | Despliegue DEV | 90% | Salud pública; dispatch automático falló |
+| 3 | Schema/migraciones | 70% | Aplicadas; ejecución todavía manual |
+| 4 | RabbitMQ conectado | 65% | Cola/consumer activos; faltan fallos/reentrega |
+| 5 | Tenant de prueba seguro | 20% | Modelo existe; seguridad bloqueante |
+| 6 | Correlativos/idempotencia | 15% | Implementación concurrente insuficiente |
+| 7 | Factura/boleta/NC/ND válidas | 30% | Builders presentes; faltan casos/XSD |
+| 8 | Firma/certificado | 35% | Implementación sin certificación |
+| 9 | SUNAT sandbox/CDR | 10% | Cliente presente; flujo real no evidenciado |
+| 10 | XML/CDR/PDF custodiados | 35% | Volumen/endpoints; faltan E2E/backup |
+| 11 | Seguridad cross-tenant | 10% | Hallazgos críticos abiertos |
+| 12 | Suite automática | 0% | Sin tests |
+| 13 | Observabilidad/backup/runbook | 5% | Sólo health/logs básicos |
+| 14 | Homologación/piloto | 0% | No iniciados |
+
+### Cola futura de validación con usuario
+
+| Orden | Funcionalidad | Condición previa | Qué validar | Qué no prometer |
+|---:|---|---|---|---|
+| 1 | Lista/detalle | CAR-005/006 | Campos, filtros, estados y mensajes | Aislamiento sin prueba adversarial |
+| 2 | Emisión manual | CAR-010..014/023 | Datos, impuestos, errores y PDF | Validez SUNAT antes de homologación |
+| 3 | XML/CDR/PDF | CAR-009/021 | Descarga, formato y trazabilidad | Custodia antes de backup |
+| 4 | Retry/lotes | CAR-014..018/024 | Estados, límites y recuperación | Garantía sin DLQ/idempotencia |
+| 5 | Configuración | CAR-006..009 | Series, canal, ambiente y certificado | Gestión productiva de secretos |
+| 6 | Reportes | CAR-005/025 | Totales, filtros y exportación | Conciliación sin casos dorados |
+
+### Regla de mantenimiento del tablero
+
+1. Toda entrega actualiza al menos una fila `FUN`, `CAR`, UI, API o NFR y cita evidencia.
+2. Construcción, despliegue, homologación y aceptación se reportan por separado.
+3. Para pasar a 🟢 debe haber build verde, despliegue DEV y prueba funcional.
+4. Para 100% debe existir aceptación y cierre de bloqueantes.
+5. El porcentaje puede bajar si aparece una dependencia o defecto nuevo.
+6. Cada UAT registra decisiones, defectos, cambios solicitados y filas afectadas.
+7. Los resúmenes se recalculan desde filas hijas; no se editan para mostrar avance deseado.
+
+## Próximos diez días hábiles propuestos
+
+| Día | Resultado esperado | Evidencia |
+|---:|---|---|
+| 1 | Reparar dispatch CI→Tordo.Platform y persistir perfil DEV | Workflow verde; redeploy conserva Carabo |
+| 2 | DTOs sin secretos y rol administrativo | Tests de contrato |
+| 3 | Tenant obligatorio en lista/ID/download/reportes | Suite cross-tenant |
+| 4 | Correlativo transaccional e idempotencia | Test concurrente |
+| 5 | Casos dorados factura/boleta/NC/ND | Fixtures conciliados |
+| 6 | XSD/reglas y firma verificable | Suite XML/firma |
+| 7 | SUNAT sandbox: aceptado/rechazado/timeout | XML, CDR y logs |
+| 8 | RabbitMQ retry/DLQ y outbox | Pruebas de caída/reentrega |
+| 9 | E2E Operation→Carabo→Layout→callback | Ejecución automatizada |
+| 10 | Revisión de salida a homologación | Checklist y decisión registrada |
+
+## Historial de cambios
+
+| Versión | Fecha | Cambio | Estado |
+|---|---|---|---|
+| 1.0 | 2026-10-15 | Baseline, evaluación as-built, despliegue DEV y tablero de trazabilidad | Control de ejecución activo |
