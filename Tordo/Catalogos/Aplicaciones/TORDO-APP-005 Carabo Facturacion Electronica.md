@@ -117,7 +117,7 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟢 Flyway V1/V2; base limpia comprobada con 7 tablas |
 | CAR-005 | 1. Seguridad | P0 | Aplicar autorización por tenant en todos los recursos y servicios | Tenant derivado de la API key; consultas por ID y listados siempre filtrados | CAR-003 | Backend + Seguridad | 3–5 d | Pruebas demuestran que una API key nunca accede a otro tenant | 🟡 REST ligado al contexto; faltan fixtures cross-tenant y alcance MQ/jobs |
 | CAR-006 | 1. Seguridad | P0 | Separar DTOs de administración y ocultar secretos | Respuestas sin SOL password, certificado password, OSE token, webhook secret ni API key | CAR-005 | Backend | 2–3 d | Tests de contrato verifican que ningún secreto se serializa | 🟡 DTO seguro y test estructural; falta prueba HTTP con datos reales |
-| CAR-007 | 1. Seguridad | P0 | Definir rol administrativo distinto de la API key de tenant | Endpoints de alta/listado/edición de tenants restringidos | CAR-005 | Arquitectura + Seguridad | 3–5 d | Tenant común no puede administrar tenants | 🟡 JWT/JWKS y roles Carabo implementados; falta smoke HTTP del artefacto desplegado |
+| CAR-007 | 1. Seguridad | P0 | Definir rol administrativo distinto de la API key de tenant | Endpoints de alta/listado/edición de tenants restringidos | CAR-005 | Arquitectura + Seguridad | 3–5 d | Tenant común no puede administrar tenants | 🟡 JWT/JWKS y roles Carabo desplegados; smoke anónimo/API key pasa, falta sesión humana E2E |
 | CAR-008 | 1. Seguridad | P1 | Externalizar y cifrar secretos; definir rotación de API keys y certificados | Integración con secret store y runbook de rotación | CAR-006 | DevOps + Seguridad | 3–5 d | No hay secretos sensibles en BD en texto claro ni en respuestas/logs | Pendiente |
 | CAR-009 | 1. Seguridad | P1 | Endurecer XML y salidas HTTP: XXE, SSRF de callbacks, timeouts y límites de tamaño | Parsers y clientes HTTP seguros | CAR-005 | Backend + Seguridad | 2–4 d | Pruebas negativas de XXE/SSRF/timeouts pasan | Pendiente |
 | CAR-010 | 2. Núcleo fiscal | P0 | Sustituir `MAX + 1` por correlativos transaccionales por tenant/serie/tipo | Tabla o secuencia bloqueada con asignación atómica | CAR-004 | Backend + DBA | 3–4 d | Prueba concurrente no genera huecos indebidos ni duplicados | Pendiente |
@@ -285,7 +285,7 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-013 | 30% | 🟡 Servicios RA/RC | Tickets/CDR/E2E | No lista |
 | FUN-014 | 30% | 🟡 GRE builder/client/API | Ciclo completo y homologación | No lista |
 | FUN-015 | 45% | 🟡 Reportes/Excel | Conciliación, permisos y pruebas | No lista |
-| FUN-016 | 68% | 🟡 UI autenticada, identidad fiscal y versiones visibles implementadas | Redeploy, captura autenticada y UAT | Condicionada a tenant seguro |
+| FUN-016 | 72% | 🟡 UI autenticada, identidad fiscal y versiones UI/API desplegadas | Captura autenticada y UAT | Condicionada a tenant seguro |
 | FUN-017 | 58% | 🟡 Selector de empresa y contexto humano en UI/API | E2E y prueba adversarial cross-tenant | No lista |
 | FUN-018 | 55% | 🟡 JWT humano + API key máquina; roles resueltos en Auth | Aislamiento completo en MQ/jobs y smoke desplegado | No lista |
 | FUN-019 | 10% | ⚪ Health/logs de framework | Métricas, trazas, alertas y runbooks | No lista |
@@ -296,7 +296,7 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | # | Entregable | Avance | Evidencia/falta |
 |---:|---|---:|---|
 | 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
-| 2 | Despliegue DEV | 90% | Salud pública; dispatch automático falló |
+| 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
 | 3 | Schema/migraciones | 70% | Aplicadas; ejecución todavía manual |
 | 4 | RabbitMQ conectado | 65% | Cola/consumer activos; faltan fallos/reentrega |
 | 5 | Tenant de prueba seguro | 55% | Tenant DEV, usuarios Columba y roles Carabo sembrados; falta E2E HTTP |
@@ -352,4 +352,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---|---|---|---|
 | 1.0 | 2026-10-15 | Baseline, evaluación as-built, despliegue DEV y tablero de trazabilidad | Control de ejecución activo |
 | 1.1 | 2026-10-15 | CI con pruebas, aislamiento REST, DTO seguro, credencial admin y Flyway V1/V2 | Primera ola en ejecución |
-| 1.2 | 2026-10-15 | Tordo Auth compartido con Columba, roles Carabo, JWT/JWKS, versión UI/API y nueva identidad visual Lato | Implementado; despliegue y smoke pendientes |
+| 1.2 | 2026-10-15 | Tordo Auth compartido con Columba, roles Carabo, JWT/JWKS, versión UI/API y nueva identidad visual Lato | Desplegado en DEV; smoke técnico pasa, login humano pendiente |
