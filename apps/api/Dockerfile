@@ -16,8 +16,10 @@ COPY migrations/ /migrations/
 RUN mkdir -p /app/migrations \
     && cp /migrations/001-document-schema.sql /app/migrations/V1__document_schema.sql \
     && cp /migrations/003-gre-and-apikey.sql /app/migrations/V2__gre_and_api_key.sql \
+    && cp /migrations/004-correlatives-and-idempotency.sql /app/migrations/V3__correlatives_and_idempotency.sql \
     && test -s /app/migrations/V1__document_schema.sql \
-    && test -s /app/migrations/V2__gre_and_api_key.sql
+    && test -s /app/migrations/V2__gre_and_api_key.sql \
+    && test -s /app/migrations/V3__correlatives_and_idempotency.sql
 RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine

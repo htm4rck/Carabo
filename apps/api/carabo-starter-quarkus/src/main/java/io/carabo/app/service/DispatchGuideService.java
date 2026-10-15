@@ -33,6 +33,12 @@ public class DispatchGuideService {
     @Inject
     TenantService tenantService;
 
+    @Inject
+    CorrelativeService correlativeService;
+
+    @Inject
+    IdempotencyService idempotencyService;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -51,10 +57,16 @@ public class DispatchGuideService {
     public DispatchGuide emit(EmitDispatchGuideRequest request) {
         Tenant tenant = tenantService.resolve(request.getBusinessCode());
 
+        request.setExternalId(IdempotencyService.normalize(request.getExternalId()));
+        idempotencyService.lock("DISPATCH_GUIDE", request.getBusinessCode(), request.getExternalId());
+        DispatchGuide existing = findByExternalId(request.getBusinessCode(), request.getExternalId());
+        if (existing != null) return existing;
+
         DispatchGuide gre = new DispatchGuide();
         gre.setBusinessCode(request.getBusinessCode());
         gre.setSeries(request.getSeries() != null ? request.getSeries() : "T001");
-        gre.setNumber(nextNumber(request.getBusinessCode(), gre.getSeries()));
+        gre.setNumber(correlativeService.next(
+            request.getBusinessCode(), CorrelativeService.Kind.DISPATCH_GUIDE, gre.getSeries()));
         gre.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : LocalDate.now());
         gre.setStartDate(request.getStartDate() != null ? request.getStartDate() : LocalDate.now());
 
@@ -204,12 +216,15 @@ public class DispatchGuideService {
         }
     }
 
-    private int nextNumber(String businessCode, String series) {
-        Object result = em.createQuery(
-            "SELECT COALESCE(MAX(g.number), 0) FROM DispatchGuide g WHERE g.businessCode = :bc AND g.series = :s")
+    private DispatchGuide findByExternalId(String businessCode, String externalId) {
+        if (externalId == null) return null;
+        return em.createQuery(
+                "SELECT g FROM DispatchGuide g WHERE g.businessCode = :bc AND g.externalId = :eid",
+                DispatchGuide.class)
             .setParameter("bc", businessCode)
-            .setParameter("s", series)
-            .getSingleResult();
-        return ((Number) result).intValue() + 1;
+            .setParameter("eid", externalId)
+            .getResultStream()
+            .findFirst()
+            .orElse(null);
     }
 }

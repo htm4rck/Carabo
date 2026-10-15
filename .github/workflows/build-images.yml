@@ -47,8 +47,40 @@ jobs:
       - name: Compile production UI
         run: npm run build:prod
 
+  verify-database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: carabo
+          POSTGRES_PASSWORD: carabo_test
+          POSTGRES_DB: carabo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U carabo -d carabo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: carabo
+      PGPASSWORD: carabo_test
+      PGDATABASE: carabo_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply database migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f migrations/001-document-schema.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/003-gre-and-apikey.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/004-correlatives-and-idempotency.sql
+      - name: Verify concurrent allocation
+        run: bash scripts/verify-correlative-concurrency.sh 40 12
+
   build:
-    needs: [verify-api, verify-ui]
+    needs: [verify-api, verify-ui, verify-database]
     runs-on: ubuntu-latest
     strategy:
       matrix:

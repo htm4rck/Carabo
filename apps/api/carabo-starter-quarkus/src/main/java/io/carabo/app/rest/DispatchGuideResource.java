@@ -32,10 +32,29 @@ public class DispatchGuideResource {
     @POST
     @Path("/emit")
     @Operation(summary = "Emitir guía de remisión electrónica")
-    public Response emit(EmitDispatchGuideRequest request) {
+    public Response emit(EmitDispatchGuideRequest request, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        String normalizedKey = normalizeIdempotencyKey(idempotencyKey);
+        if (normalizedKey != null) {
+            if (normalizedKey.length() > 100) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Idempotency-Key no puede exceder 100 caracteres").build();
+            }
+            String externalId = normalizeIdempotencyKey(request.getExternalId());
+            if (externalId != null && !externalId.equals(normalizedKey)) {
+                return Response.status(Response.Status.CONFLICT)
+                    .entity("Idempotency-Key y externalId deben coincidir cuando ambos están presentes").build();
+            }
+            request.setExternalId(normalizedKey);
+        }
         request.setBusinessCode(tenantContext.businessCode());
         DispatchGuide gre = service.emit(request);
         return Response.status(201).entity(toSummary(gre)).build();
+    }
+
+    private static String normalizeIdempotencyKey(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     @GET

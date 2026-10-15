@@ -51,6 +51,12 @@ public class DocumentService {
     @Inject
     TenantService tenantService;
 
+    @Inject
+    CorrelativeService correlativeService;
+
+    @Inject
+    IdempotencyService idempotencyService;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -64,14 +70,17 @@ public class DocumentService {
     public EmitDocumentResponse emit(EmitDocumentRequest request) {
         Tenant tenant = tenantService.resolve(request.getBusinessCode());
 
-        // Idempotency by sourceDocId
-        if (request.getExternalId() != null) {
-            Document existing = findBySourceDoc(request.getBusinessCode(), request.getExternalId());
-            if (existing != null) {
-                return EmitDocumentResponse.of(
-                    existing.getId(), existing.getFullNumber(), existing.getStatus().name(),
-                    existing.getHashCode(), existing.getSunatResponse(), existing.getExternalId());
-            }
+        request.setExternalId(IdempotencyService.normalize(request.getExternalId()));
+        request.setSourceDocId(IdempotencyService.normalize(request.getSourceDocId()));
+        idempotencyService.lock("DOCUMENT", request.getBusinessCode(),
+            request.getSourceDocId(), request.getExternalId());
+
+        Document existing = findByIdempotencyKey(
+            request.getBusinessCode(), request.getSourceDocId(), request.getExternalId());
+        if (existing != null) {
+            return EmitDocumentResponse.of(
+                existing.getId(), existing.getFullNumber(), existing.getStatus().name(),
+                existing.getHashCode(), existing.getSunatResponse(), existing.getExternalId());
         }
 
         Document doc = buildDocument(request, tenant);
@@ -79,14 +88,14 @@ public class DocumentService {
         // Validate before persisting
         var errors = validator.validate(doc, tenant);
         if (!errors.isEmpty()) {
-            doc.setStatus(DocumentStatus.REJECTED);
             doc.setSunatResponse(String.join("; ", errors));
-            em.persist(doc);
             return EmitDocumentResponse.of(
-                doc.getId(), doc.getFullNumber(), "VALIDATION_ERROR",
+                null, null, "VALIDATION_ERROR",
                 null, doc.getSunatResponse(), doc.getExternalId());
         }
 
+        doc.setNumber(correlativeService.next(
+            request.getBusinessCode(), CorrelativeService.Kind.DOCUMENT, doc.getSeries()));
         doc.setStatus(DocumentStatus.VALIDATED);
         em.persist(doc);
         em.flush();
@@ -224,17 +233,27 @@ public class DocumentService {
             .getResultList();
     }
 
-    private Document findBySourceDoc(String businessCode, String externalId) {
-        try {
-            return (Document) em.createQuery(
-                "SELECT d FROM Document d WHERE d.businessCode = :bc AND d.externalId = :eid")
-                .setParameter("bc", businessCode)
-                .setParameter("eid", externalId)
-                .setMaxResults(1)
-                .getSingleResult();
-        } catch (Exception e) {
-            return null;
+    private Document findByIdempotencyKey(String businessCode, String sourceDocId, String externalId) {
+        Document bySource = findByIdentifier(businessCode, "sourceDocId", sourceDocId);
+        Document byExternal = findByIdentifier(businessCode, "externalId", externalId);
+
+        if (bySource != null && byExternal != null && !bySource.getId().equals(byExternal.getId())) {
+            throw new IllegalArgumentException(
+                "sourceDocId y externalId pertenecen a documentos diferentes");
         }
+        return bySource != null ? bySource : byExternal;
+    }
+
+    private Document findByIdentifier(String businessCode, String field, String value) {
+        if (value == null) return null;
+        return em.createQuery(
+                "SELECT d FROM Document d WHERE d.businessCode = :bc AND d." + field + " = :value",
+                Document.class)
+            .setParameter("bc", businessCode)
+            .setParameter("value", value)
+            .getResultStream()
+            .findFirst()
+            .orElse(null);
     }
 
     // --- Pipeline steps (multitenant) ---
@@ -290,7 +309,6 @@ public class DocumentService {
             series = resolveDefaultSeries(doc.getDocType(), tenant);
         }
         doc.setSeries(series);
-        doc.setNumber(nextNumber(req.getBusinessCode(), series));
 
         doc.setIssueDate(req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now());
         doc.setDueDate(req.getDueDate());
@@ -327,8 +345,9 @@ public class DocumentService {
         BigDecimal totalIgv = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
 
-        for (int i = 0; i < req.getLines().size(); i++) {
-            var reqLine = req.getLines().get(i);
+        List<EmitDocumentRequest.Line> requestLines = req.getLines() != null ? req.getLines() : List.of();
+        for (int i = 0; i < requestLines.size(); i++) {
+            var reqLine = requestLines.get(i);
             DocumentLine line = new DocumentLine();
             line.setDocument(doc);
             line.setLineNumber(i + 1);
@@ -387,15 +406,6 @@ public class DocumentService {
             case DEBIT_NOTE -> tenant.getDebitNoteSeries();
             default -> "F001";
         };
-    }
-
-    private int nextNumber(String businessCode, String series) {
-        Object result = em.createQuery(
-            "SELECT COALESCE(MAX(d.number), 0) FROM Document d WHERE d.businessCode = :bc AND d.series = :s")
-            .setParameter("bc", businessCode)
-            .setParameter("s", series)
-            .getSingleResult();
-        return ((Number) result).intValue() + 1;
     }
 
     private void logSend(Document doc, SendResult result) {

@@ -48,10 +48,29 @@ public class DocumentResource {
     @Path("/emit")
     @Operation(summary = "Emitir documento electrónico", description = "Valida, firma, envía a SUNAT/OSE y retorna resultado")
     @APIResponse(responseCode = "200", description = "Documento procesado")
-    public Response emit(EmitDocumentRequest request) {
+    public Response emit(EmitDocumentRequest request, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        String normalizedKey = normalizeIdempotencyKey(idempotencyKey);
+        if (normalizedKey != null) {
+            if (normalizedKey.length() > 100) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Idempotency-Key no puede exceder 100 caracteres").build();
+            }
+            String externalId = normalizeIdempotencyKey(request.getExternalId());
+            if (externalId != null && !externalId.equals(normalizedKey)) {
+                return Response.status(Response.Status.CONFLICT)
+                    .entity("Idempotency-Key y externalId deben coincidir cuando ambos están presentes").build();
+            }
+            request.setExternalId(normalizedKey);
+        }
         request.setBusinessCode(tenantContext.businessCode());
         EmitDocumentResponse response = documentService.emit(request);
         return Response.ok(response).build();
+    }
+
+    private static String normalizeIdempotencyKey(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     @GET

@@ -70,7 +70,7 @@ Carabo/
 │   │       ├── scheduler/                # Scheduler de reintentos automáticos
 │   │       └── security/                 # API Key filter por tenant
 │   └── ui/                               # Frontend Angular 20
-├── migrations/                           # SQL migrations (001-003)
+├── migrations/                           # SQL migrations (001-004)
 ├── templates/                            # Plantillas Handlebars para PDF
 ├── infra/
 │   └── docker-compose.yml                # Despliegue containerizado
@@ -200,6 +200,14 @@ Cada tenant (empresa) se configura independientemente:
 - **Webhook**: URL de notificación con firma HMAC-SHA256
 - **Límites**: Máximo de documentos por día
 - **Ambiente**: BETA, HOMOLOGATION, PRODUCTION
+
+## Correlativos e idempotencia
+
+- Los correlativos se reservan atómicamente por tenant, clase de documento y serie; no se calculan con `MAX + 1`.
+- `POST /api/documents/emit` y `POST /api/dispatch-guides/emit` aceptan el header `Idempotency-Key` (máximo 100 caracteres).
+- Repetir simultáneamente una solicitud con la misma clave retorna el documento existente y no vuelve a enviarlo a SUNAT/OSE.
+- `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
+- Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.
 
 ## Seguridad
 
