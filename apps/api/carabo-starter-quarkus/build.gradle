@@ -1,7 +1,6 @@
 plugins {
   id 'io.quarkus'
 }
-
 dependencies {
   implementation platform(project(':carabo-bom'))
   implementation project(':carabo-core')
@@ -22,15 +21,4 @@ dependencies {
 
   testImplementation 'io.quarkus:quarkus-junit5'
   testImplementation 'io.rest-assured:rest-assured'
-}
-
-// Keep the repository-level SQL files as the single source of truth while
-// packaging only migrations owned by the Carabo schema in the application.
-tasks.named('processResources') {
-  from(rootProject.file('../../migrations')) {
-    include '001-document-schema.sql', '003-gre-and-apikey.sql'
-    rename '001-document-schema.sql', 'V1__document_schema.sql'
-    rename '003-gre-and-apikey.sql', 'V2__gre_and_api_key.sql'
-    into 'db/migration'
-  }
 }

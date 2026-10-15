@@ -13,10 +13,17 @@ COPY apps/api/carabo-storage/ carabo-storage/
 COPY apps/api/carabo-scheduler/ carabo-scheduler/
 COPY apps/api/carabo-starter-quarkus/ carabo-starter-quarkus/
 COPY migrations/ /migrations/
+RUN mkdir -p /app/migrations \
+    && cp /migrations/001-document-schema.sql /app/migrations/V1__document_schema.sql \
+    && cp /migrations/003-gre-and-apikey.sql /app/migrations/V2__gre_and_api_key.sql \
+    && test -s /app/migrations/V1__document_schema.sql \
+    && test -s /app/migrations/V2__gre_and_api_key.sql
 RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/carabo-starter-quarkus/build/quarkus-app/ ./
+COPY --from=build /app/migrations/ /app/migrations/
+ENV FLYWAY_LOCATIONS=filesystem:/app/migrations
 EXPOSE 8998
 ENTRYPOINT ["java", "-jar", "quarkus-run.jar"]
