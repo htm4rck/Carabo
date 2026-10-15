@@ -13,7 +13,7 @@ ENV CARABO_UI_VERSION=$CARABO_UI_VERSION \
     CARABO_COMMIT=$CARABO_COMMIT
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build:prod -- --base-href /carabo/ui/
+RUN npm run build:prod
 
 FROM nginx:alpine
 RUN rm -rf /usr/share/nginx/html/*
