@@ -5,6 +5,12 @@ RUN npm ci --prefer-offline
 
 FROM node:22-alpine AS build
 WORKDIR /app
+ARG CARABO_UI_VERSION=0.2.0
+ARG CARABO_BUILD_DATE=unknown
+ARG CARABO_COMMIT=unknown
+ENV CARABO_UI_VERSION=$CARABO_UI_VERSION \
+    CARABO_BUILD_DATE=$CARABO_BUILD_DATE \
+    CARABO_COMMIT=$CARABO_COMMIT
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build:prod -- --base-href /carabo/ui/

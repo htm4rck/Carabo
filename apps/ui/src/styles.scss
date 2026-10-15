@@ -1,28 +1,40 @@
 @use '@angular/material' as mat;
+@import '@fontsource/lato/400.css';
+@import '@fontsource/lato/700.css';
+@import '@fontsource/lato/900.css';
 
 html {
   height: 100%;
   @include mat.theme((
     color: (
-      primary: mat.$azure-palette,
-      tertiary: mat.$blue-palette,
+      primary: mat.$green-palette,
+      tertiary: mat.$green-palette,
     ),
-    typography: Gill Sans MT,
+    typography: Lato,
     density: 0,
   ));
 }
 
 :root {
-  --fontFamily: 'Gill Sans MT', 'Gill Sans', 'Calibri', sans-serif;
-  --headingFontFamily: 'Gill Sans MT', 'Gill Sans', 'Calibri', sans-serif;
-  --heraBlueColor: #757fef;
-  --aareRiverColor: #00b69b;
-  --blackColor: #260944;
-  --paragraphColor: #5b5b98;
+  --fontFamily: 'Lato', sans-serif;
+  --headingFontFamily: 'Lato', sans-serif;
+  --signalColor: #80EF80;
+  --accentColor: #8CBD8C;
+  --accentStrong: #527852;
+  --sageColor: #768A76;
+  --forestColor: #173317;
+  --surfaceColor: #ffffff;
+  --groundColor: #f3f7f3;
+  --borderColor: #d8e3d9;
+  --mutedColor: #687a6b;
+  --heraBlueColor: #527852;
+  --aareRiverColor: #8CBD8C;
+  --blackColor: #173317;
+  --paragraphColor: #687a6b;
   --whiteColor: #ffffff;
   --fontSize: 15px;
-  --transition: .5s;
-  --borderBoxShadow: rgba(0, 0, 0, 0.05) 0px 6px 24px 0px, rgba(0, 0, 0, 0.08) 0px 0px 0px 1px;
+  --transition: .22s ease;
+  --borderBoxShadow: 0 8px 28px rgba(23, 51, 23, .07), 0 0 0 1px rgba(23, 51, 23, .07);
 }
 
 *, ::after, ::before {
@@ -34,12 +46,23 @@ body {
   padding: 0;
   height: 100%;
   color: var(--blackColor);
-  background: linear-gradient(rgba(245,245,245,0.9), rgba(245,245,245,0.9)), url('/img/aside_background.png') center / cover no-repeat fixed;
+  background: var(--groundColor);
   font: {
     size: var(--fontSize);
     family: var(--fontFamily) !important;
   };
 }
+
+button, input, select, textarea { font-family: var(--fontFamily); }
+:focus-visible { outline: 3px solid rgba(128,239,128,.65); outline-offset: 2px; }
+::selection { color: var(--forestColor); background: var(--signalColor); }
+.mat-mdc-card { border: 1px solid var(--borderColor)!important; border-radius: 9px!important; box-shadow: 0 6px 22px rgba(23,51,23,.045)!important; }
+.mat-mdc-raised-button.mat-primary, .mat-mdc-unelevated-button.mat-primary { color: var(--forestColor)!important; background: var(--signalColor)!important; font-weight:800!important; }
+.mat-mdc-button.mat-primary { color: var(--accentStrong)!important; }
+.mat-mdc-header-cell { color: var(--mutedColor)!important; font-size:11px!important; font-weight:800!important; letter-spacing:.07em; text-transform:uppercase; }
+.mat-mdc-row { transition: background .18s; }.mat-mdc-row:hover { background:#f5faf5; }
+.breadcrumb-area h1 { color:var(--forestColor); letter-spacing:-.025em; }
+.gray-color { color:var(--mutedColor)!important; }
 
 a {
   transition: var(--transition);

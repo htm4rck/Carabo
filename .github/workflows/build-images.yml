@@ -87,7 +87,11 @@ jobs:
           owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           image="ghcr.io/$owner/${{ matrix.image }}"
           ref="${GITHUB_REF_NAME//\//-}"
+          short_sha="${GITHUB_SHA:0:12}"
+          build_date="$(date -u +%Y-%m-%d)"
           {
+            echo "version=0.2.0-${ref}.${short_sha}"
+            echo "build_date=$build_date"
             echo "tags<<EOF"
             echo "$image:$ref"
             echo "$image:${{ github.sha }}"
@@ -105,6 +109,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            CARABO_UI_VERSION=${{ steps.meta.outputs.version }}
+            CARABO_API_VERSION=${{ steps.meta.outputs.version }}
+            CARABO_BUILD_DATE=${{ steps.meta.outputs.build_date }}
+            CARABO_COMMIT=${{ github.sha }}
           secret-files: |
             npmrc=.docker-secrets/npmrc
           cache-from: type=gha,scope=${{ matrix.image }}

@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T21:56:44Z",
+  "title": "Design System: Carabo",
+  "extensions": {
+    "colorMeta": {
+      "signal": {
+        "role": "primary",
+        "displayName": "Verde Señal",
+        "canonical": "#80EF80",
+        "tonalRamp": ["#123312", "#1F521F", "#2E742E", "#439843", "#5CBD5C", "#80EF80", "#B1F6B1", "#E8FDE8"]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Verde Operativo",
+        "canonical": "#8CBD8C",
+        "tonalRamp": ["#1C311C", "#304D30", "#476A47", "#608960", "#78A878", "#8CBD8C", "#B9D9B9", "#EDF6ED"]
+      },
+      "accent-strong": {
+        "role": "secondary",
+        "displayName": "Verde Operativo Fuerte",
+        "canonical": "#527852",
+        "tonalRamp": ["#182A18", "#294329", "#3B5D3B", "#527852", "#719771", "#93B493", "#BDD2BD", "#EDF4ED"]
+      },
+      "sage": {
+        "role": "secondary",
+        "displayName": "Salvia de Espera",
+        "canonical": "#768A76",
+        "tonalRamp": ["#202920", "#354235", "#4D5C4D", "#667566", "#768A76", "#9EAD9E", "#C4CEC4", "#EFF2EF"]
+      },
+      "forest": {
+        "role": "primary",
+        "displayName": "Bosque Estructural",
+        "canonical": "#173317",
+        "tonalRamp": ["#0D1D0D", "#173317", "#254B25", "#366536", "#4B804B", "#6F9F6F", "#A7C5A7", "#EAF1EA"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superficie Blanca",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#242824", "#414741", "#606760", "#818881", "#A5ABA5", "#C9CEC9", "#E7EAE7", "#FFFFFF"]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Suelo Verde Pálido",
+        "canonical": "#F3F7F3",
+        "tonalRamp": ["#202820", "#3B473B", "#596659", "#7A877A", "#9EAA9E", "#C3CCC3", "#E1E8E1", "#F3F7F3"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Borde Botánico",
+        "canonical": "#D8E3D9",
+        "tonalRamp": ["#1E281F", "#374639", "#536557", "#718576", "#91A598", "#B3C6B7", "#D8E3D9", "#F2F6F2"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Texto Musgo",
+        "canonical": "#687A6B",
+        "tonalRamp": ["#1B251C", "#304033", "#475A4A", "#5F7462", "#7D927F", "#9FB1A1", "#C5D0C6", "#EFF3EF"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Ámbar de Atención",
+        "canonical": "#B9793F",
+        "tonalRamp": ["#341D0C", "#573318", "#7B4B24", "#9D6331", "#B9793F", "#D29A66", "#E6BD99", "#FAECDD"]
+      },
+      "critical": {
+        "role": "tertiary",
+        "displayName": "Rojo de Incidencia",
+        "canonical": "#B55B50",
+        "tonalRamp": ["#35120F", "#59231E", "#7C342D", "#9B473F", "#B55B50", "#CF7E75", "#E5ABA5", "#FAE8E6"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Mensaje principal de acceso y presentaciones excepcionales de marca."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Tarea o estado principal de cada pantalla operativa."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Paneles, acciones y agrupaciones operativas."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Contexto, instrucciones y consecuencias de una acción fiscal."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Encabezados de tabla, categorías y metadatos compactos."
+      }
+    },
+    "shadows": [
+      {
+        "name": "container-ambient",
+        "value": "0 8px 28px rgba(23, 51, 23, .07), 0 0 0 1px rgba(23, 51, 23, .07)",
+        "purpose": "Profundidad genérica de paneles destacados."
+      },
+      {
+        "name": "card-rest",
+        "value": "0 6px 22px rgba(23, 51, 23, .045)",
+        "purpose": "Separación casi imperceptible de tarjetas en reposo."
+      },
+      {
+        "name": "header-float",
+        "value": "0 8px 30px rgba(23, 51, 23, .06)",
+        "purpose": "Sostiene la cabecera translúcida sobre el lienzo."
+      },
+      {
+        "name": "fiscal-board",
+        "value": "0 16px 38px rgba(23, 51, 23, .15)",
+        "purpose": "Eleva el resumen de ruta por ser la lectura primaria de estado."
+      },
+      {
+        "name": "interactive-response",
+        "value": "0 10px 24px rgba(23, 51, 23, .08)",
+        "purpose": "Acompaña el desplazamiento de hover de tarjetas y acciones."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-standard",
+        "value": ".22s ease",
+        "purpose": "Transición global de color, posición y dimensiones del shell."
+      },
+      {
+        "name": "interaction-fast",
+        "value": ".18s ease",
+        "purpose": "Hover, foco, desplazamiento de iconos y respuesta de controles."
+      },
+      {
+        "name": "loading-pulse",
+        "value": "1.3s ease-in-out infinite",
+        "purpose": "Pulso de baja intensidad para skeletons de sincronización."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "520px"
+      },
+      {
+        "name": "compact",
+        "value": "680px"
+      },
+      {
+        "name": "tablet",
+        "value": "850px"
+      },
+      {
+        "name": "work-grid-stack",
+        "value": "1050px"
+      },
+      {
+        "name": "sidebar-offcanvas",
+        "value": "1199px"
+      },
+      {
+        "name": "wide",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Next Action Button",
+      "kind": "button",
+      "refersTo": "button-next-action",
+      "description": "Acción fiscal prioritaria que señala el siguiente paso seguro.",
+      "html": "<button class=\"ds-btn-next\" type=\"button\"><span>Emitir comprobante</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-next{display:inline-flex;align-items:center;justify-content:space-between;gap:24px;padding:13px 16px 13px 19px;border:0;border-radius:7px;background:var(--signalColor,#80EF80);color:var(--forestColor,#173317);font:900 15px Lato,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(82,120,82,.16);transition:transform .18s ease,box-shadow .18s ease}.ds-btn-next svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease}.ds-btn-next:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(82,120,82,.22)}.ds-btn-next:hover svg{transform:translateX(4px)}.ds-btn-next:active{transform:translateY(0)}.ds-btn-next:focus-visible{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Structural Access Button",
+      "kind": "button",
+      "refersTo": "button-structural",
+      "description": "Acción de acceso de alta autoridad sobre superficies blancas.",
+      "html": "<button class=\"ds-btn-structural\" type=\"button\"><span>Continuar a Carabo</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-structural{width:100%;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border:0;border-radius:7px;background:var(--forestColor,#173317);color:#fff;font:700 15px Lato,sans-serif;cursor:pointer;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}.ds-btn-structural svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease}.ds-btn-structural:hover{background:#234B29;transform:translateY(-1px);box-shadow:0 10px 24px rgba(23,51,23,.2)}.ds-btn-structural:hover svg{transform:translateX(4px)}.ds-btn-structural:active{transform:translateY(0)}.ds-btn-structural:focus-visible{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Campo de datos fiscal legible con foco operativo inequívoco.",
+      "html": "<label class=\"ds-field\"><span>Usuario o correo</span><input type=\"text\" placeholder=\"nombre@empresa.pe\"></label>",
+      "css": ".ds-field{display:grid;gap:8px;color:#27462B;font:700 15px Lato,sans-serif}.ds-field input{width:100%;height:50px;padding:0 14px;border:1px solid #CBD8CD;border-radius:7px;background:var(--surfaceColor,#fff);color:var(--forestColor,#173317);font:400 15px Lato,sans-serif;outline:none;transition:border-color .18s ease,box-shadow .18s ease}.ds-field input::placeholder{color:#7C897E}.ds-field input:hover{border-color:var(--accentColor,#8CBD8C)}.ds-field input:focus-visible{border-color:var(--accentColor,#8CBD8C);box-shadow:0 0 0 4px rgba(140,189,140,.18)}"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Enlace activo de navegación que usa la señal solo para selección real.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Operación\"><span class=\"ds-nav-label\">OPERACIÓN</span><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/></svg><span>Centro fiscal</span></a></nav>",
+      "css": ".ds-nav{width:232px;padding:16px 14px;background:var(--forestColor,#173317);font-family:Lato,sans-serif}.ds-nav-label{display:block;margin:0 12px 9px;color:#77947C;font-size:10px;font-weight:800;letter-spacing:.13em}.ds-nav-item{min-height:44px;display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;background:var(--signalColor,#80EF80);color:var(--forestColor,#173317);font-size:13px;font-weight:600;text-decoration:none;box-shadow:0 8px 24px rgba(8,30,12,.23);transition:transform .18s ease,box-shadow .18s ease}.ds-nav-item svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}.ds-nav-item:hover{transform:translateX(2px);box-shadow:0 10px 28px rgba(8,30,12,.28)}.ds-nav-item:active{transform:translateX(0)}.ds-nav-item:focus-visible{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "metric-card",
+      "description": "Resumen numérico escaneable que conduce al detalle documental.",
+      "html": "<a class=\"ds-metric\" href=\"#\"><span>Aceptados en muestra</span><strong>28</strong><small>de 32 documentos recientes</small></a>",
+      "css": ".ds-metric{display:block;padding:17px 18px;border:1px solid var(--borderColor,#D8E3D9);border-radius:8px;background:var(--surfaceColor,#fff);color:var(--forestColor,#173317);font-family:Lato,sans-serif;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.ds-metric span,.ds-metric small{display:block}.ds-metric span{color:#627565;font-size:12px;font-weight:700}.ds-metric strong{display:block;margin:8px 0 4px;font-size:26px;font-variant-numeric:tabular-nums}.ds-metric small{color:#89968B;font-size:10px}.ds-metric:hover{transform:translateY(-2px);border-color:var(--accentColor,#8CBD8C);box-shadow:0 10px 24px rgba(23,51,23,.08)}.ds-metric:active{transform:translateY(0)}.ds-metric:focus-visible{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Document Status",
+      "kind": "chip",
+      "refersTo": "status-accepted",
+      "description": "Estado documental que combina punto cromático y etiqueta textual.",
+      "html": "<span class=\"ds-status\"><i aria-hidden=\"true\"></i>Aceptado</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;color:#394B3C;font:600 12px Lato,sans-serif}.ds-status i{width:7px;height:7px;margin-right:6px;border-radius:999px;background:var(--accentColor,#8CBD8C);box-shadow:0 0 0 3px rgba(140,189,140,.16)}.ds-status:hover{color:var(--forestColor,#173317)}.ds-status:focus-visible{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Fiscal Route",
+      "kind": "custom",
+      "refersTo": "fiscal-route-node",
+      "description": "Wayfinding documental Emisión → Firma → SUNAT → CDR.",
+      "html": "<div class=\"ds-route\" aria-label=\"Ruta fiscal: Emisión, Firma, SUNAT y CDR\"><div class=\"ds-route-step is-complete\"><i></i><span>Emisión</span></div><b></b><div class=\"ds-route-step is-complete\"><i></i><span>Firma</span></div><b></b><div class=\"ds-route-step is-active\"><i></i><span>SUNAT</span></div><b></b><div class=\"ds-route-step\"><i></i><span>CDR</span></div></div>",
+      "css": ".ds-route{display:flex;align-items:flex-start;max-width:620px;padding:24px;border-radius:10px;background:var(--forestColor,#173317);font-family:Lato,sans-serif}.ds-route-step{width:76px;text-align:center;color:#769479;font-size:12px}.ds-route-step i{display:block;width:14px;height:14px;margin:0 auto 9px;border:3px solid var(--sageColor,#768A76);border-radius:999px;background:var(--forestColor,#173317)}.ds-route>b{height:2px;flex:1;margin-top:6px;background:#49634C}.ds-route-step.is-complete,.ds-route-step.is-active{color:#fff}.ds-route-step.is-complete i{border-color:var(--signalColor,#80EF80);background:var(--signalColor,#80EF80)}.ds-route-step.is-complete+b{background:var(--signalColor,#80EF80)}.ds-route-step.is-active i{border-color:var(--signalColor,#80EF80);box-shadow:0 0 0 6px rgba(128,239,128,.12)}.ds-route:focus-within{outline:3px solid rgba(128,239,128,.65);outline-offset:2px}"
+    },
+    {
+      "name": "Business Switcher",
+      "kind": "input",
+      "refersTo": "business-switcher",
+      "description": "Selector compacto que mantiene visible la empresa activa del tenant.",
+      "html": "<label class=\"ds-business\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 21V7l8-4 8 4v14M8 10h2m4 0h2m-8 4h2m4 0h2M9 21v-3h6v3\"/></svg><span class=\"ds-sr-only\">Empresa activa</span><select><option>Comercial Andina SAC</option></select></label>",
+      "css": ".ds-business{height:42px;display:inline-flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--borderColor,#D8E3D9);border-radius:7px;background:var(--surfaceColor,#fff);color:var(--accentStrong,#527852);transition:border-color .18s ease,box-shadow .18s ease}.ds-business svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ds-business select{max-width:180px;border:0;outline:0;background:transparent;color:var(--forestColor,#173317);font:700 12px Lato,sans-serif;cursor:pointer}.ds-business:hover{border-color:var(--accentColor,#8CBD8C)}.ds-business:focus-within{border-color:var(--accentColor,#8CBD8C);box-shadow:0 0 0 4px rgba(140,189,140,.18)}.ds-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "La Ruta Fiscal Confiable",
+    "overview": "Carabo convierte una operación tributaria compleja en un recorrido legible y verificable. Su identidad se apoya en estructura verde bosque, superficies blancas y una jerarquía tipográfica precisa; el resultado debe sentirse profesional, sobrio y listo para operar, nunca como una plantilla administrativa genérica.\n\nLa ruta Emisión → Firma → SUNAT → CDR es el principio de wayfinding del sistema. La interfaz hace visible dónde está cada documento, qué ha ocurrido y cuál es la siguiente acción segura. La densidad favorece el escaneo rápido, mientras la profundidad ambiental ligera separa capas sin volver decorativa la herramienta.",
+    "keyCharacteristics": [
+      "Jerarquía fiscal explícita y accionable.",
+      "Lato como voz única, directa y altamente legible.",
+      "Superficies claras contenidas por estructura verde bosque.",
+      "Verde señal escaso, reservado para progreso, selección y siguiente acción.",
+      "Componentes compactos, precisos y con estados inequívocos."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Has a Job Rule",
+        "body": "El verde señal solo indica progreso, selección o siguiente acción; si no cambia una decisión operativa, no debe aparecer.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Is More Than Color Rule",
+        "body": "Todo estado fiscal combina color con texto, número, forma o icono para conservar significado sin percepción cromática.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Voice Rule",
+        "body": "Lato es la única voz tipográfica; la jerarquía se construye con peso, tamaño, ritmo y cifras tabulares, no con otra familia.",
+        "section": "typography"
+      },
+      {
+        "name": "The Headline Starts the Work Rule",
+        "body": "No se coloca un kicker decorativo sobre los titulares; el titular debe abrir directamente la tarea y su contexto operativo aparece debajo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Route Before the Grid Rule",
+        "body": "Cuando una vista representa avance documental, la ruta fiscal precede a métricas y tablas para que el estado se comprenda antes de inspeccionar el detalle.",
+        "section": "layout"
+      },
+      {
+        "name": "The Ambient Depth Rule",
+        "body": "Una sombra debe explicar capa o respuesta interactiva; nunca debe compensar una jerarquía débil ni decorar una superficie pasiva.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Compact Corners Rule",
+        "body": "No se usan cápsulas ni radios exuberantes en contenedores o acciones; la redondez completa pertenece a nodos, avatares y puntos de estado.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do hacer visible la secuencia Emisión → Firma → SUNAT → CDR cuando ayude a interpretar el estado documental.",
+      "Do reservar Verde Señal para progreso, selección y la siguiente acción fiscal segura.",
+      "Do acompañar cada estado con texto, número, forma o icono además del color.",
+      "Do conservar foco visible, contraste legible, cifras tabulares y versiones desplegadas comprobables.",
+      "Do mantener componentes sobrios, precisos y accionables sobre superficies blancas con profundidad ambiental ligera."
+    ],
+    "donts": [
+      "Don't convertir Carabo en una plantilla SaaS genérica de tarjetas intercambiables y acentos arbitrarios.",
+      "Don't usar emojis como iconografía, estado o recompensa visual.",
+      "Don't colocar kickers decorativos sobre titulares; la tarea debe comenzar con el titular.",
+      "Don't usar Verde Señal como relleno ornamental, color de marca ubicuo o sustituto de una jerarquía clara.",
+      "Don't fabricar certificaciones, estados de homologación o capacidades fiscales sin evidencia operativa."
+    ]
+  }
+}

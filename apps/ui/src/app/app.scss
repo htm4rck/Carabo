@@ -31,6 +31,20 @@
         }
     }
 }
+.build-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 28px;
+    padding: 16px 2px 0;
+    border-top: 1px solid var(--borderColor);
+    color: var(--mutedColor);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    span { display: inline-flex; align-items: center; gap: 7px; }
+    i { color: var(--accentStrong); font-size: 15px; }
+}
 .blank-page {
     app-sidebar, app-footer, app-header {
         display: none !important;
@@ -79,6 +93,8 @@
 }
 
 @media only screen and (max-width : 767px) {
+
+    .build-footer { align-items: flex-start; flex-direction: column; }
 
     .main-content {
         padding: {

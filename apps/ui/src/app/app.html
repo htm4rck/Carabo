@@ -1,6 +1,14 @@
-<app-sidebar />
-<div class="main-content d-flex flex-column" [ngClass]="{'active': isToggled}">
-  <app-header />
+@if (isLogin) {
   <router-outlet />
-  <div class="flex-grow-1"></div>
-</div>
+} @else {
+  <app-sidebar />
+  <div class="main-content d-flex flex-column" [ngClass]="{'active': isToggled}">
+    <app-header />
+    <router-outlet />
+    <div class="flex-grow-1"></div>
+    <footer class="build-footer" aria-label="Versiones desplegadas">
+      <span><i class="ri-layout-4-line"></i> UI {{ buildInfo.ui.version }} · {{ buildInfo.ui.buildDate }} · rev. {{ buildInfo.ui.commit }}</span>
+      <span><i class="ri-server-line"></i> API {{ buildInfo.api().version }} · {{ buildInfo.api().buildDate || 'sin fecha' }} · rev. {{ buildInfo.api().commit || 'sin revisión' }}</span>
+    </footer>
+  </div>
+}

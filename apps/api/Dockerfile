@@ -22,8 +22,14 @@ RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+ARG CARABO_API_VERSION=0.2.0
+ARG CARABO_BUILD_DATE=unknown
+ARG CARABO_COMMIT=unknown
 COPY --from=build /app/carabo-starter-quarkus/build/quarkus-app/ ./
 COPY --from=build /app/migrations/ /app/migrations/
 ENV FLYWAY_LOCATIONS=filesystem:/app/migrations
+ENV CARABO_VERSION=$CARABO_API_VERSION \
+    CARABO_BUILD_DATE=$CARABO_BUILD_DATE \
+    CARABO_COMMIT=$CARABO_COMMIT
 EXPOSE 8998
 ENTRYPOINT ["java", "-jar", "quarkus-run.jar"]

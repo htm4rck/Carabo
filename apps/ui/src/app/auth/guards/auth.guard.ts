@@ -4,7 +4,15 @@ import { AuthService } from '../auth.service';
 
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  if (auth.isAuthenticated()) return true;
-  inject(Router).navigate(['/carabo/ui/login']);
-  return false;
+  return auth.isAuthenticated() ? true : inject(Router).createUrlTree(['/login']);
+};
+export const adminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (!auth.isAuthenticated()) return inject(Router).createUrlTree(['/login']);
+  return auth.canAdminister() ? true : inject(Router).createUrlTree(['/']);
+};
+export const supervisorGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (!auth.isAuthenticated()) return inject(Router).createUrlTree(['/login']);
+  return auth.canSupervise() ? true : inject(Router).createUrlTree(['/documents']);
 };
