@@ -11,7 +11,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CaraboApiService, SalesReport } from '../../services/carabo-api.service';
 import { AuthService } from '../../auth/auth.service';
-import { finalize } from 'rxjs';
+import { finalize, take, timeout } from 'rxjs';
 
 @Component({
   selector: 'app-reports',
@@ -170,9 +170,12 @@ export class ReportsComponent {
     this.report = null;
     this.errorMessage = '';
     this.api.salesReport(bc, this.from, this.to).pipe(
+      take(1),
+      timeout({ first: 15000 }),
       finalize(() => this.loading = false)
     ).subscribe({
       next: (r) => {
+        this.loading = false;
         this.report = r;
         const message = r.totalDocuments === 0
           ? 'No hay documentos en el periodo seleccionado.'
@@ -180,6 +183,7 @@ export class ReportsComponent {
         this.snackBar.open(message, 'Cerrar', { duration: 4500 });
       },
       error: () => {
+        this.loading = false;
         this.report = null;
         this.errorMessage = 'No fue posible consultar el periodo. Inténtalo nuevamente.';
         this.snackBar.open(this.errorMessage, 'Cerrar', { duration: 5000 });
