@@ -22,6 +22,10 @@ public class AsyncMessageService {
             AsyncMessageAudit audit = new AsyncMessageAudit();
             audit.setBusinessCode(request.getBusinessCode());
             audit.setExternalId(request.getExternalId());
+            if (request.getProducerId() != null && !request.getProducerId().isBlank()) {
+                audit.setProducerId(UUID.fromString(request.getProducerId()));
+            }
+            audit.setProducerCode(request.getProducerCode());
             audit.setPayload(objectMapper.writeValueAsString(request));
             audit.setStatus("RECEIVED");
             audit.setDeliveryCount(1);

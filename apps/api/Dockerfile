@@ -22,6 +22,7 @@ RUN mkdir -p /app/migrations \
     && cp /migrations/007-utc-timestamps.sql /app/migrations/V6__utc_timestamps.sql \
     && cp /migrations/008-operational-reliability.sql /app/migrations/V7__operational_reliability.sql \
     && cp /migrations/009-async-operations.sql /app/migrations/V8__async_operations.sql \
+    && cp /migrations/010-producer-integrations.sql /app/migrations/V9__producer_integrations.sql \
     && test -s /app/migrations/V1__document_schema.sql \
     && test -s /app/migrations/V2__gre_and_api_key.sql \
     && test -s /app/migrations/V3__correlatives_and_idempotency.sql \
@@ -29,7 +30,8 @@ RUN mkdir -p /app/migrations \
     && test -s /app/migrations/V5__signing_and_note_metadata.sql \
     && test -s /app/migrations/V6__utc_timestamps.sql \
     && test -s /app/migrations/V7__operational_reliability.sql \
-    && test -s /app/migrations/V8__async_operations.sql
+    && test -s /app/migrations/V8__async_operations.sql \
+    && test -s /app/migrations/V9__producer_integrations.sql
 RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine

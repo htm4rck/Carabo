@@ -1,6 +1,7 @@
 package io.carabo.app.security;
 
 import io.carabo.app.service.TenantService;
+import io.carabo.app.service.ProducerIntegrationService;
 import io.carabo.core.entity.Tenant;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
@@ -24,6 +25,7 @@ public class ApiKeyFilter implements ContainerRequestFilter {
     private static final Set<String> PUBLIC_PATHS = Set.of("/health", "/version", "/metrics", "/openapi", "/q/openapi", "/swagger");
 
     @Inject TenantService tenantService;
+    @Inject ProducerIntegrationService producerIntegrationService;
     @Inject TenantContext tenantContext;
     @Inject HumanAccessService humanAccessService;
     @Inject SecretResolver secretResolver;
@@ -83,10 +85,21 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             reject(ctx, 401, "Missing authentication credential");
             return;
         }
-        Tenant tenant = tenantService.findByApiKey(apiKey).orElse(null);
-        if (tenant == null) { reject(ctx, 403, "Invalid API key"); return; }
-        if (!tenant.isActive()) { reject(ctx, 403, "Tenant is inactive"); return; }
-        tenantContext.authenticateTenant(tenant);
+        var producer = producerIntegrationService.findByApiKey(apiKey).orElse(null);
+        if (producer != null) {
+            Tenant tenant = tenantService.findByBusinessCode(producer.getBusinessCode()).orElse(null);
+            if (tenant == null || !tenant.isActive()) { reject(ctx, 403, "Tenant is inactive"); return; }
+            Set<String> scopes = producerIntegrationService.scopes(producer);
+            String path = "/" + ctx.getUriInfo().getPath().replaceFirst("^/", "");
+            if (!IntegrationPolicy.permits(path, ctx.getMethod(), scopes)) {
+                reject(ctx, 403, "Producer credential does not permit this operation");
+                return;
+            }
+            tenantContext.authenticateProducer(tenant, producer, scopes);
+            return;
+        }
+
+        reject(ctx, 403, "Invalid or revoked producer credential");
     }
 
     private void authenticateLegacyAdministrator(ContainerRequestContext ctx) {

@@ -3,6 +3,7 @@ package io.carabo.app.rest;
 import io.carabo.app.service.TenantService;
 import io.carabo.app.service.CertificateService;
 import io.carabo.app.service.FiscalReadinessService;
+import io.carabo.app.service.ProducerIntegrationService;
 import io.carabo.app.security.ApiKeyService;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.SendMode;
@@ -42,6 +43,9 @@ public class TenantResource {
     @Inject
     FiscalReadinessService fiscalReadinessService;
 
+    @Inject
+    ProducerIntegrationService producerIntegrationService;
+
     @POST
     @Transactional
     @Operation(summary = "Crear tenant", description = "Registra una nueva empresa emisora con API key auto-generada")
@@ -77,6 +81,8 @@ public class TenantResource {
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
         tenant.setApiKeyRotatedAt(Instant.now());
         em.persist(tenant);
+        em.flush();
+        producerIntegrationService.syncLegacyCredential(tenant.getBusinessCode(), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
         return Response.status(201).entity(new CreatedTenantResponse(toResponse(tenant), apiKey)).build();
     }
 
@@ -175,6 +181,7 @@ public class TenantResource {
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
         tenant.setApiKeyRotatedAt(Instant.now());
         em.merge(tenant);
+        producerIntegrationService.syncLegacyCredential(tenant.getBusinessCode(), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
         tenantService.evict(tenant.getBusinessCode());
         return Response.ok(new RotatedApiKeyResponse(apiKey, tenant.getApiKeyRotatedAt())).build();
     }

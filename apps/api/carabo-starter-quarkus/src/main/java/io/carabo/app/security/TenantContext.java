@@ -1,7 +1,9 @@
 package io.carabo.app.security;
 
 import io.carabo.core.entity.Tenant;
+import io.carabo.core.entity.ProducerIntegration;
 import jakarta.enterprise.context.RequestScoped;
+import java.util.UUID;
 import java.util.Set;
 
 /**
@@ -16,10 +18,21 @@ public class TenantContext {
     private boolean administrator;
     private String userCode;
     private Set<String> roles = Set.of();
+    private UUID producerId;
+    private String producerCode;
+    private Set<String> producerScopes = Set.of();
 
     public void authenticateTenant(Tenant tenant) {
         this.tenant = tenant;
         this.administrator = false;
+    }
+
+    public void authenticateProducer(Tenant tenant, ProducerIntegration producer, Set<String> scopes) {
+        this.tenant = tenant;
+        this.administrator = false;
+        this.producerId = producer.getId();
+        this.producerCode = producer.getCode();
+        this.producerScopes = Set.copyOf(scopes);
     }
 
     public void authenticateAdministrator() {
@@ -51,4 +64,7 @@ public class TenantContext {
 
     public String userCode() { return userCode; }
     public Set<String> roles() { return roles; }
+    public UUID producerId() { return producerId; }
+    public String producerCode() { return producerCode; }
+    public Set<String> producerScopes() { return producerScopes; }
 }

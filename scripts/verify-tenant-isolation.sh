@@ -41,8 +41,8 @@ expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_D
   'XML de otro tenant no se descarga'
 expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_B_ID/cdr")" \
   'CDR de otro tenant no se descarga'
-expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" POST "/documents/$CARABO_DOCUMENT_B_ID/retry")" \
-  'documento de otro tenant no se reintenta'
+expect_code 403 "$(request_code "$CARABO_TENANT_A_KEY" POST "/documents/$CARABO_DOCUMENT_B_ID/retry")" \
+  'credencial de productor no puede ejecutar reintentos operativos'
 expect_code 200 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_A_ID/xml")" \
   'tenant A descarga su XML'
 expect_code 200 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_A_ID/cdr")" \

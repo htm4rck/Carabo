@@ -13,6 +13,10 @@ public class AsyncMessageAudit {
     private String businessCode;
     @Column(name = "external_id", length = 100)
     private String externalId;
+    @Column(name = "producer_id")
+    private UUID producerId;
+    @Column(name = "producer_code", length = 50)
+    private String producerCode;
     @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
     @Column(nullable = false, length = 20)
@@ -36,6 +40,10 @@ public class AsyncMessageAudit {
     public void setBusinessCode(String value) { businessCode = value; }
     public String getExternalId() { return externalId; }
     public void setExternalId(String value) { externalId = value; }
+    public UUID getProducerId() { return producerId; }
+    public void setProducerId(UUID value) { producerId = value; }
+    public String getProducerCode() { return producerCode; }
+    public void setProducerCode(String value) { producerCode = value; }
     public String getPayload() { return payload; }
     public void setPayload(String value) { payload = value; }
     public String getStatus() { return status; }

@@ -360,6 +360,8 @@ public class DocumentService {
         doc.setCallbackUrl(req.getCallbackUrl());
         doc.setExternalId(req.getExternalId());
         doc.setSourceDocId(req.getSourceDocId());
+        doc.setProducerId(parseUuid(req.getProducerId()));
+        doc.setProducerCode(req.getProducerCode());
 
         // Issuer: use request if provided, otherwise tenant defaults
         if (req.getIssuer() != null) {
@@ -461,6 +463,12 @@ public class DocumentService {
         }
 
         return doc;
+    }
+
+    private UUID parseUuid(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return UUID.fromString(value); }
+        catch (IllegalArgumentException ignored) { return null; }
     }
 
     private String resolveDefaultSeries(DocumentType docType, Tenant tenant) {

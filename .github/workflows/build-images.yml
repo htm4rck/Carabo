@@ -60,7 +60,7 @@ jobs:
         env:
           PGPASSWORD: carabo_test
         run: |
-          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql migrations/008-operational-reliability.sql migrations/009-async-operations.sql; do
+          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql migrations/008-operational-reliability.sql migrations/009-async-operations.sql migrations/010-producer-integrations.sql; do
             psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 -f "$migration"
           done
           psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -68,6 +68,10 @@ jobs:
           VALUES
             ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','TENANT_A','Tenant A','20111111111','Tenant A SAC','SUNAT_DIRECT','BETA',encode(sha256(convert_to('tenant-a-integration-key','UTF8')),'hex'),true),
             ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','TENANT_B','Tenant B','20222222222','Tenant B SAC','SUNAT_DIRECT','BETA',encode(sha256(convert_to('tenant-b-integration-key','UTF8')),'hex'),true);
+          INSERT INTO carabo.producer_integration (business_code,code,name,api_key_hash,scopes,status)
+          VALUES
+            ('TENANT_A','ci-producer-a','CI Producer A',encode(sha256(convert_to('tenant-a-integration-key','UTF8')),'hex'),'DOCUMENT_INGEST,DOCUMENT_READ,DOCUMENT_EMIT','ACTIVE'),
+            ('TENANT_B','ci-producer-b','CI Producer B',encode(sha256(convert_to('tenant-b-integration-key','UTF8')),'hex'),'DOCUMENT_INGEST,DOCUMENT_READ,DOCUMENT_EMIT','ACTIVE');
           INSERT INTO carabo.document (id,business_code,doc_type,series,number,issue_date,issuer_ruc,issuer_name,receiver_doc_type,receiver_doc,receiver_name,tax_base,igv_amount,total,status,external_id)
           VALUES
             ('10000000-0000-0000-0000-000000000001','TENANT_A','INVOICE','F001',1,current_date,'20111111111','Tenant A SAC','6','20999999991','Cliente A',100,18,118,'ACCEPTED','external-a'),
@@ -159,6 +163,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f migrations/007-utc-timestamps.sql
           psql -v ON_ERROR_STOP=1 -f migrations/008-operational-reliability.sql
           psql -v ON_ERROR_STOP=1 -f migrations/009-async-operations.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/010-producer-integrations.sql
       - name: Verify UTC timestamp contract
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'

@@ -79,6 +79,7 @@ public class DocumentResource {
             request.setExternalId(normalizedKey);
         }
         request.setBusinessCode(tenantContext.businessCode());
+        applyProducerIdentity(request);
         EmitDocumentResponse response = documentService.emit(request);
         if ("VALIDATION_ERROR".equals(response.getStatus())) {
             return Response.status(422).entity(response).build();
@@ -120,6 +121,7 @@ public class DocumentResource {
 
         request.setExternalId(key);
         request.setBusinessCode(businessCode);
+        applyProducerIdentity(request);
         try {
             documentEmitter.send(request).toCompletableFuture().join();
             return Response.accepted(new IngestionResponse(key, "QUEUED", statusUrl, null))
@@ -146,6 +148,11 @@ public class DocumentResource {
         if (value == null) return null;
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void applyProducerIdentity(EmitDocumentRequest request) {
+        request.setProducerId(tenantContext.producerId() != null ? tenantContext.producerId().toString() : null);
+        request.setProducerCode(tenantContext.producerCode());
     }
 
     private static String pathSegment(String value) {

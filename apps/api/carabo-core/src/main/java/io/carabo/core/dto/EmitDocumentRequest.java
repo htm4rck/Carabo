@@ -26,6 +26,8 @@ public class EmitDocumentRequest {
     private String callbackUrl;
     private String externalId;
     private String sourceDocId;
+    private String producerId;
+    private String producerCode;
 
     public static class Issuer {
         private String ruc;
@@ -134,4 +136,8 @@ public class EmitDocumentRequest {
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public String getSourceDocId() { return sourceDocId; }
     public void setSourceDocId(String sourceDocId) { this.sourceDocId = sourceDocId; }
+    public String getProducerId() { return producerId; }
+    public void setProducerId(String producerId) { this.producerId = producerId; }
+    public String getProducerCode() { return producerCode; }
+    public void setProducerCode(String producerCode) { this.producerCode = producerCode; }
 }

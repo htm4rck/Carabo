@@ -59,6 +59,12 @@ import { AuthService } from '../../auth/auth.service';
                 <a routerLink="/operations" class="sidebar-menu-link" routerLinkActive="active">
                   <i class="ri-pulse-line"></i><span class="title">Entregas y webhooks</span>
                 </a>
+                <a routerLink="/fiscal-status" class="sidebar-menu-link" routerLinkActive="active">
+                  <i class="ri-shield-check-line"></i><span class="title">Estado fiscal</span>
+                </a>
+                <a routerLink="/integrations" class="sidebar-menu-link" routerLinkActive="active">
+                  <i class="ri-links-line"></i><span class="title">Integraciones</span>
+                </a>
               }
 
               <span class="sub-title">ANÁLISIS</span>

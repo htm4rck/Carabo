@@ -143,6 +143,12 @@ public class Document {
     @Column(name = "source_doc_id", length = 100)
     private String sourceDocId;
 
+    @Column(name = "producer_id")
+    private UUID producerId;
+
+    @Column(name = "producer_code", length = 50)
+    private String producerCode;
+
     // Audit
     @Column(name = "created_at")
     private Instant createdAt;
@@ -250,6 +256,10 @@ public class Document {
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public String getSourceDocId() { return sourceDocId; }
     public void setSourceDocId(String sourceDocId) { this.sourceDocId = sourceDocId; }
+    public UUID getProducerId() { return producerId; }
+    public void setProducerId(UUID producerId) { this.producerId = producerId; }
+    public String getProducerCode() { return producerCode; }
+    public void setProducerCode(String producerCode) { this.producerCode = producerCode; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public List<DocumentLine> getLines() { return lines; }

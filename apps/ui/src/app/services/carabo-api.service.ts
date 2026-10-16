@@ -88,6 +88,51 @@ export interface FiscalReadiness {
   checks: FiscalReadinessCheck[];
 }
 
+export interface FiscalStatus {
+  businessCode: string;
+  businessName: string;
+  environment: string;
+  sendMode: string;
+  ready: boolean;
+  blockers: number;
+  checks: FiscalReadinessCheck[];
+  certificate: {
+    state: 'VALID' | 'EXPIRING' | 'CRITICAL' | 'EXPIRED' | 'MISSING';
+    alias: string | null;
+    validFrom: string | null;
+    validTo: string | null;
+    daysRemaining: number | null;
+    stored: boolean;
+    verificationLevel: string;
+    limitation: string;
+  };
+  lastSignedAt: string | null;
+  lastAcceptedAt: string | null;
+  checkedAt: string;
+}
+
+export type ProducerScope = 'DOCUMENT_INGEST' | 'DOCUMENT_READ' | 'DOCUMENT_EMIT';
+export interface ProducerIntegration {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  scopes: ProducerScope[];
+  status: 'ACTIVE' | 'REVOKED';
+  health: 'HEALTHY' | 'PENDING' | 'IDLE' | 'DEGRADED' | 'REVOKED';
+  createdAt: string;
+  rotatedAt: string;
+  lastUsedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastHttpStatus: number | null;
+  totalRequests: number;
+  failureRequests: number;
+  totalDocuments: number;
+  lastDocumentAt: string | null;
+}
+export interface ProducerCredential { producer: ProducerIntegration; apiKey: string; }
+
 export interface SalesReport {
   businessCode: string;
   from: string;
@@ -231,6 +276,26 @@ export class CaraboApiService {
 
   getFiscalReadiness(businessCode: string): Observable<FiscalReadiness> {
     return this.http.get<FiscalReadiness>(`${this.baseUrl}/tenants/${encodeURIComponent(businessCode)}/readiness`);
+  }
+
+  getFiscalStatus(): Observable<FiscalStatus> {
+    return this.http.get<FiscalStatus>(`${this.baseUrl}/fiscal-status`);
+  }
+
+  listProducerIntegrations(): Observable<ProducerIntegration[]> {
+    return this.http.get<ProducerIntegration[]>(`${this.baseUrl}/integrations`);
+  }
+
+  createProducerIntegration(data: { code: string; name: string; description?: string; scopes: ProducerScope[] }): Observable<ProducerCredential> {
+    return this.http.post<ProducerCredential>(`${this.baseUrl}/integrations`, data);
+  }
+
+  rotateProducerCredential(id: string): Observable<ProducerCredential> {
+    return this.http.post<ProducerCredential>(`${this.baseUrl}/integrations/${encodeURIComponent(id)}/rotate`, {});
+  }
+
+  setProducerIntegrationActive(id: string, active: boolean): Observable<ProducerIntegration> {
+    return this.http.post<ProducerIntegration>(`${this.baseUrl}/integrations/${encodeURIComponent(id)}/status`, { active });
   }
 
   createTenant(data: Partial<TenantConfig>): Observable<TenantConfig> {
