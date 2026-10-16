@@ -20,6 +20,7 @@ import org.jboss.logging.Logger;
 import java.io.FileInputStream;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,6 +52,9 @@ public class DispatchGuideService {
 
     @ConfigProperty(name = "carabo.storage.base-path", defaultValue = "/app/storage/documents")
     String storagePath;
+
+    @ConfigProperty(name = "carabo.storage.encryption-key")
+    Optional<String> storageEncryptionKey;
 
     @ConfigProperty(name = "carabo.sunat.gre.client-id")
     Optional<String> greClientId;
@@ -160,22 +164,19 @@ public class DispatchGuideService {
             gre.setHashCode(signResult.digestValue());
 
             // Store signed XML
-            DocumentStorage storage = new DocumentStorage(storagePath);
+            DocumentStorage storage = getStorage();
             storage.storeSignedXml(gre.getBusinessCode(), gre.getSeries(), gre.getNumber(), signResult.signedXml());
 
             // Send via SUNAT GRE REST API
-            boolean isBeta = "BETA".equals(tenant.getEnvironment());
-            String solUser = tenant.getIssuerRuc() + tenant.getSolUser();
-            SunatGreClient greClient = new SunatGreClient(
-                greClientId.orElse(""), greClientSecret.orElse(""), solUser,
-                secretResolver.resolve(tenant.getSolPassword()), isBeta);
+            SunatGreClient greClient = greClient(tenant);
 
             String filename = gre.getIssuerRuc() + "-09-" + gre.getFullNumber();
             SunatGreClient.GreSendResult result = greClient.send(filename, signResult.signedXml());
 
             if (result.success()) {
                 gre.setStatus(DocumentStatus.SENT);
-                gre.setSunatResponse("ticket:" + result.ticket());
+                gre.setSunatTicket(result.ticket());
+                gre.setSunatResponse("Enviado a SUNAT; pendiente de CDR");
             } else {
                 gre.setStatus(DocumentStatus.ERROR);
                 gre.setSunatResponse(result.error());
@@ -213,6 +214,73 @@ public class DispatchGuideService {
             .setFirstResult(offset)
             .setMaxResults(limit)
             .getResultList();
+    }
+
+    public java.util.List<DispatchGuide> findTicketsDue(int limit) {
+        return em.createQuery(
+                "SELECT g FROM DispatchGuide g WHERE g.sunatTicket IS NOT NULL " +
+                    "AND g.status IN (:sent, :pending, :error) " +
+                    "AND (g.nextRetryAt IS NULL OR g.nextRetryAt <= :now) ORDER BY g.updatedAt",
+                DispatchGuide.class)
+            .setParameter("sent", DocumentStatus.SENT)
+            .setParameter("pending", DocumentStatus.PENDING)
+            .setParameter("error", DocumentStatus.ERROR)
+            .setParameter("now", Instant.now())
+            .setMaxResults(Math.min(Math.max(limit, 1), 100))
+            .getResultList();
+    }
+
+    @Transactional
+    public Optional<DispatchGuide> checkStatus(UUID id, String businessCode) {
+        Optional<DispatchGuide> found = findById(id, businessCode);
+        if (found.isEmpty()) return Optional.empty();
+        DispatchGuide guide = found.get();
+        if (guide.getSunatTicket() == null || guide.getSunatTicket().isBlank()) return found;
+        Tenant tenant = tenantService.resolve(businessCode);
+        SunatGreClient client = greClient(tenant);
+        var result = client.checkStatus(guide.getSunatTicket());
+        if (result.accepted()) {
+            guide.setStatus(DocumentStatus.ACCEPTED);
+            guide.setSunatResponse(result.message());
+            guide.setNextRetryAt(null);
+            if (result.cdrXml() != null) {
+                getStorage().storeCdr(guide.getBusinessCode(), guide.getSeries(), guide.getNumber(), result.cdrXml());
+            }
+        } else if ("98".equals(result.code()) || "PENDING".equalsIgnoreCase(result.code())) {
+            guide.setStatus(DocumentStatus.PENDING);
+            guide.setSunatResponse(result.message());
+            guide.setNextRetryAt(Instant.now().plusSeconds(300));
+        } else {
+            guide.setStatus(DocumentStatus.ERROR);
+            guide.setSunatResponse(result.message());
+            guide.setRetryCount(guide.getRetryCount() + 1);
+            guide.setNextRetryAt(guide.getRetryCount() < 3 ? Instant.now().plusSeconds(900) : null);
+        }
+        em.merge(guide);
+        return Optional.of(guide);
+    }
+
+    public Optional<String> getSignedXml(UUID id, String businessCode) {
+        return findById(id, businessCode).flatMap(guide -> getStorage().getSignedXml(
+            guide.getBusinessCode(), guide.getSeries(), guide.getNumber()));
+    }
+
+    public Optional<String> getCdr(UUID id, String businessCode) {
+        return findById(id, businessCode).flatMap(guide -> getStorage().getCdr(
+            guide.getBusinessCode(), guide.getSeries(), guide.getNumber()));
+    }
+
+    private SunatGreClient greClient(Tenant tenant) {
+        boolean isBeta = "BETA".equals(tenant.getEnvironment());
+        String solUser = tenant.getIssuerRuc() + tenant.getSolUser();
+        return new SunatGreClient(greClientId.orElse(""), greClientSecret.orElse(""), solUser,
+            secretResolver.resolve(tenant.getSolPassword()), isBeta);
+    }
+
+    private DocumentStorage getStorage() {
+        String configured = storageEncryptionKey.orElse(null);
+        String resolved = configured == null || configured.isBlank() ? null : secretResolver.resolve(configured);
+        return new DocumentStorage(storagePath, resolved);
     }
 
     private XmlSigner createSigner(Tenant tenant) {

@@ -2,6 +2,7 @@ package io.carabo.app.service;
 
 import io.carabo.app.security.SecretResolver;
 import io.carabo.core.entity.Document;
+import io.carabo.core.entity.BatchOperation;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.DocumentStatus;
 import io.carabo.core.enums.DocumentType;
@@ -61,10 +62,12 @@ public class BatchService {
             .getResultList();
 
         if (boletas.isEmpty()) {
-            return result(false, null, "EMPTY", "No hay boletas para resumir en " + date, 0, date);
+            return recordResult(businessCode, "RC", emptyIdentifier("RC", date), false, null,
+                "EMPTY", "No hay boletas para resumir en " + date, 0, date, null);
         }
 
-        String identifier = tenant.getIssuerRuc() + "-RC-" + date.format(DateTimeFormatter.BASIC_ISO_DATE) + "-1";
+        String identifier = tenant.getIssuerRuc() + "-RC-" + date.format(DateTimeFormatter.BASIC_ISO_DATE)
+            + "-" + nextBatchNumber(businessCode, "RC", fiscalClock.today());
         String xml = buildSummaryXml(tenant, boletas, date, identifier);
 
         try {
@@ -75,10 +78,12 @@ public class BatchService {
                 sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
-            return result(true, ticket, "SENT", "Resumen enviado, ticket: " + ticket, boletas.size(), date);
+            return recordResult(businessCode, "RC", identifier, true, ticket, "SENT",
+                "Resumen enviado, ticket: " + ticket, boletas.size(), date, null);
         } catch (Exception e) {
             LOG.error("Daily summary failed for " + businessCode, e);
-            return result(false, null, "ERROR", safeErrorMessage(e), boletas.size(), date);
+            return recordResult(businessCode, "RC", identifier, false, null, "ERROR",
+                safeErrorMessage(e), boletas.size(), date, null);
         }
     }
 
@@ -98,11 +103,14 @@ public class BatchService {
             .getResultList();
 
         if (docs.isEmpty()) {
-            return result(false, null, "EMPTY", "No hay documentos válidos para anular", 0, fiscalClock.today());
+            LocalDate today = fiscalClock.today();
+            return recordResult(businessCode, "RA", emptyIdentifier("RA", today), false, null,
+                "EMPTY", "No hay documentos válidos para anular", 0, today, null);
         }
 
         LocalDate today = fiscalClock.today();
-        String identifier = tenant.getIssuerRuc() + "-RA-" + today.format(DateTimeFormatter.BASIC_ISO_DATE) + "-1";
+        String identifier = tenant.getIssuerRuc() + "-RA-" + today.format(DateTimeFormatter.BASIC_ISO_DATE)
+            + "-" + nextBatchNumber(businessCode, "RA", today);
         String xml = buildVoidedXml(tenant, docs, today, identifier, reason);
 
         try {
@@ -120,16 +128,19 @@ public class BatchService {
                 em.merge(doc);
             }
 
-            return result(true, ticket, "SENT", "Baja enviada, ticket: " + ticket, docs.size(), today);
+            return recordResult(businessCode, "RA", identifier, true, ticket, "SENT",
+                "Baja enviada, ticket: " + ticket, docs.size(), today, null);
         } catch (Exception e) {
             LOG.error("Voided communication failed for " + businessCode, e);
-            return result(false, null, "ERROR", safeErrorMessage(e), docs.size(), today);
+            return recordResult(businessCode, "RA", identifier, false, null, "ERROR",
+                safeErrorMessage(e), docs.size(), today, null);
         }
     }
 
     /**
      * Checks the status of a previously sent summary/voided ticket.
      */
+    @Transactional
     public BatchResult checkTicket(String businessCode, String ticket) {
         Tenant tenant = tenantService.resolve(businessCode);
         SunatBillService sunat = new SunatBillService(
@@ -139,7 +150,39 @@ public class BatchService {
         String status = result.processing() ? "PENDING"
             : result.accepted() ? (result.observed() ? "OBSERVED" : "ACCEPTED")
             : result.retryable() ? "ERROR" : "REJECTED";
-        return result(result.accepted(), ticket, status, result.responseMsg(), 0, null);
+        BatchOperation operation = em.createQuery(
+                "SELECT b FROM BatchOperation b WHERE b.businessCode = :bc AND b.ticket = :ticket ORDER BY b.createdAt DESC",
+                BatchOperation.class)
+            .setParameter("bc", businessCode).setParameter("ticket", ticket).setMaxResults(1)
+            .getResultStream().findFirst().orElse(null);
+        if (operation != null) {
+            operation.setStatus(status);
+            operation.setMessage(result.responseMsg());
+            operation.setCdrXml(result.cdrXml());
+            em.merge(operation);
+            return toResult(operation, result.accepted());
+        }
+        return new BatchResult(null, null, null, result.accepted(), ticket, status, result.responseMsg(), 0,
+            null, fiscalClock.nowUtc(), fiscalClock.zoneId());
+    }
+
+    public List<BatchResult> listOperations(String businessCode, String kind, int limit) {
+        String jpql = "SELECT b FROM BatchOperation b WHERE b.businessCode = :bc"
+            + (kind != null && !kind.isBlank() ? " AND b.kind = :kind" : "") + " ORDER BY b.createdAt DESC";
+        var query = em.createQuery(jpql, BatchOperation.class).setParameter("bc", businessCode)
+            .setMaxResults(Math.min(Math.max(limit, 1), 200));
+        if (kind != null && !kind.isBlank()) query.setParameter("kind", kind.toUpperCase());
+        return query.getResultList().stream().map(operation -> toResult(operation,
+            "SENT".equals(operation.getStatus()) || "ACCEPTED".equals(operation.getStatus())
+                || "OBSERVED".equals(operation.getStatus()))).toList();
+    }
+
+    public java.util.Optional<String> getCdr(UUID operationId, String businessCode) {
+        return em.createQuery(
+                "SELECT b FROM BatchOperation b WHERE b.id = :id AND b.businessCode = :bc", BatchOperation.class)
+            .setParameter("id", operationId).setParameter("bc", businessCode)
+            .getResultStream().findFirst().map(BatchOperation::getCdrXml)
+            .filter(value -> value != null && !value.isBlank());
     }
 
     // --- XML builders for batch documents ---
@@ -213,7 +256,7 @@ public class BatchService {
             xml.append("    <cbc:DocumentTypeCode>").append(doc.getDocType().sunatCode()).append("</cbc:DocumentTypeCode>\n");
             xml.append("    <sac:DocumentSerialID>").append(doc.getSeries()).append("</sac:DocumentSerialID>\n");
             xml.append("    <sac:DocumentNumberID>").append(doc.getNumber()).append("</sac:DocumentNumberID>\n");
-            xml.append("    <sac:VoidReasonDescription>").append(reason != null ? reason : "Anulación").append("</sac:VoidReasonDescription>\n");
+            xml.append("    <sac:VoidReasonDescription>").append(xmlText(reason != null ? reason : "Anulación")).append("</sac:VoidReasonDescription>\n");
             xml.append("  </sac:VoidedDocumentsLine>\n");
         }
 
@@ -239,10 +282,45 @@ public class BatchService {
             ? SunatBillService.PROD_URL : SunatBillService.BETA_URL;
     }
 
-    private BatchResult result(boolean success, String ticket, String status, String message,
-                               int documentCount, LocalDate referenceDate) {
-        return new BatchResult(success, ticket, status, message, documentCount, referenceDate,
-            fiscalClock.nowUtc(), fiscalClock.zoneId());
+    private int nextBatchNumber(String businessCode, String kind, LocalDate issueDate) {
+        Object value = em.createNativeQuery("""
+            INSERT INTO carabo.batch_sequence (business_code, kind, issue_date, last_number)
+            VALUES (:bc, :kind, :date, 1)
+            ON CONFLICT (business_code, kind, issue_date)
+            DO UPDATE SET last_number = carabo.batch_sequence.last_number + 1
+            RETURNING last_number
+            """).setParameter("bc", businessCode).setParameter("kind", kind)
+            .setParameter("date", issueDate).getSingleResult();
+        return ((Number) value).intValue();
+    }
+
+    private String emptyIdentifier(String kind, LocalDate date) {
+        return kind + "-EMPTY-" + date + "-" + UUID.randomUUID();
+    }
+
+    private BatchResult recordResult(String businessCode, String kind, String identifier, boolean success,
+                                     String ticket, String status, String message, int documentCount,
+                                     LocalDate referenceDate, String cdrXml) {
+        BatchOperation operation = new BatchOperation();
+        operation.setBusinessCode(businessCode);
+        operation.setKind(kind);
+        operation.setIdentifier(identifier);
+        operation.setTicket(ticket);
+        operation.setStatus(status);
+        operation.setMessage(message);
+        operation.setDocumentCount(documentCount);
+        operation.setReferenceDate(referenceDate);
+        operation.setCdrXml(cdrXml);
+        em.persist(operation);
+        em.flush();
+        return toResult(operation, success);
+    }
+
+    private BatchResult toResult(BatchOperation operation, boolean success) {
+        return new BatchResult(operation.getId(), operation.getKind(), operation.getIdentifier(), success,
+            operation.getTicket(), operation.getStatus(), operation.getMessage(), operation.getDocumentCount(),
+            operation.getReferenceDate(), operation.getUpdatedAt() != null ? operation.getUpdatedAt() : fiscalClock.nowUtc(),
+            fiscalClock.zoneId());
     }
 
     private String safeErrorMessage(Exception exception) {
@@ -250,7 +328,13 @@ public class BatchService {
             ? exception.getMessage() : "La operación no pudo completarse";
     }
 
-    public record BatchResult(boolean success, String ticket, String status, String message,
+    private String xmlText(String value) {
+        if (value == null) return "";
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace("\"", "&quot;").replace("'", "&apos;");
+    }
+
+    public record BatchResult(UUID id, String kind, String identifier, boolean success, String ticket, String status, String message,
                               int documentCount, LocalDate referenceDate,
                               Instant generatedAt, String timeZone) {}
 }

@@ -35,6 +35,9 @@ import { AuthService } from '../../auth/auth.service';
           <button type="submit" mat-raised-button color="primary" [disabled]="reportForm.invalid || loading">
             <mat-icon>{{ loading ? 'hourglass_top' : 'assessment' }}</mat-icon> {{ loading ? 'Generando…' : 'Generar reporte' }}
           </button>
+          <button type="button" mat-stroked-button [disabled]="reportForm.invalid || loading" (click)="downloadExcel()">
+            <mat-icon>download</mat-icon> Descargar Excel
+          </button>
         </form>
       </mat-card-content>
     </mat-card>
@@ -156,6 +159,24 @@ export class ReportsComponent {
     this.api.salesReport(bc, this.from, this.to).subscribe({
       next: (r) => { this.report = r; this.loading = false; },
       error: () => { this.report = null; this.loading = false; this.errorMessage = 'No fue posible consultar el periodo. Inténtalo nuevamente.'; }
+    });
+  }
+
+  downloadExcel() {
+    if (!this.from || !this.to || this.from > this.to) {
+      this.errorMessage = 'Selecciona un periodo válido antes de descargar.';
+      return;
+    }
+    this.api.downloadSalesExcel(this.from, this.to).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `registro-ventas-${this.from}-${this.to}.xlsx`;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: () => this.errorMessage = 'No fue posible descargar el Excel del periodo.'
     });
   }
 }

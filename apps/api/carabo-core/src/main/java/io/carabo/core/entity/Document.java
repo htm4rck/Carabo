@@ -111,6 +111,12 @@ public class Document {
     @Column(name = "retry_count")
     private Integer retryCount = 0;
 
+    @Column(name = "last_attempt_at")
+    private Instant lastAttemptAt;
+
+    @Column(name = "next_retry_at")
+    private Instant nextRetryAt;
+
     // Referencia (NC/ND)
     @Column(name = "ref_doc_type", length = 5)
     private String refDocType;
@@ -224,6 +230,10 @@ public class Document {
     public void setSunatResponse(String sunatResponse) { this.sunatResponse = sunatResponse; }
     public Integer getRetryCount() { return retryCount; }
     public void setRetryCount(Integer retryCount) { this.retryCount = retryCount; }
+    public Instant getLastAttemptAt() { return lastAttemptAt; }
+    public void setLastAttemptAt(Instant lastAttemptAt) { this.lastAttemptAt = lastAttemptAt; }
+    public Instant getNextRetryAt() { return nextRetryAt; }
+    public void setNextRetryAt(Instant nextRetryAt) { this.nextRetryAt = nextRetryAt; }
     public String getRefDocType() { return refDocType; }
     public void setRefDocType(String refDocType) { this.refDocType = refDocType; }
     public String getRefSeries() { return refSeries; }

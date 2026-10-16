@@ -53,6 +53,12 @@ import { AuthService } from '../../auth/auth.service';
                 <a routerLink="/batch/voided" class="sidebar-menu-link" routerLinkActive="active">
                   <i class="ri-close-circle-line"></i><span class="title">Comunicaciones de baja</span>
                 </a>
+                <a routerLink="/dispatch-guides" class="sidebar-menu-link" routerLinkActive="active">
+                  <i class="ri-truck-line"></i><span class="title">Guías de remisión</span>
+                </a>
+                <a routerLink="/operations" class="sidebar-menu-link" routerLinkActive="active">
+                  <i class="ri-pulse-line"></i><span class="title">Entregas y webhooks</span>
+                </a>
               }
 
               <span class="sub-title">ANÁLISIS</span>

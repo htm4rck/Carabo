@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -121,7 +121,7 @@ interface SummaryView extends BatchResult {
     @media(max-width:640px){mat-card-header{align-items:flex-start!important;flex-direction:column;gap:14px}mat-card-header button{width:100%}}
   `]
 })
-export class SummariesComponent {
+export class SummariesComponent implements OnInit {
   displayedColumns = ['date', 'business', 'ticket', 'status', 'actions'];
   summaries: SummaryView[] = [];
   generating = false;
@@ -130,6 +130,15 @@ export class SummariesComponent {
   operationError = '';
 
   constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
+
+  ngOnInit() {
+    this.api.listBatchOperations('RC').subscribe({
+      next: operations => this.summaries = operations.map(item => ({
+        ...item, businessCode: this.auth.session()?.tenantId ?? ''
+      })),
+      error: () => this.operationError = 'No se pudo cargar el historial de resúmenes.'
+    });
+  }
 
   generate() {
     const bc = this.auth.session()?.tenantId ?? '';

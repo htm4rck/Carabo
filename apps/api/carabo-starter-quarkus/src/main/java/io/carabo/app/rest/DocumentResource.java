@@ -270,6 +270,28 @@ public class DocumentResource {
         return Response.ok(result).build();
     }
 
+    @GET
+    @Path("/batch/operations")
+    @Operation(summary = "Listar operaciones RC/RA", description = "Historial durable del tenant, no limitado a la sesión web")
+    public Response batchOperations(@QueryParam("kind") String kind,
+                                    @QueryParam("limit") @DefaultValue("50") int limit) {
+        if (kind != null && !kind.isBlank() && !(kind.equalsIgnoreCase("RC") || kind.equalsIgnoreCase("RA"))) {
+            return Response.status(400).entity(new IntegrationError("INVALID_BATCH_KIND", "kind debe ser RC o RA")).build();
+        }
+        return Response.ok(batchService.listOperations(tenantContext.businessCode(), kind, limit)).build();
+    }
+
+    @GET
+    @Path("/batch/operations/{id}/cdr")
+    @Produces(MediaType.APPLICATION_XML)
+    @Operation(summary = "Descargar CDR de una operación RC/RA")
+    public Response batchOperationCdr(@PathParam("id") UUID id) {
+        return batchService.getCdr(id, tenantContext.businessCode())
+            .map(cdr -> Response.ok(cdr)
+                .header("Content-Disposition", "attachment; filename=\"cdr-batch.xml\"").build())
+            .orElse(Response.status(404).build());
+    }
+
     // --- DTOs ---
 
     private DocumentSummary toSummary(Document doc) {

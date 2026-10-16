@@ -127,6 +127,15 @@ public class DispatchGuide {
     @Column(name = "sunat_response", columnDefinition = "TEXT")
     private String sunatResponse;
 
+    @Column(name = "sunat_ticket", length = 100)
+    private String sunatTicket;
+
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount = 0;
+
+    @Column(name = "next_retry_at")
+    private Instant nextRetryAt;
+
     @Column(name = "callback_url", length = 500)
     private String callbackUrl;
 
@@ -217,6 +226,12 @@ public class DispatchGuide {
     public void setHashCode(String hashCode) { this.hashCode = hashCode; }
     public String getSunatResponse() { return sunatResponse; }
     public void setSunatResponse(String sunatResponse) { this.sunatResponse = sunatResponse; }
+    public String getSunatTicket() { return sunatTicket; }
+    public void setSunatTicket(String sunatTicket) { this.sunatTicket = sunatTicket; }
+    public Integer getRetryCount() { return retryCount; }
+    public void setRetryCount(Integer retryCount) { this.retryCount = retryCount; }
+    public Instant getNextRetryAt() { return nextRetryAt; }
+    public void setNextRetryAt(Instant nextRetryAt) { this.nextRetryAt = nextRetryAt; }
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
     public String getExternalId() { return externalId; }

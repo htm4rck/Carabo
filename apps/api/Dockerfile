@@ -20,12 +20,14 @@ RUN mkdir -p /app/migrations \
     && cp /migrations/005-api-key-hardening.sql /app/migrations/V4__api_key_hardening.sql \
     && cp /migrations/006-signing-and-note-metadata.sql /app/migrations/V5__signing_and_note_metadata.sql \
     && cp /migrations/007-utc-timestamps.sql /app/migrations/V6__utc_timestamps.sql \
+    && cp /migrations/008-operational-reliability.sql /app/migrations/V7__operational_reliability.sql \
     && test -s /app/migrations/V1__document_schema.sql \
     && test -s /app/migrations/V2__gre_and_api_key.sql \
     && test -s /app/migrations/V3__correlatives_and_idempotency.sql \
     && test -s /app/migrations/V4__api_key_hardening.sql \
     && test -s /app/migrations/V5__signing_and_note_metadata.sql \
-    && test -s /app/migrations/V6__utc_timestamps.sql
+    && test -s /app/migrations/V6__utc_timestamps.sql \
+    && test -s /app/migrations/V7__operational_reliability.sql
 RUN ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine

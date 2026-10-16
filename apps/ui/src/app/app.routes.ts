@@ -10,5 +10,7 @@ export const routes: Routes = [
   { path: 'reports', canActivate: [authGuard], loadComponent: () => import('./pages/reports/reports.component').then(m => m.ReportsComponent) },
   { path: 'batch/summaries', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/batch/summaries.component').then(m => m.SummariesComponent) },
   { path: 'batch/voided', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/batch/voided.component').then(m => m.VoidedComponent) },
+  { path: 'dispatch-guides', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/dispatch-guides/dispatch-guides.component').then(m => m.DispatchGuidesComponent) },
+  { path: 'operations', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/operations/operations.component').then(m => m.OperationsComponent) },
   { path: '**', redirectTo: '' },
 ];

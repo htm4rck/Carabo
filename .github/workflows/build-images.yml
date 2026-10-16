@@ -60,7 +60,7 @@ jobs:
         env:
           PGPASSWORD: carabo_test
         run: |
-          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql; do
+          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql migrations/008-operational-reliability.sql; do
             psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 -f "$migration"
           done
           psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -157,6 +157,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f migrations/005-api-key-hardening.sql
           psql -v ON_ERROR_STOP=1 -f migrations/006-signing-and-note-metadata.sql
           psql -v ON_ERROR_STOP=1 -f migrations/007-utc-timestamps.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/008-operational-reliability.sql
       - name: Verify UTC timestamp contract
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'

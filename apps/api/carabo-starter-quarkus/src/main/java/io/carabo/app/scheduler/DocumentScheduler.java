@@ -2,7 +2,9 @@ package io.carabo.app.scheduler;
 
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentService;
+import io.carabo.app.service.DispatchGuideService;
 import io.carabo.app.service.FiscalClock;
+import io.carabo.app.service.NotificationService;
 import io.carabo.core.entity.Document;
 import io.carabo.core.entity.Tenant;
 import io.quarkus.scheduler.Scheduled;
@@ -30,6 +32,31 @@ public class DocumentScheduler {
 
     @Inject
     FiscalClock fiscalClock;
+
+    @Inject
+    NotificationService notificationService;
+
+    @Inject
+    DispatchGuideService dispatchGuideService;
+
+    @Scheduled(every = "30s", identity = "notification-outbox")
+    void deliverNotifications() {
+        int processed = notificationService.deliverDue();
+        if (processed > 0) LOG.infof("Processed %d durable notifications", processed);
+    }
+
+    @Scheduled(every = "5m", identity = "dispatch-guide-ticket-poll")
+    void checkDispatchGuideTickets() {
+        var guides = dispatchGuideService.findTicketsDue(50);
+        for (var guide : guides) {
+            try {
+                dispatchGuideService.checkStatus(guide.getId(), guide.getBusinessCode());
+            } catch (Exception e) {
+                LOG.errorf(e, "GRE ticket check failed for %s", guide.getId());
+            }
+        }
+        if (!guides.isEmpty()) LOG.infof("Checked %d GRE tickets", guides.size());
+    }
 
     /**
      * Retries failed/pending documents every 5 minutes.

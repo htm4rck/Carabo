@@ -2,6 +2,7 @@ package io.carabo.app.client;
 
 import io.carabo.core.entity.Document;
 import io.carabo.core.entity.DocumentLine;
+import io.carabo.core.entity.gre.DispatchGuide;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -37,11 +38,47 @@ public class LayoutClient {
      * pageFormat: A4 for invoices/NC/ND, TICKET_80MM for boletas
      */
     public byte[] generatePdf(Document doc, String pageFormat) {
+        return generatePdf(resolveTemplateType(doc),
+            pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc));
+    }
+
+    public byte[] generatePdf(DispatchGuide guide, String pageFormat) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("fullNumber", guide.getFullNumber());
+        data.put("docType", "09");
+        data.put("docTypeName", "Guía de remisión electrónica");
+        data.put("issueDate", guide.getIssueDate() != null ? guide.getIssueDate().toString() : "");
+        data.put("startDate", guide.getStartDate() != null ? guide.getStartDate().toString() : "");
+        data.put("issuer", Map.of("ruc", safe(guide.getIssuerRuc()), "name", safe(guide.getIssuerName())));
+        data.put("receiver", Map.of("docType", safe(guide.getReceiverDocType()),
+            "doc", safe(guide.getReceiverDoc()), "name", safe(guide.getReceiverName())));
+        data.put("origin", Map.of("ubigeo", safe(guide.getOriginUbigeo()), "address", safe(guide.getOriginAddress())));
+        data.put("destination", Map.of("ubigeo", safe(guide.getDestinationUbigeo()), "address", safe(guide.getDestinationAddress())));
+        data.put("transportMode", guide.getTransportMode());
+        data.put("grossWeight", guide.getGrossWeight());
+        data.put("weightUnit", guide.getWeightUnit());
+        data.put("packageCount", guide.getPackageCount());
+        data.put("transferReasonCode", guide.getTransferReasonCode());
+        data.put("transferReason", guide.getTransferReasonDesc());
+        data.put("carrier", Map.of("ruc", safe(guide.getCarrierRuc()), "name", safe(guide.getCarrierName())));
+        data.put("driver", Map.of("docType", safe(guide.getDriverDocType()), "doc", safe(guide.getDriverDoc()),
+            "name", safe(guide.getDriverName()), "license", safe(guide.getDriverLicense())));
+        data.put("vehiclePlate", guide.getVehiclePlate());
+        data.put("hashCode", guide.getHashCode());
+        data.put("items", guide.getItems().stream().map(item -> Map.<String, Object>of(
+            "lineNumber", item.getLineNumber(), "productCode", safe(item.getProductCode()),
+            "productName", safe(item.getProductName()), "unitCode", safe(item.getUnitCode()),
+            "quantity", item.getQuantity(), "weight", item.getWeight() != null ? item.getWeight() : ""
+        )).toList());
+        return generatePdf("ELECTRONIC_DISPATCH_GUIDE", pageFormat != null ? pageFormat : "A4", data);
+    }
+
+    private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data) {
         try {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("templateType", resolveTemplateType(doc));
-            payload.put("pageFormat", pageFormat != null ? pageFormat : resolveDefaultFormat(doc));
-            payload.put("data", buildTemplateData(doc));
+            payload.put("templateType", templateType);
+            payload.put("pageFormat", pageFormat);
+            payload.put("data", data);
 
             String json = objectMapper.writeValueAsString(payload);
 
@@ -65,6 +102,8 @@ public class LayoutClient {
             return null;
         }
     }
+
+    private String safe(String value) { return value == null ? "" : value; }
 
     private String resolveTemplateType(Document doc) {
         return switch (doc.getDocType()) {

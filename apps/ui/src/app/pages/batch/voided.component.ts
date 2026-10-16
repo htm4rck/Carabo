@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -8,7 +8,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { CaraboApiService } from '../../services/carabo-api.service';
+import { finalize } from 'rxjs';
+import { BatchResult, CaraboApiService } from '../../services/carabo-api.service';
 import { AuthService } from '../../auth/auth.service';
 
 @Component({
@@ -43,21 +44,21 @@ import { AuthService } from '../../auth/auth.service';
 
     <mat-card>
       <mat-card-header style="padding:20px 20px 0;">
-        <div><h3 style="margin:0; font-size:16px;">Actividad de esta sesión</h3><small>Las comunicaciones enviadas mientras esta vista permanezca abierta.</small></div>
+        <div><h3 style="margin:0; font-size:16px;">Historial de comunicaciones</h3><small>Operaciones persistidas para la empresa activa.</small></div>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
         <div class="table-scroll"><table mat-table [dataSource]="voided" class="w-100" aria-label="Comunicaciones de baja enviadas en esta sesión">
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Fecha</th>
-            <td mat-cell *matCellDef="let v">{{ v.date }}</td>
+            <td mat-cell *matCellDef="let v">{{ v.referenceDate || '—' }}</td>
           </ng-container>
           <ng-container matColumnDef="documents">
             <th mat-header-cell *matHeaderCellDef>Documentos</th>
             <td mat-cell *matCellDef="let v">{{ v.documentCount }}</td>
           </ng-container>
           <ng-container matColumnDef="reason">
-            <th mat-header-cell *matHeaderCellDef>Motivo</th>
-            <td mat-cell *matCellDef="let v">{{ v.reason }}</td>
+            <th mat-header-cell *matHeaderCellDef>Resultado</th>
+            <td mat-cell *matCellDef="let v">{{ v.message }}</td>
           </ng-container>
           <ng-container matColumnDef="ticket">
             <th mat-header-cell *matHeaderCellDef>Ticket</th>
@@ -67,6 +68,16 @@ import { AuthService } from '../../auth/auth.service';
             <th mat-header-cell *matHeaderCellDef>Estado</th>
             <td mat-cell *matCellDef="let v">
               <span class="badge" [attr.data-status]="v.status">{{ statusLabel(v.status) }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Acciones</th>
+            <td mat-cell *matCellDef="let v">
+              @if (v.ticket) {
+                <button type="button" mat-icon-button [disabled]="checkingTicket === v.ticket" (click)="checkTicket(v)" aria-label="Consultar ticket SUNAT">
+                  <mat-icon>{{ checkingTicket === v.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
+                </button>
+              }
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -105,14 +116,22 @@ import { AuthService } from '../../auth/auth.service';
     @media(max-width:700px){.void-form{display:grid;grid-template-columns:1fr}.void-form mat-form-field{min-width:0}.void-form button{width:100%;margin-bottom:0}}
   `]
 })
-export class VoidedComponent {
-  displayedColumns = ['date', 'documents', 'reason', 'ticket', 'status'];
-  voided: any[] = [];
+export class VoidedComponent implements OnInit {
+  displayedColumns = ['date', 'documents', 'reason', 'ticket', 'status', 'actions'];
+  voided: BatchResult[] = [];
   documentIdsInput = '';
   reason = '';
   sending = false;
+  checkingTicket: string | null = null;
 
   constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
+
+  ngOnInit() {
+    this.api.listBatchOperations('RA').subscribe({
+      next: operations => this.voided = operations,
+      error: () => this.snackBar.open('No se pudo cargar el historial de bajas', 'Cerrar', { duration: 4000 })
+    });
+  }
 
   sendVoid() {
     const bc = this.auth.session()?.tenantId ?? '';
@@ -123,17 +142,33 @@ export class VoidedComponent {
     }
     if (!bc || this.sending) return;
     this.sending = true;
-    this.api.sendVoided(bc, ids, this.reason).subscribe({
+    this.api.sendVoided(bc, ids, this.reason).pipe(
+      finalize(() => this.sending = false)
+    ).subscribe({
       next: (res) => {
-        this.sending = false;
-        this.voided.unshift({ date: new Date().toISOString().split('T')[0], documentCount: ids.length, reason: this.reason, ticket: res.ticket, status: 'SENT' });
+        this.voided.unshift(res);
         this.documentIdsInput = '';
         this.reason = '';
-        this.snackBar.open('Comunicación de baja enviada', 'Cerrar', { duration: 3000 });
+        this.snackBar.open(res.message, 'Cerrar', { duration: 4000 });
       },
-      error: () => { this.sending = false; this.snackBar.open('No se pudo comunicar la baja', 'Cerrar', { duration: 4000 }); }
+      error: () => this.snackBar.open('No se pudo comunicar la baja', 'Cerrar', { duration: 4000 })
     });
   }
 
-  statusLabel(status: string): string { return ({ SENT: 'Enviado', ACCEPTED: 'Aceptado', REJECTED: 'Rechazado' } as Record<string,string>)[status] ?? status; }
+  checkTicket(operation: BatchResult) {
+    const bc = this.auth.session()?.tenantId ?? '';
+    if (!bc || !operation.ticket) return;
+    this.checkingTicket = operation.ticket;
+    this.api.checkTicket(bc, operation.ticket).pipe(
+      finalize(() => this.checkingTicket = null)
+    ).subscribe({
+      next: result => {
+        Object.assign(operation, result);
+        this.snackBar.open(result.message, 'Cerrar', { duration: 4000 });
+      },
+      error: () => this.snackBar.open('No se pudo consultar el ticket', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  statusLabel(status: string): string { return ({ EMPTY: 'Sin documentos', SENT: 'Enviado', PENDING: 'Pendiente', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error' } as Record<string,string>)[status] ?? status; }
 }

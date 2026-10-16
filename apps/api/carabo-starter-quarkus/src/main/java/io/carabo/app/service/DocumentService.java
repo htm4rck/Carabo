@@ -1,7 +1,6 @@
 package io.carabo.app.service;
 
 import io.carabo.app.security.SecretResolver;
-import io.carabo.core.dto.DocumentCallback;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
 import io.carabo.core.entity.*;
@@ -25,19 +24,15 @@ import org.jboss.logging.Logger;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ApplicationScoped
 public class DocumentService {
@@ -47,9 +42,6 @@ public class DocumentService {
 
     @Inject
     EntityManager em;
-
-    @Inject
-    ObjectMapper objectMapper;
 
     @Inject
     TenantService tenantService;
@@ -65,6 +57,9 @@ public class DocumentService {
 
     @Inject
     FiscalClock fiscalClock;
+
+    @Inject
+    NotificationService notificationService;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -122,9 +117,7 @@ public class DocumentService {
 
             SendResult result = sendToAuthority(doc, signResult.signedXml(), tenant);
 
-            doc.setSunatTicket(result.ticket());
-            doc.setSunatResponse(result.responseMsg());
-            doc.setStatus(result.status());
+            applySendResult(doc, result);
 
             if (result.cdrXml() != null) {
                 getStorage().storeCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), result.cdrXml());
@@ -135,19 +128,14 @@ public class DocumentService {
             LOG.error("Emit pipeline failed for " + doc.getFullNumber(), e);
             doc.setStatus(DocumentStatus.ERROR);
             doc.setSunatResponse(e.getMessage());
-            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, e.getMessage(), null));
+            scheduleRetry(doc, safeMessage(e));
+            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, safeMessage(e), null, true));
         }
 
         em.merge(doc);
 
-        if (doc.getCallbackUrl() != null) {
-            notifyCallback(doc);
-        }
-        // Also notify tenant-level webhook if configured
         Tenant t = tenantService.resolve(doc.getBusinessCode());
-        if (t.getWebhookUrl() != null && !t.getWebhookUrl().isBlank()) {
-            notifyWebhook(doc, t);
-        }
+        notificationService.enqueueFor(doc, t);
 
         return EmitDocumentResponse.of(
             doc.getId(), doc.getFullNumber(), doc.getStatus().name(),
@@ -158,13 +146,21 @@ public class DocumentService {
     @Transactional
     public void retry(UUID documentId) {
         Document doc = em.find(Document.class, documentId);
-        if (doc == null || doc.getRetryCount() >= MAX_RETRIES) return;
+        if (doc == null) return;
+        if (doc.getRetryCount() >= MAX_RETRIES) {
+            doc.setStatus(DocumentStatus.FAILED);
+            doc.setNextRetryAt(null);
+            em.merge(doc);
+            return;
+        }
         if (doc.getStatus() != DocumentStatus.PENDING
             && doc.getStatus() != DocumentStatus.ERROR
             && doc.getStatus() != DocumentStatus.VALIDATED) return;
 
         Tenant tenant = tenantService.resolve(doc.getBusinessCode());
         doc.setRetryCount(doc.getRetryCount() + 1);
+        doc.setLastAttemptAt(Instant.now());
+        doc.setNextRetryAt(null);
 
         try {
             String xml = ublBuilder.build(doc);
@@ -176,9 +172,7 @@ public class DocumentService {
 
             SendResult result = sendToAuthority(doc, signResult.signedXml(), tenant);
 
-            doc.setSunatTicket(result.ticket());
-            doc.setSunatResponse(result.responseMsg());
-            doc.setStatus(result.status());
+            applySendResult(doc, result);
 
             if (result.cdrXml() != null) {
                 getStorage().storeCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), result.cdrXml());
@@ -187,15 +181,13 @@ public class DocumentService {
             logSend(doc, result);
         } catch (Exception e) {
             doc.setStatus(DocumentStatus.ERROR);
-            doc.setSunatResponse(e.getMessage());
-            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, e.getMessage(), null));
+            scheduleRetry(doc, safeMessage(e));
+            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, safeMessage(e), null, true));
         }
 
         em.merge(doc);
 
-        if (doc.getCallbackUrl() != null && doc.getStatus() != DocumentStatus.ERROR) {
-            notifyCallback(doc);
-        }
+        notificationService.enqueueFor(doc, tenant);
     }
 
     public Optional<Document> findById(UUID id) {
@@ -252,9 +244,12 @@ public class DocumentService {
     @SuppressWarnings("unchecked")
     public List<Document> findRetryable() {
         return em.createQuery(
-            "SELECT d FROM Document d WHERE d.status IN (:statuses) AND d.retryCount < :max")
+            "SELECT d FROM Document d WHERE d.status IN (:statuses) AND d.retryCount < :max " +
+                "AND (d.nextRetryAt IS NULL OR d.nextRetryAt <= :now) ORDER BY d.nextRetryAt")
             .setParameter("statuses", List.of(DocumentStatus.PENDING, DocumentStatus.ERROR, DocumentStatus.VALIDATED))
             .setParameter("max", MAX_RETRIES)
+            .setParameter("now", Instant.now())
+            .setMaxResults(100)
             .getResultList();
     }
 
@@ -300,7 +295,7 @@ public class DocumentService {
             : result.accepted() ? (result.observed() ? DocumentStatus.OBSERVED : DocumentStatus.ACCEPTED)
             : result.retryable() ? DocumentStatus.ERROR : DocumentStatus.REJECTED;
         return new SendResult(status, null, result.ticket(),
-            result.responseCode(), result.responseMsg(), result.cdrXml());
+            result.responseCode(), result.responseMsg(), result.cdrXml(), result.retryable());
     }
 
     private SendResult sendViaOse(String fileName, String signedXml, Tenant tenant) {
@@ -310,7 +305,7 @@ public class DocumentService {
             : result.accepted() ? (result.observed() ? DocumentStatus.OBSERVED : DocumentStatus.ACCEPTED)
             : result.retryable() ? DocumentStatus.ERROR : DocumentStatus.REJECTED;
         return new SendResult(status, result.digestValue(), result.externalId(),
-            result.responseCode(), result.responseMsg(), result.cdrXml());
+            result.responseCode(), result.responseMsg(), result.cdrXml(), result.retryable());
     }
 
     private String sunatEndpoint(Tenant tenant) {
@@ -486,68 +481,35 @@ public class DocumentService {
         em.persist(log);
     }
 
-    private void notifyCallback(Document doc) {
-        try {
-            DocumentCallback cb = isFiscalSuccess(doc.getStatus())
-                ? DocumentCallback.success(doc.getId(), doc.getExternalId(), doc.getFullNumber(), doc.getHashCode())
-                : DocumentCallback.failure(doc.getId(), doc.getExternalId(), doc.getStatus().name(), null, doc.getSunatResponse());
-
-            String json = objectMapper.writeValueAsString(cb);
-
-            HttpClient.newHttpClient().sendAsync(
-                HttpRequest.newBuilder()
-                    .uri(URI.create(doc.getCallbackUrl()))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build(),
-                HttpResponse.BodyHandlers.ofString()
-            );
-        } catch (Exception e) {
-            LOG.warn("Callback notification failed for " + doc.getFullNumber(), e);
+    private void applySendResult(Document doc, SendResult result) {
+        doc.setSunatTicket(result.ticket());
+        doc.setSunatResponse(result.responseMsg());
+        doc.setStatus(result.status());
+        doc.setLastAttemptAt(Instant.now());
+        if (result.retryable() && result.status() == DocumentStatus.ERROR) {
+            scheduleRetry(doc, result.responseMsg());
+        } else {
+            doc.setNextRetryAt(null);
         }
     }
 
-    private void notifyWebhook(Document doc, Tenant tenant) {
-        try {
-            DocumentCallback cb = isFiscalSuccess(doc.getStatus())
-                ? DocumentCallback.success(doc.getId(), doc.getExternalId(), doc.getFullNumber(), doc.getHashCode())
-                : DocumentCallback.failure(doc.getId(), doc.getExternalId(), doc.getStatus().name(), null, doc.getSunatResponse());
-
-            String json = objectMapper.writeValueAsString(cb);
-
-            var reqBuilder = HttpRequest.newBuilder()
-                .uri(URI.create(tenant.getWebhookUrl()))
-                .header("Content-Type", "application/json");
-
-            // Sign webhook with HMAC-SHA256 if secret is configured
-            if (tenant.getWebhookSecret() != null && !tenant.getWebhookSecret().isBlank()) {
-                String signature = hmacSha256(json, secretResolver.resolve(tenant.getWebhookSecret()));
-                reqBuilder.header("X-Carabo-Signature", signature);
-            }
-
-            HttpClient.newHttpClient().sendAsync(
-                reqBuilder.POST(HttpRequest.BodyPublishers.ofString(json)).build(),
-                HttpResponse.BodyHandlers.ofString()
-            );
-        } catch (Exception e) {
-            LOG.warn("Webhook notification failed for " + doc.getFullNumber(), e);
+    private void scheduleRetry(Document doc, String message) {
+        doc.setStatus(doc.getRetryCount() >= MAX_RETRIES ? DocumentStatus.FAILED : DocumentStatus.ERROR);
+        doc.setSunatResponse(message);
+        doc.setLastAttemptAt(Instant.now());
+        if (doc.getStatus() == DocumentStatus.FAILED) {
+            doc.setNextRetryAt(null);
+        } else {
+            long minutes = switch (doc.getRetryCount()) { case 0 -> 1; case 1 -> 5; case 2 -> 15; default -> 60; };
+            doc.setNextRetryAt(Instant.now().plus(Duration.ofMinutes(minutes)));
         }
     }
 
-    private String hmacSha256(String data, String secret) {
-        try {
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(), "HmacSHA256"));
-            byte[] hash = mac.doFinal(data.getBytes());
-            return java.util.Base64.getEncoder().encodeToString(hash);
-        } catch (Exception e) {
-            return "";
-        }
+    private String safeMessage(Exception exception) {
+        return exception.getMessage() != null && !exception.getMessage().isBlank()
+            ? exception.getMessage() : "La operación no pudo completarse";
     }
 
-    private boolean isFiscalSuccess(DocumentStatus status) {
-        return status == DocumentStatus.ACCEPTED || status == DocumentStatus.OBSERVED;
-    }
-
-    record SendResult(DocumentStatus status, String digestValue, String ticket, String responseCode, String responseMsg, String cdrXml) {}
+    record SendResult(DocumentStatus status, String digestValue, String ticket, String responseCode,
+                      String responseMsg, String cdrXml, boolean retryable) {}
 }

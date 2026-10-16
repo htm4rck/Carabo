@@ -107,6 +107,9 @@ export interface DashboardStats {
 }
 
 export interface BatchResult {
+  id: string | null;
+  kind: 'RC' | 'RA' | null;
+  identifier: string | null;
   success: boolean;
   ticket: string | null;
   status: 'EMPTY' | 'SENT' | 'PENDING' | 'ACCEPTED' | 'OBSERVED' | 'REJECTED' | 'ERROR' | string;
@@ -115,6 +118,35 @@ export interface BatchResult {
   referenceDate: string | null;
   generatedAt: string;
   timeZone: string;
+}
+
+export interface DispatchGuideSummary {
+  id: string;
+  fullNumber: string;
+  status: string;
+  issueDate: string;
+  startDate: string;
+  receiverName: string;
+  receiverDoc: string;
+  transportMode: string;
+  originAddress: string;
+  destinationAddress: string;
+  transferReasonCode: string;
+  externalId: string;
+  hashCode: string;
+  ticket: string | null;
+  sunatResponse: string | null;
+}
+
+export interface NotificationSummary {
+  id: string;
+  documentId: string;
+  type: 'CALLBACK' | 'WEBHOOK';
+  status: 'PENDING' | 'RETRY' | 'DELIVERED' | 'DEAD';
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -153,6 +185,19 @@ export class CaraboApiService {
 
   getDocumentPdfUrl(id: string, format?: string): string {
     return `${this.baseUrl}/documents/${id}/pdf${format ? '?format=' + format : ''}`;
+  }
+
+  downloadDocumentXml(id: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/xml`, { responseType: 'blob' });
+  }
+
+  downloadDocumentCdr(id: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/${id}/cdr`, { responseType: 'blob' });
+  }
+
+  downloadDocumentPdf(id: string, format?: string): Observable<Blob> {
+    const params = format ? new HttpParams().set('format', format) : undefined;
+    return this.http.get(`${this.baseUrl}/documents/${id}/pdf`, { params, responseType: 'blob' });
   }
 
   emitDocument(payload: any): Observable<any> {
@@ -196,12 +241,22 @@ export class CaraboApiService {
     return this.http.post<BatchResult>(`${this.baseUrl}/documents/batch/summary`, { businessCode, date });
   }
 
-  sendVoided(businessCode: string, documentIds: string[], reason: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/documents/batch/void`, { businessCode, documentIds, reason });
+  sendVoided(businessCode: string, documentIds: string[], reason: string): Observable<BatchResult> {
+    return this.http.post<BatchResult>(`${this.baseUrl}/documents/batch/void`, { businessCode, documentIds, reason });
   }
 
   checkTicket(businessCode: string, ticket: string): Observable<BatchResult> {
     return this.http.get<BatchResult>(`${this.baseUrl}/documents/batch/ticket/${businessCode}/${ticket}`);
+  }
+
+  listBatchOperations(kind?: 'RC' | 'RA', limit = 50): Observable<BatchResult[]> {
+    let params = new HttpParams().set('limit', String(limit));
+    if (kind) params = params.set('kind', kind);
+    return this.http.get<BatchResult[]>(`${this.baseUrl}/documents/batch/operations`, { params });
+  }
+
+  downloadBatchCdr(id: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/documents/batch/operations/${id}/cdr`, { responseType: 'blob' });
   }
 
   // --- Reports ---
@@ -215,6 +270,34 @@ export class CaraboApiService {
   monthlyReport(businessCode: string, year: number, month: number): Observable<any> {
     return this.http.get(`${this.baseUrl}/reports/monthly`, {
       params: { businessCode, year: String(year), month: String(month) }
+    });
+  }
+
+  downloadSalesExcel(from: string, to: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/reports/export/excel`, {
+      params: { from, to }, responseType: 'blob'
+    });
+  }
+
+  // --- Dispatch guides ---
+
+  listDispatchGuides(limit = 100): Observable<DispatchGuideSummary[]> {
+    return this.http.get<DispatchGuideSummary[]>(`${this.baseUrl}/dispatch-guides`, {
+      params: { limit: String(limit) }
+    });
+  }
+
+  checkDispatchGuideStatus(id: string): Observable<DispatchGuideSummary> {
+    return this.http.post<DispatchGuideSummary>(`${this.baseUrl}/dispatch-guides/${id}/status`, {});
+  }
+
+  downloadDispatchGuide(id: string, type: 'xml' | 'cdr' | 'pdf'): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/dispatch-guides/${id}/${type}`, { responseType: 'blob' });
+  }
+
+  listNotifications(limit = 100): Observable<NotificationSummary[]> {
+    return this.http.get<NotificationSummary[]>(`${this.baseUrl}/operations/notifications`, {
+      params: { limit: String(limit) }
     });
   }
 }

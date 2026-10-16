@@ -81,12 +81,34 @@ public class DispatchGuideResource {
     @Path("/{id}/pdf")
     @Produces("application/pdf")
     public Response getPdf(@PathParam("id") UUID id) {
-        // GRE PDF via layout - uses ELECTRONIC_DISPATCH_GUIDE template
         return service.findById(id, tenantContext.businessCode()).map(gre -> {
-            // Build minimal Document-like data for layout
-            // For now return 501 until GRE template is fully implemented
-            return Response.status(501).entity("GRE PDF template pending").build();
+            byte[] pdf = layoutClient.generatePdf(gre, "A4");
+            return pdf != null ? Response.ok(pdf)
+                .header("Content-Disposition", "inline; filename=\"" + gre.getFullNumber() + ".pdf\"").build()
+                : Response.status(502).entity("No se pudo generar la representación impresa").build();
         }).orElse(Response.status(404).build());
+    }
+
+    @POST
+    @Path("/{id}/status")
+    @Operation(summary = "Consultar ticket y actualizar estado/CDR de la GRE")
+    public Response checkStatus(@PathParam("id") UUID id) {
+        return service.checkStatus(id, tenantContext.businessCode())
+            .map(g -> Response.ok(toSummary(g)).build()).orElse(Response.status(404).build());
+    }
+
+    @GET @Path("/{id}/xml") @Produces(MediaType.APPLICATION_XML)
+    public Response getXml(@PathParam("id") UUID id) {
+        return service.getSignedXml(id, tenantContext.businessCode())
+            .map(xml -> Response.ok(xml).header("Content-Disposition", "attachment; filename=\"gre.xml\"").build())
+            .orElse(Response.status(404).build());
+    }
+
+    @GET @Path("/{id}/cdr") @Produces(MediaType.APPLICATION_XML)
+    public Response getCdr(@PathParam("id") UUID id) {
+        return service.getCdr(id, tenantContext.businessCode())
+            .map(xml -> Response.ok(xml).header("Content-Disposition", "attachment; filename=\"cdr-gre.xml\"").build())
+            .orElse(Response.status(404).build());
     }
 
     private GreSummary toSummary(DispatchGuide g) {
@@ -105,6 +127,8 @@ public class DispatchGuideResource {
         s.businessCode = g.getBusinessCode();
         s.externalId = g.getExternalId();
         s.hashCode = g.getHashCode();
+        s.ticket = g.getSunatTicket();
+        s.sunatResponse = g.getSunatResponse();
         return s;
     }
 
@@ -123,5 +147,7 @@ public class DispatchGuideResource {
         public String businessCode;
         public String externalId;
         public String hashCode;
+        public String ticket;
+        public String sunatResponse;
     }
 }

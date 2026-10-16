@@ -207,15 +207,24 @@ export class DocumentsComponent implements OnInit {
   }
 
   openXml(doc: DocumentSummary) {
-    window.open(this.api.getDocumentXmlUrl(doc.id), '_blank', 'noopener');
+    this.api.downloadDocumentXml(doc.id).subscribe({
+      next: blob => this.openBlob(blob, `${doc.fullNumber}.xml`),
+      error: () => this.snackBar.open('No se pudo descargar el XML', 'Cerrar', { duration: 4000 })
+    });
   }
 
   openCdr(doc: DocumentSummary) {
-    window.open(this.api.getDocumentCdrUrl(doc.id), '_blank', 'noopener');
+    this.api.downloadDocumentCdr(doc.id).subscribe({
+      next: blob => this.openBlob(blob, `CDR-${doc.fullNumber}.xml`),
+      error: () => this.snackBar.open('El CDR aún no está disponible', 'Cerrar', { duration: 4000 })
+    });
   }
 
   downloadPdf(doc: DocumentSummary) {
-    window.open(this.api.getDocumentPdfUrl(doc.id), '_blank', 'noopener');
+    this.api.downloadDocumentPdf(doc.id).subscribe({
+      next: blob => this.openBlob(blob, `${doc.fullNumber}.pdf`),
+      error: () => this.snackBar.open('No se pudo generar el PDF', 'Cerrar', { duration: 4000 })
+    });
   }
 
   retry(doc: DocumentSummary) {
@@ -233,6 +242,15 @@ export class DocumentsComponent implements OnInit {
 
   statusLabel(status: string): string {
     return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
+  }
+
+  private openBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   formatGeneratedAt(value: string, timeZone = 'America/Lima'): string {
