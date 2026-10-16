@@ -86,6 +86,10 @@ public class IntegrationPayloadValidator {
                 error(issues, "$.receiver.doc", "INVALID_RECEIVER_RUC", "El RUC del receptor debe tener 11 dígitos",
                     "20131312955", receiverDoc, "Corrige el RUC sin espacios ni guiones.");
             }
+            if ("03".equals(docType) && "6".equals(receiverType)) {
+                error(issues, "$.receiver.docType", "RECEIPT_WITH_RUC", "Una boleta no debe emitirse a un receptor con RUC",
+                    "1 para DNI u otro tipo admitido", receiverType, "Usa factura (01) cuando el receptor se identifica con RUC.");
+            }
         }
 
         JsonNode lines = payload.get("lines");
@@ -96,7 +100,7 @@ public class IntegrationPayloadValidator {
             for (int index = 0; index < lines.size(); index++) validateLine(lines.get(index), index, issues);
         }
 
-        if ("07".equals(docType) || "08".equals(docType)) validateReference(payload.get("reference"), docType, issues);
+        if ("07".equals(docType) || "08".equals(docType)) validateReference(payload.get("reference"), docType, series, issues);
         validateCallback(payload.get("callbackUrl"), issues);
         validateIdempotency(payload, idempotencyKey, issues);
 
@@ -134,7 +138,7 @@ public class IntegrationPayloadValidator {
             "Selecciona el código SUNAT que corresponda al concepto.");
     }
 
-    private void validateReference(JsonNode reference, String docType, List<ValidationIssue> issues) {
+    private void validateReference(JsonNode reference, String docType, String noteSeries, List<ValidationIssue> issues) {
         if (reference == null || !reference.isObject()) {
             error(issues, "$.reference", "REFERENCE_REQUIRED", "Las notas requieren el comprobante de referencia",
                 "objeto con docType, series, number, reasonCode y reason", value(reference),
@@ -150,6 +154,20 @@ public class IntegrationPayloadValidator {
         if (referenceSeries != null && !referenceSeries.matches("[FB][A-Z0-9]{3}")) error(issues, "$.reference.series",
             "INVALID_REFERENCE_SERIES", "La serie de referencia no tiene formato válido", "F001 o B001", referenceSeries,
             "Usa la serie exacta del comprobante original.");
+        if ("01".equals(referenceType) && referenceSeries != null && !referenceSeries.startsWith("F")) {
+            error(issues, "$.reference.series", "INVOICE_REFERENCE_SERIES", "Una factura referenciada requiere serie F",
+                "F001", referenceSeries, "Corrige la serie del comprobante original.");
+        }
+        if ("03".equals(referenceType) && referenceSeries != null && !referenceSeries.startsWith("B")) {
+            error(issues, "$.reference.series", "RECEIPT_REFERENCE_SERIES", "Una boleta referenciada requiere serie B",
+                "B001", referenceSeries, "Corrige la serie del comprobante original.");
+        }
+        if (noteSeries != null && referenceSeries != null && !noteSeries.isBlank() && !referenceSeries.isBlank()
+            && noteSeries.charAt(0) != referenceSeries.charAt(0)) {
+            error(issues, "$.series", "NOTE_SERIES_FAMILY", "La nota y el comprobante deben pertenecer a la misma familia F/B",
+                String.valueOf(referenceSeries.charAt(0)) + "001", noteSeries,
+                "Usa serie F para una factura referenciada y B para una boleta referenciada.");
+        }
         positiveNumber(reference, "number", "$.reference.number", true, issues);
         String reasonCode = requiredText(reference, "reasonCode", "$.reference.reasonCode", issues,
             "catálogo SUNAT " + ("07".equals(docType) ? "09" : "10"));

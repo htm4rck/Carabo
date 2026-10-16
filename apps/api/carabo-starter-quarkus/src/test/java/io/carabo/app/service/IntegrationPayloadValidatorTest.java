@@ -59,4 +59,24 @@ class IntegrationPayloadValidatorTest {
         assertFalse(report.valid());
         assertTrue(report.issues().stream().anyMatch(i -> i.path().equals("$.reference")));
     }
+
+    @Test
+    void rejectsReceiptWithRucAndNoteWithMismatchedSeriesFamily() throws Exception {
+        var receipt = mapper.readTree("""
+            {"docType":"03","series":"B001","externalId":"receipt-1",
+             "receiver":{"docType":"6","doc":"20131312955","name":"Cliente SAC"},
+             "lines":[{"productName":"Venta","quantity":1,"unitPrice":10}]}
+            """);
+        var note = mapper.readTree("""
+            {"docType":"07","series":"B001","externalId":"note-2",
+             "receiver":{"docType":"6","doc":"20131312955","name":"Cliente SAC"},
+             "lines":[{"productName":"Ajuste","quantity":1,"unitPrice":10}],
+             "reference":{"docType":"01","series":"F001","number":123,"reasonCode":"01","reason":"Anulación"}}
+            """);
+
+        assertTrue(validator.validate(receipt, "receipt-1", today).issues().stream()
+            .anyMatch(i -> i.code().equals("RECEIPT_WITH_RUC")));
+        assertTrue(validator.validate(note, "note-2", today).issues().stream()
+            .anyMatch(i -> i.code().equals("NOTE_SERIES_FAMILY")));
+    }
 }
