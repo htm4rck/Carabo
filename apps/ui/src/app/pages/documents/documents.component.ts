@@ -12,6 +12,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CaraboApiService, DocumentSummary, QueryParams } from '../../services/carabo-api.service';
+import { finalize, take, timeout } from 'rxjs';
 
 @Component({
   selector: 'app-documents',
@@ -196,11 +197,21 @@ export class DocumentsComponent implements OnInit {
   loadDocuments() {
     this.loading = true;
     this.loadError = false;
-    this.api.queryDocuments(this.filters).subscribe({
+    this.api.queryDocuments(this.filters).pipe(
+      take(1),
+      timeout({ first: 15000 }),
+      finalize(() => this.loading = false)
+    ).subscribe({
       next: (res) => {
-        this.documents = res.items;
-        this.totalDocs = res.total;
         this.loading = false;
+        this.documents = res.items ?? [];
+        this.totalDocs = res.total ?? 0;
+        if (this.documents.length === 0) {
+          this.snackBar.open(
+            this.hasActiveFilters ? 'No se encontraron documentos con esos filtros.' : 'Aún no hay documentos emitidos.',
+            'Cerrar', { duration: 4000 }
+          );
+        }
       },
       error: () => { this.loading = false; this.loadError = true; }
     });
