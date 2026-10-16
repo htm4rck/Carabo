@@ -225,8 +225,8 @@ La API key se revela una vez, se almacena hasheada en Carabo y debe conservarse 
 
 | Evidencia | Resultado |
 |---|---|
-| GitHub Actions Carabo `38946441833` | Tests API/UI/PostgreSQL y construcción de imágenes API/UI completados; sólo falló el dispatch con HTTP 401 del `PLATFORM_DEPLOY_TOKEN` |
-| Commit Carabo desplegado | `49b2b3fe0557` en `develop`; versión `0.2.0-develop.49b2b3fe0557` |
+| GitHub Actions Carabo `38948337331` | Tests API/UI/PostgreSQL y construcción de imágenes API/UI completados; sólo falló el dispatch con HTTP 401 del `PLATFORM_DEPLOY_TOKEN` |
+| Builds Carabo desplegados | API `0.2.0-develop.49b2b3fe0557`; UI `0.2.0-develop.6b363170a73f` con salvaguardas de credenciales |
 | Despliegue | API/UI actualizadas manualmente en serie para proteger la RAM; ambos contenedores saludables |
 | API pública | `https://dev.tordo.io/carabo/api/health` → `200 OK` |
 | UI pública | `/carabo/ui/`, `/carabo/ui/fiscal-status` y `/carabo/ui/integrations` → `200 OK` |
@@ -377,4 +377,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 1.9 | 2026-10-16 | Replay manual de callbacks/webhooks y descarga autenticada del CDR de RC/RA desde las vistas operativas | CI completo verde e imagen `0.2.0-develop.b3904e15980d` desplegada en DEV |
 | 2.0 | 2026-10-16 | Reporte vacío libera siempre el estado de carga y comunica explícitamente que no existen documentos en el periodo | UI `5bed106` compilada en CI y desplegada en DEV |
 | 2.1 | 2026-10-16 | Ledger/replay RabbitMQ por tenant, métricas de negocio, dashboard/alertas/runbook, OpenTelemetry preparado, OSE genérico con circuit breaker/simulador y bloqueo seguro de países stub | CI `38938528836` con verificaciones e imágenes verdes; `0.2.0-develop.ea2fa0008011` desplegada en DEV; quedan E2E/homologaciones externas y dispatch automático |
-| 2.2 | 2026-10-16 | Estado fiscal de solo lectura para Supervisor; Integraciones con identidades máquina por productor, scopes, atribución, rotación/revocación y guía embebida; separación formal de responsabilidades | CI `38946441833` con verificaciones e imágenes verdes; `0.2.0-develop.49b2b3fe0557` y Flyway V9 desplegados en DEV; faltan UAT autenticada, OAuth2 y validaciones externas |
+| 2.2 | 2026-10-16 | Estado fiscal de solo lectura para Supervisor; Integraciones con identidades máquina por productor, scopes, atribución, rotación/revocación, confirmaciones seguras y guía embebida; separación formal de responsabilidades | CI `38948337331` con verificaciones e imágenes verdes; API `49b2b3fe0557`, UI `6b363170a73f` y Flyway V9 desplegados en DEV; faltan UAT autenticada, OAuth2 y validaciones externas |

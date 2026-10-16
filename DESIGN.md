@@ -252,6 +252,14 @@ La secuencia Emisión → Firma → SUNAT → CDR combina nodos circulares y con
 
 La cabecera translúcida mantiene juntos contexto, versiones, empresa activa e identidad. El selector de empresa es un control compacto de 42px con borde visible; las versiones usan cifras tabulares y no se esconden, sino que pasan a una fila propia en anchuras estrechas.
 
+### Security-Critical Flows
+
+- **Revelación única:** una credencial nueva se presenta en un panel inequívoco como visible una sola vez. Copiarla no cierra el panel: antes de ocultarla o salir, la persona confirma que la guardó en el secret store del productor; cualquier intento de abandonar sin confirmar advierte que no podrá recuperarse.
+- **Rotación y revocación:** ambas requieren confirmación explícita que nombre al productor y describa la consecuencia inmediata. El resultado se comunica como estado persistente, no solo mediante un toast o un cambio de color.
+- **Estados por rol:** Supervisor ve estado, actividad y diagnóstico en solo lectura, sin secretos; Admin y Root ven las acciones de crear, rotar, activar y revocar. Los controles ausentes o bloqueados deben explicar el límite de rol sin insinuar que falta una licencia o que la operación falló.
+
+**The Secret Leaves Once Rule.** Una credencial puede revelarse una vez para su custodia; después, la interfaz muestra identidad, scopes, actividad y estado, nunca el secreto recuperable.
+
 ## Do's and Don'ts
 
 ### Do:
