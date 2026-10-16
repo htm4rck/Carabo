@@ -13,8 +13,8 @@ import { AuthService } from '../../auth/auth.service';
   template: `
     <div class="sidebar-area bg-white box-shadow" [ngClass]="{'active': isToggled}">
       <div class="logo">
-        <a routerLink="/" class="d-flex align-items-center">
-          <span class="carabo-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <a routerLink="/" class="d-flex align-items-center" aria-label="Carabo, ir al centro fiscal">
+          <img class="brand-icon" src="assets/images/icono.png" alt="">
           <span class="brand-copy"><b>CARABO</b><small>Facturación electrónica</small></span>
         </a>
       </div>
