@@ -13,6 +13,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
+import org.eclipse.microprofile.reactive.messaging.OnOverflow;
 import java.util.UUID;
 
 @Path("/operations")
@@ -23,7 +24,9 @@ public class OperationsResource {
     @Inject TenantContext tenantContext;
     @Inject AsyncMessageService asyncMessageService;
     @Inject OperationalMetrics metrics;
-    @Inject @Channel("document-emit-out") Emitter<EmitDocumentRequest> documentEmitter;
+    @Inject @Channel("document-emit-out")
+    @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 1024)
+    Emitter<EmitDocumentRequest> documentEmitter;
 
     @GET @Path("/notifications")
     @Operation(summary = "Consultar entregas de callbacks y webhooks")
