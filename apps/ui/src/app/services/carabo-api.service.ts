@@ -47,13 +47,23 @@ export interface TenantConfig {
   businessName: string;
   issuerRuc: string;
   issuerName: string;
+  issuerTrade: string;
+  issuerAddress: string;
+  issuerUbigeo: string;
   sendMode: string;
+  sunatEndpoint: string;
+  oseBaseUrl: string;
   certificateFile: string;
+  certificateValidFrom: string;
   certificateValidTo: string;
+  invoiceSeries: string;
+  receiptSeries: string;
+  creditNoteSeries: string;
+  debitNoteSeries: string;
   environment: string;
   webhookUrl: string;
+  maxDocumentsPerDay: number;
   active: boolean;
-  apiKey: string;
   countryCode: string;
 }
 
@@ -136,6 +146,13 @@ export class CaraboApiService {
 
   updateTenant(id: string, data: Partial<TenantConfig>): Observable<TenantConfig> {
     return this.http.put<TenantConfig>(`${this.baseUrl}/tenants/${id}`, data);
+  }
+
+  uploadTenantCertificate(id: string, certificate: File, passwordReference: string): Observable<TenantConfig> {
+    const form = new FormData();
+    form.append('certificate', certificate, certificate.name);
+    form.append('passwordReference', passwordReference);
+    return this.http.post<TenantConfig>(`${this.baseUrl}/tenants/${id}/certificate`, form);
   }
 
   // --- Batch ---
