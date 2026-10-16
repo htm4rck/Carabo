@@ -145,6 +145,7 @@ export interface NotificationSummary {
   status: 'PENDING' | 'RETRY' | 'DELIVERED' | 'DEAD';
   attempts: number;
   lastError: string | null;
+  nextAttemptAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
 }
@@ -299,5 +300,9 @@ export class CaraboApiService {
     return this.http.get<NotificationSummary[]>(`${this.baseUrl}/operations/notifications`, {
       params: { limit: String(limit) }
     });
+  }
+
+  retryNotification(id: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/operations/notifications/${id}/retry`, {});
   }
 }

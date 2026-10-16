@@ -148,7 +148,29 @@ public class NotificationService {
                 NotificationOutbox.class)
             .setParameter("bc", businessCode).setMaxResults(Math.min(Math.max(limit, 1), 200))
             .getResultList().stream().map(o -> new NotificationSummary(o.getId().toString(), o.getDocumentId().toString(),
-                o.getTargetType(), o.getStatus(), o.getAttempts(), o.getLastError(), o.getCreatedAt(), o.getDeliveredAt())).toList();
+                o.getTargetType(), o.getStatus(), o.getAttempts(), o.getLastError(), o.getNextAttemptAt(),
+                o.getCreatedAt(), o.getDeliveredAt())).toList();
+    }
+
+    @Transactional
+    public boolean retry(String id, String businessCode) {
+        NotificationOutbox item;
+        try {
+            item = em.createQuery(
+                    "SELECT o FROM NotificationOutbox o WHERE o.id = :id AND o.businessCode = :bc",
+                    NotificationOutbox.class)
+                .setParameter("id", java.util.UUID.fromString(id)).setParameter("bc", businessCode)
+                .getResultStream().findFirst().orElse(null);
+        } catch (IllegalArgumentException invalidId) {
+            return false;
+        }
+        if (item == null || "DELIVERED".equals(item.getStatus())) return false;
+        item.setStatus("RETRY");
+        item.setAttempts(0);
+        item.setLastError(null);
+        item.setNextAttemptAt(Instant.now());
+        em.merge(item);
+        return true;
     }
 
     private void validateTarget(String value) {
@@ -188,5 +210,6 @@ public class NotificationService {
     private String safeMessage(Exception e) { return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName(); }
 
     public record NotificationSummary(String id, String documentId, String type, String status,
-                                      int attempts, String lastError, Instant createdAt, Instant deliveredAt) {}
+                                      int attempts, String lastError, Instant nextAttemptAt,
+                                      Instant createdAt, Instant deliveredAt) {}
 }

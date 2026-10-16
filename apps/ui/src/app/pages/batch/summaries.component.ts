@@ -79,6 +79,9 @@ interface SummaryView extends BatchResult {
                   <mat-icon>{{ checkingTicket === s.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
                 </button>
               }
+              @if (s.id && (s.status === 'ACCEPTED' || s.status === 'OBSERVED')) {
+                <button type="button" mat-icon-button matTooltip="Descargar CDR" aria-label="Descargar CDR" (click)="downloadCdr(s)"><mat-icon>verified</mat-icon></button>
+              }
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -185,6 +188,19 @@ export class SummariesComponent implements OnInit {
         this.snackBar.open(this.operationError, 'Cerrar', { duration: 4000 });
       }
     });
+  }
+
+  downloadCdr(s: SummaryView) {
+    if (!s.id) return;
+    this.api.downloadBatchCdr(s.id).subscribe({
+      next: blob => this.saveBlob(blob, `CDR-${s.identifier || 'resumen'}.xml`),
+      error: () => this.snackBar.open('El CDR aún no está disponible', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  private saveBlob(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url);
   }
 
   statusLabel(status: string): string { return ({ EMPTY: 'Sin boletas', SENT: 'Enviado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', PENDING: 'Pendiente', ERROR: 'Error' } as Record<string,string>)[status] ?? status; }

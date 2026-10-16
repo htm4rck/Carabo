@@ -21,4 +21,11 @@ public class OperationsResource {
     public Response notifications(@QueryParam("limit") @DefaultValue("50") int limit) {
         return Response.ok(notificationService.list(tenantContext.businessCode(), limit)).build();
     }
+
+    @POST @Path("/notifications/{id}/retry")
+    @Operation(summary = "Reactivar una entrega fallida o pendiente")
+    public Response retryNotification(@PathParam("id") String id) {
+        return notificationService.retry(id, tenantContext.businessCode())
+            ? Response.accepted().build() : Response.status(Response.Status.CONFLICT).build();
+    }
 }

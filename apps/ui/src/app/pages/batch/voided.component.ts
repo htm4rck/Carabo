@@ -78,6 +78,9 @@ import { AuthService } from '../../auth/auth.service';
                   <mat-icon>{{ checkingTicket === v.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
                 </button>
               }
+              @if (v.id && (v.status === 'ACCEPTED' || v.status === 'OBSERVED')) {
+                <button type="button" mat-icon-button aria-label="Descargar CDR" (click)="downloadCdr(v)"><mat-icon>verified</mat-icon></button>
+              }
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -167,6 +170,18 @@ export class VoidedComponent implements OnInit {
         this.snackBar.open(result.message, 'Cerrar', { duration: 4000 });
       },
       error: () => this.snackBar.open('No se pudo consultar el ticket', 'Cerrar', { duration: 4000 })
+    });
+  }
+
+  downloadCdr(operation: BatchResult) {
+    if (!operation.id) return;
+    this.api.downloadBatchCdr(operation.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = `CDR-${operation.identifier || 'baja'}.xml`;
+        anchor.click(); URL.revokeObjectURL(url);
+      },
+      error: () => this.snackBar.open('El CDR aún no está disponible', 'Cerrar', { duration: 4000 })
     });
   }
 
