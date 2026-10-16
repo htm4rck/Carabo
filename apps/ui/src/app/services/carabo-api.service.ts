@@ -132,6 +132,16 @@ export interface ProducerIntegration {
   lastDocumentAt: string | null;
 }
 export interface ProducerCredential { producer: ProducerIntegration; apiKey: string; }
+export interface IntegrationValidationIssue {
+  path: string;
+  code: string;
+  severity: 'ERROR' | 'WARNING';
+  message: string;
+  expected: string;
+  received: string | null;
+  suggestion: string;
+}
+export interface IntegrationValidationReport { valid: boolean; issues: IntegrationValidationIssue[]; }
 
 export interface SalesReport {
   businessCode: string;
@@ -262,6 +272,11 @@ export class CaraboApiService {
     const idempotencyKey = payload.externalId || crypto.randomUUID();
     const headers = new HttpHeaders({ 'Idempotency-Key': idempotencyKey });
     return this.http.post(`${this.baseUrl}/documents/emit`, payload, { headers });
+  }
+
+  validateIntegrationPayload(payload: unknown, idempotencyKey: string): Observable<IntegrationValidationReport> {
+    const headers = new HttpHeaders({ 'Idempotency-Key': idempotencyKey });
+    return this.http.post<IntegrationValidationReport>(`${this.baseUrl}/documents/validate`, payload, { headers });
   }
 
   // --- Tenants ---

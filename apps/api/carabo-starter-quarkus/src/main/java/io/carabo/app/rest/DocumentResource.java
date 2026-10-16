@@ -5,6 +5,7 @@ import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentQueryService;
 import io.carabo.app.service.DocumentService;
 import io.carabo.app.service.FiscalClock;
+import io.carabo.app.service.IntegrationPayloadValidator;
 import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
@@ -15,6 +16,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
@@ -48,6 +50,9 @@ public class DocumentResource {
     FiscalClock fiscalClock;
 
     @Inject
+    IntegrationPayloadValidator integrationPayloadValidator;
+
+    @Inject
     LayoutClient layoutClient;
 
     @Inject
@@ -57,6 +62,14 @@ public class DocumentResource {
     @Channel("document-emit-out")
     @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 1024)
     Emitter<EmitDocumentRequest> documentEmitter;
+
+    @POST
+    @Path("/validate")
+    @Operation(summary = "Validar payload de integración", description = "Compara el JSON con el contrato de ingreso sin emitir ni reservar correlativo")
+    @APIResponse(responseCode = "200", description = "Reporte estructurado por ruta JSON")
+    public Response validatePayload(JsonNode payload, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        return Response.ok(integrationPayloadValidator.validate(payload, idempotencyKey, fiscalClock.today())).build();
+    }
 
     @POST
     @Path("/emit")

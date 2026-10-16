@@ -32,6 +32,49 @@ Content-Type: application/json
 
 El cuerpo es el mismo de `POST /documents/emit`. Carabo ignora cualquier `businessCode` enviado en el JSON y deriva la empresa exclusivamente de la API key.
 
+Ejemplo completo de factura gravada (la fecha debe corresponder al calendario fiscal de Lima):
+
+```json
+{
+  "docType": "01",
+  "series": "F001",
+  "issueDate": "2026-10-16",
+  "currency": "PEN",
+  "externalId": "erp-01-20261016-00018452",
+  "sourceDocId": "VENTA-00018452",
+  "receiver": {
+    "docType": "6",
+    "doc": "20131312955",
+    "name": "CLIENTE EMPRESA SAC",
+    "address": "Lima, Perú"
+  },
+  "lines": [
+    {
+      "productCode": "SERV-001",
+      "productName": "Servicio mensual de ejemplo",
+      "unitCode": "NIU",
+      "quantity": 1,
+      "unitPrice": 100.00,
+      "discount": 0,
+      "affectationCode": "10"
+    }
+  ]
+}
+```
+
+El header `Idempotency-Key` y `externalId` deben contener exactamente el mismo valor. El emisor, canal SUNAT/OSE, base imponible, IGV y total se derivan o calculan en Carabo; el productor no debe duplicarlos.
+
+Antes de publicar puede comparar el JSON sin emitir ni reservar correlativo:
+
+```http
+POST /carabo/api/documents/validate
+X-Api-Key: <api-key del productor>
+Idempotency-Key: erp-01-20261016-00018452
+Content-Type: application/json
+```
+
+La respuesta incluye `valid` y una lista `issues`; cada hallazgo contiene `path`, `severity`, valor `received`, valor `expected` y `suggestion`. La pantalla **Integraciones → Comparar documento** consume este mismo endpoint y presenta el documento del productor junto a un ejemplo correcto.
+
 Respuesta cuando RabbitMQ confirma la publicación:
 
 ```http
@@ -55,6 +98,21 @@ X-Api-Key: <api-key de la empresa>
 ```
 
 También puede configurar un webhook para recibir el resultado. El outbox conserva y reintenta las entregas; la consulta por `externalId` continúa siendo el mecanismo de conciliación autoritativo.
+
+## RabbitMQ directo
+
+La API HTTP es la única entrada soportada actualmente para productores externos. Después de autenticar, validar idempotencia y atribuir el productor, Carabo publica internamente en RabbitMQ y sólo entonces responde `202`.
+
+La API key de Carabo **no autentica AMQP**. El broker interno usa `carabo.exchange` (direct), routing key `document.emit` y cola consumidora `carabo.document.emit`, pero no debe exponerse con el usuario compartido de plataforma. Habilitar acceso directo requiere previamente:
+
+- identidad AMQP dedicada por productor;
+- TLS y endpoint privado;
+- vhost por entorno;
+- permiso exclusivo de publicación sobre el exchange/routing key;
+- cuotas, confirmación de publisher, trazabilidad y revocación;
+- prueba de reentrega, DLQ y aislamiento entre productores.
+
+No se necesita una librería propietaria: el futuro contrato directo será AMQP 0-9-1 y podrá usar RabbitMQ Java Client, `amqplib`, Pika u otro cliente oficial. Hasta completar el aprovisionamiento seguro, las aplicaciones externas deben usar `/documents/ingest`.
 
 ## Semántica de reintentos
 

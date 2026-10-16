@@ -9,6 +9,7 @@ class IntegrationPolicyTest {
     void producerScopesAreLeastPrivilege() {
         Set<String> scopes = Set.of("DOCUMENT_INGEST", "DOCUMENT_READ");
         assertTrue(IntegrationPolicy.permits("/documents/ingest", "POST", scopes));
+        assertTrue(IntegrationPolicy.permits("/documents/validate", "POST", scopes));
         assertTrue(IntegrationPolicy.permits("/documents/external/order-1", "GET", scopes));
         assertFalse(IntegrationPolicy.permits("/documents/emit", "POST", scopes));
         assertFalse(IntegrationPolicy.permits("/tenants", "GET", scopes));

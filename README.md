@@ -210,11 +210,13 @@ Cada tenant (empresa) se configura independientemente:
 - Los correlativos se reservan atómicamente por tenant, clase de documento y serie; no se calculan con `MAX + 1`.
 - `POST /api/documents/emit` y `POST /api/dispatch-guides/emit` aceptan el header `Idempotency-Key` (máximo 100 caracteres).
 - `POST /api/documents/ingest` exige `Idempotency-Key`, confirma la publicación en RabbitMQ y responde `202`; es la ruta recomendada para alto volumen.
+- `POST /api/documents/validate` compara el JSON sin emitir ni reservar correlativo y devuelve hallazgos por ruta, valor recibido, esperado y corrección sugerida.
 - Repetir simultáneamente una solicitud con la misma clave retorna el documento existente y no vuelve a enviarlo a SUNAT/OSE.
 - `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
 - Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.
 - Contrato, códigos HTTP y ejemplos: [`docs/external-integration.md`](docs/external-integration.md).
 - Cada aplicación productora usa una identidad de máquina propia; no requiere usuario, contraseña ni licencia humana. La pantalla **Integraciones** permite observarla y, para Admin/Root, crearla, rotarla o revocarla.
+- RabbitMQ directo no está expuesto a productores externos: una API key no autentica AMQP. La entrada soportada es HTTP y Carabo realiza la publicación interna; abrir AMQP exige usuario dedicado, TLS, vhost y ACL por productor.
 
 ## Seguridad
 

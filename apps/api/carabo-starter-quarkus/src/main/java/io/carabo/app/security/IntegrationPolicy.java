@@ -11,6 +11,9 @@ final class IntegrationPolicy {
         if (HttpMethod.POST.equals(method) && path.equals("/documents/ingest")) {
             return scopes.contains("DOCUMENT_INGEST");
         }
+        if (HttpMethod.POST.equals(method) && path.equals("/documents/validate")) {
+            return scopes.contains("DOCUMENT_INGEST");
+        }
         if (HttpMethod.POST.equals(method) && path.equals("/documents/emit")) {
             return scopes.contains("DOCUMENT_EMIT");
         }
