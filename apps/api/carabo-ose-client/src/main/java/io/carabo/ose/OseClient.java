@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client for the explicit Carabo OSE Gateway JSON contract.
@@ -28,6 +29,8 @@ public class OseClient {
     private final String apiToken;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final CircuitState circuit;
+    private static final Map<String, CircuitState> CIRCUITS = new ConcurrentHashMap<>();
 
     public OseClient(String baseUrl, String apiToken) {
         this(baseUrl, apiToken, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build(), new ObjectMapper());
@@ -41,10 +44,19 @@ public class OseClient {
         this.apiToken = apiToken;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
+        this.circuit = CIRCUITS.computeIfAbsent(this.baseUrl.toString(), ignored -> new CircuitState());
     }
 
     /** Sends a signed XML using the Carabo OSE Gateway v1 contract. */
     public OseResult send(String fileName, String signedXml) {
+        if (circuit.isOpen()) return OseResult.transportError("CIRCUIT_OPEN",
+            "OSE temporalmente suspendido después de fallos consecutivos", true, 0);
+        OseResult result = sendOnce(fileName, signedXml);
+        circuit.complete(result.retryable());
+        return result;
+    }
+
+    private OseResult sendOnce(String fileName, String signedXml) {
         try {
             Map<String, String> body = new LinkedHashMap<>();
             body.put("fileName", fileName);
@@ -65,6 +77,14 @@ public class OseClient {
     }
 
     public OseResult getStatus(String externalId) {
+        if (circuit.isOpen()) return OseResult.transportError("CIRCUIT_OPEN",
+            "OSE temporalmente suspendido después de fallos consecutivos", true, 0);
+        OseResult result = getStatusOnce(externalId);
+        circuit.complete(result.retryable());
+        return result;
+    }
+
+    private OseResult getStatusOnce(String externalId) {
         try {
             HttpRequest request = request("/api/v1/documents/" + path(externalId) + "/status")
                 .timeout(QUERY_TIMEOUT).GET().build();
@@ -78,6 +98,14 @@ public class OseClient {
     }
 
     public CdrResult downloadCdr(String externalId) {
+        if (circuit.isOpen()) return CdrResult.error("CIRCUIT_OPEN",
+            "OSE temporalmente suspendido después de fallos consecutivos", true, 0);
+        CdrResult result = downloadCdrOnce(externalId);
+        circuit.complete(result.retryable());
+        return result;
+    }
+
+    private CdrResult downloadCdrOnce(String externalId) {
         try {
             HttpRequest request = request("/api/v1/documents/" + path(externalId) + "/cdr")
                 .header("Accept", "application/xml, application/json")
@@ -179,6 +207,33 @@ public class OseClient {
     private static String safeMessage(Exception error) {
         return error.getMessage() == null || error.getMessage().isBlank()
             ? error.getClass().getSimpleName() : error.getMessage();
+    }
+
+    private static final class CircuitState {
+        private static final int FAILURE_THRESHOLD = 5;
+        private static final long OPEN_MILLIS = Duration.ofSeconds(60).toMillis();
+        private int failures;
+        private long openUntil;
+
+        synchronized boolean isOpen() {
+            if (openUntil == 0) return false;
+            if (System.currentTimeMillis() >= openUntil) {
+                openUntil = 0;
+                failures = 0;
+                return false;
+            }
+            return true;
+        }
+
+        synchronized void complete(boolean retryableFailure) {
+            if (!retryableFailure) {
+                failures = 0;
+                openUntil = 0;
+                return;
+            }
+            failures++;
+            if (failures >= FAILURE_THRESHOLD) openUntil = System.currentTimeMillis() + OPEN_MILLIS;
+        }
     }
 
     public record OseResult(

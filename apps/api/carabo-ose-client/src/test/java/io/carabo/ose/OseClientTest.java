@@ -76,6 +76,15 @@ class OseClientTest {
     }
 
     @Test
+    void opensCircuitAfterConsecutiveTransportFailures() {
+        next.set(new Response(503, "maintenance", "text/plain"));
+        for (int i = 0; i < 5; i++) assertTrue(client.send("invoice-" + i, "<Invoice/>").retryable());
+        var blocked = client.send("invoice-6", "<Invoice/>");
+        assertEquals("CIRCUIT_OPEN", blocked.responseCode());
+        assertTrue(blocked.retryable());
+    }
+
+    @Test
     void downloadsXmlCdrAndEncodesExternalIdPath() {
         next.set(new Response(200, "<ApplicationResponse/>", "application/xml"));
 

@@ -61,6 +61,9 @@ public class DocumentService {
     @Inject
     NotificationService notificationService;
 
+    @Inject
+    OperationalMetrics metrics;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -282,9 +285,13 @@ public class DocumentService {
         String fileName = doc.getIssuerRuc() + "-" + doc.getDocType().sunatCode() + "-" + doc.getFullNumber();
 
         if (tenant.getSendMode() == SendMode.OSE) {
-            return sendViaOse(fileName, signedXml, tenant);
+            SendResult result = sendViaOse(fileName, signedXml, tenant);
+            metrics.fiscalResult("ose", result.status().name().toLowerCase());
+            return result;
         }
-        return sendViaSunat(fileName, signedXml, tenant);
+        SendResult result = sendViaSunat(fileName, signedXml, tenant);
+        metrics.fiscalResult("sunat", result.status().name().toLowerCase());
+        return result;
     }
 
     private SendResult sendViaSunat(String fileName, String signedXml, Tenant tenant) {

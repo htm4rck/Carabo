@@ -1,0 +1,28 @@
+groups:
+  - name: carabo
+    rules:
+      - alert: CaraboApiDown
+        expr: up{job="carabo"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Carabo no responde a Prometheus"
+          runbook: "docs/runbooks/carabo-operations.md#api-caida"
+      - alert: CaraboDeadMessages
+        expr: increase(carabo_async_messages_total{result="dead"}[10m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Carabo envió mensajes a DLQ"
+          runbook: "docs/runbooks/carabo-operations.md#mensajes-dead-dlq"
+      - alert: CaraboWebhookDead
+        expr: increase(carabo_notifications_total{result="dead"}[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Callbacks/webhooks agotaron sus reintentos"
+          runbook: "docs/runbooks/carabo-operations.md#webhook-agotado"
+      - alert: CaraboFiscalErrorsHigh
+        expr: sum(increase(carabo_fiscal_results_total{status=~"error|failed|rejected"}[15m])) > 5
+        labels: { severity: warning }
+        annotations:
+          summary: "Tasa elevada de errores fiscales en Carabo"
+          runbook: "docs/runbooks/carabo-operations.md#sunat-u-ose-no-disponible"

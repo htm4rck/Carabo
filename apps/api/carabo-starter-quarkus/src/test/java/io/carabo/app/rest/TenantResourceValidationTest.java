@@ -42,4 +42,19 @@ class TenantResourceValidationTest {
         references.oseApiToken = "secret://tenant-ose-token";
         assertNull(TenantResource.validateUpdate(references));
     }
+
+    @Test
+    void blocksUnhomologatedCountriesAndIncompleteOse() {
+        var country = new TenantResource.UpdateTenantRequest();
+        country.countryCode = "CO";
+        assertEquals("Solo PE está habilitado; otros países requieren compliance y homologación antes de activarse",
+            TenantResource.validateUpdate(country));
+
+        var ose = new TenantResource.UpdateTenantRequest();
+        ose.countryCode = "PE";
+        ose.sendMode = "OSE";
+        ose.oseBaseUrl = "https://ose.example.test/gateway";
+        ose.oseApiToken = "secret://tenant-ose-token";
+        assertNull(TenantResource.validateUpdate(ose));
+    }
 }

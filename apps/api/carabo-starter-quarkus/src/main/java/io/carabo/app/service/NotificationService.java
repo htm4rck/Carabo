@@ -37,6 +37,7 @@ public class NotificationService {
     @Inject ObjectMapper objectMapper;
     @Inject TenantService tenantService;
     @Inject SecretResolver secretResolver;
+    @Inject OperationalMetrics metrics;
 
     @ConfigProperty(name = "carabo.webhooks.allow-private-addresses", defaultValue = "false")
     boolean allowPrivateAddresses;
@@ -119,6 +120,7 @@ public class NotificationService {
                 throw new IllegalStateException("HTTP " + response.statusCode());
             }
             item.setStatus("DELIVERED");
+            metrics.notification("delivered");
             item.setDeliveredAt(Instant.now());
             item.setLastError(null);
         } catch (InterruptedException e) {
@@ -134,9 +136,11 @@ public class NotificationService {
         item.setLastError(message);
         if (attempt >= MAX_ATTEMPTS) {
             item.setStatus("DEAD");
+            metrics.notification("dead");
             LOG.errorf("Notification %s exhausted after %d attempts: %s", item.getEventKey(), attempt, message);
         } else {
             item.setStatus("RETRY");
+            metrics.notification("retry");
             long minutes = switch (attempt) { case 1 -> 1; case 2 -> 5; case 3 -> 15; default -> 60; };
             item.setNextAttemptAt(Instant.now().plus(Duration.ofMinutes(minutes)));
         }

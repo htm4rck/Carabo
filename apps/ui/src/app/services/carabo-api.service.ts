@@ -150,6 +150,17 @@ export interface NotificationSummary {
   deliveredAt: string | null;
 }
 
+export interface AsyncMessageSummary {
+  id: string;
+  externalId: string | null;
+  status: 'RECEIVED' | 'PROCESSED' | 'DEAD' | 'REPLAYED';
+  errorMessage: string | null;
+  deliveryCount: number;
+  replayCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CaraboApiService {
   private baseUrl = environment.apiUrl;
@@ -304,5 +315,15 @@ export class CaraboApiService {
 
   retryNotification(id: string): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/operations/notifications/${id}/retry`, {});
+  }
+
+  listAsyncMessages(status?: string, limit = 100): Observable<AsyncMessageSummary[]> {
+    let params = new HttpParams().set('limit', String(limit));
+    if (status) params = params.set('status', status);
+    return this.http.get<AsyncMessageSummary[]>(`${this.baseUrl}/operations/messages`, { params });
+  }
+
+  replayAsyncMessage(id: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/operations/messages/${id}/replay`, {});
   }
 }

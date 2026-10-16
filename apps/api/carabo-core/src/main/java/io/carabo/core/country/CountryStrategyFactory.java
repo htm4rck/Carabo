@@ -1,8 +1,5 @@
 package io.carabo.core.country;
 
-import io.carabo.core.country.cl.ChileStrategy;
-import io.carabo.core.country.co.ColombiaStrategy;
-import io.carabo.core.country.mx.MexicoStrategy;
 import io.carabo.core.country.pe.PeruStrategy;
 
 import java.util.Map;
@@ -14,9 +11,6 @@ public final class CountryStrategyFactory {
 
     static {
         register(new PeruStrategy());
-        register(new ColombiaStrategy());
-        register(new ChileStrategy());
-        register(new MexicoStrategy());
     }
 
     private CountryStrategyFactory() {}
@@ -26,14 +20,18 @@ public final class CountryStrategyFactory {
     }
 
     public static CountryStrategy forCountry(String countryCode) {
-        CountryStrategy strategy = STRATEGIES.get(countryCode != null ? countryCode : "PE");
+        String normalized = countryCode != null ? countryCode.trim().toUpperCase() : "PE";
+        CountryStrategy strategy = STRATEGIES.get(normalized);
         if (strategy == null) {
-            throw new IllegalArgumentException("No strategy registered for country: " + countryCode);
+            throw new UnsupportedOperationException("País " + normalized
+                + " no habilitado: requiere implementación, compliance y homologación propios");
         }
         return strategy;
     }
 
     public static boolean isSupported(String countryCode) {
-        return STRATEGIES.containsKey(countryCode);
+        return countryCode != null && STRATEGIES.containsKey(countryCode.trim().toUpperCase());
     }
+
+    public static java.util.Set<String> enabledCountries() { return java.util.Set.copyOf(STRATEGIES.keySet()); }
 }

@@ -31,8 +31,9 @@ public class FiscalReadinessService {
         List<ReadinessCheck> checks = new ArrayList<>();
         checks.add(check("tenant-active", "Empresa activa", tenant.isActive(), true,
             "Activa la empresa antes de emitir."));
-        checks.add(check("sunat-direct", "Envío directo a SUNAT", tenant.getSendMode() == SendMode.SUNAT_DIRECT, true,
-            "Selecciona SUNAT directo como canal de envío."));
+        boolean ose = tenant.getSendMode() == SendMode.OSE;
+        checks.add(check("send-mode", "Canal de envío", tenant.getSendMode() != null, true,
+            "Selecciona SUNAT directo u OSE como canal de envío."));
         checks.add(check("issuer", "Identidad fiscal", present(tenant.getIssuerRuc())
                 && tenant.getIssuerRuc().matches("\\d{11}") && present(tenant.getIssuerName()), true,
             "Completa RUC y razón social del emisor."));
@@ -41,10 +42,16 @@ public class FiscalReadinessService {
             "Configura las series de factura y boleta."));
         checks.add(check("api-key", "Clave de integración", present(tenant.getApiKeyHash()), true,
             "Rota la API key y consérvala en el secret store del productor."));
-        checks.add(check("sol-user", "Usuario SOL", present(tenant.getSolUser()), true,
+        checks.add(check("sol-user", "Usuario SOL", present(tenant.getSolUser()), !ose,
             "Configura el usuario SOL del emisor."));
-        checks.add(check("sol-password", "Contraseña SOL", resolves(tenant.getSolPassword()), true,
+        checks.add(check("sol-password", "Contraseña SOL", resolves(tenant.getSolPassword()), !ose,
             "Guarda la contraseña en el secret store y configura su referencia secret://."));
+        if (ose) {
+            checks.add(check("ose-endpoint", "Endpoint OSE HTTPS", secureEndpoint(tenant.getOseBaseUrl()), true,
+                "Configura la URL HTTPS del adaptador del OSE contratado."));
+            checks.add(check("ose-token", "Credencial OSE", resolves(tenant.getOseApiToken()), true,
+                "Guarda el token OSE en el secret store y configura su referencia secret://."));
+        }
 
         boolean certificateMetadata = present(tenant.getCertificateFile())
             && present(tenant.getCertificateAlias())
@@ -58,7 +65,7 @@ public class FiscalReadinessService {
             "Guarda la contraseña en el secret store y carga el certificado con esa referencia."));
         checks.add(check("certificate-validity", "Vigencia del certificado", certificateIsCurrent(tenant), true,
             "Carga un certificado actualmente vigente."));
-        checks.add(check("sunat-endpoint", "Endpoint SUNAT seguro", endpointIsSafe(tenant), true,
+        checks.add(check("sunat-endpoint", "Endpoint SUNAT seguro", endpointIsSafe(tenant), !ose,
             "Usa el endpoint HTTPS de SUNAT beta/homologación para la prueba."));
         checks.add(check("webhook", "Webhook de resultado", present(tenant.getWebhookUrl()), false,
             "Opcional: configura un webhook; GET por externalId seguirá siendo la fuente autoritativa."));
@@ -97,6 +104,14 @@ public class FiscalReadinessService {
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    private boolean secureEndpoint(String endpoint) {
+        if (!present(endpoint)) return false;
+        try {
+            URI uri = URI.create(endpoint);
+            return "https".equalsIgnoreCase(uri.getScheme()) && present(uri.getHost()) && uri.getUserInfo() == null;
+        } catch (IllegalArgumentException error) { return false; }
     }
 
     private boolean resolves(String value) {

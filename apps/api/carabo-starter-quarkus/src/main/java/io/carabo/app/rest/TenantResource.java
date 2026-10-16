@@ -6,6 +6,7 @@ import io.carabo.app.service.FiscalReadinessService;
 import io.carabo.app.security.ApiKeyService;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.SendMode;
+import io.carabo.core.country.CountryStrategyFactory;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -45,6 +46,8 @@ public class TenantResource {
     @Transactional
     @Operation(summary = "Crear tenant", description = "Registra una nueva empresa emisora con API key auto-generada")
     public Response create(CreateTenantRequest req) {
+        String validationError = validateCreate(req);
+        if (validationError != null) return Response.status(400).entity(new ErrorResponse(validationError)).build();
         Tenant tenant = new Tenant();
         tenant.setBusinessCode(req.businessCode);
         tenant.setBusinessName(req.businessName);
@@ -68,7 +71,7 @@ public class TenantResource {
         tenant.setEnvironment(req.environment != null ? req.environment : "BETA");
         tenant.setWebhookUrl(req.webhookUrl);
         tenant.setWebhookSecret(req.webhookSecret);
-        tenant.setCountryCode(req.countryCode != null ? req.countryCode : "PE");
+        tenant.setCountryCode(req.countryCode != null ? req.countryCode.trim().toUpperCase() : "PE");
         tenant.setMaxDocumentsPerDay(req.maxDocumentsPerDay != null ? req.maxDocumentsPerDay : 1000);
         String apiKey = apiKeyService.generate();
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
@@ -134,7 +137,7 @@ public class TenantResource {
         if (req.debitNoteSeries != null) tenant.setDebitNoteSeries(req.debitNoteSeries);
         if (req.environment != null) tenant.setEnvironment(req.environment);
         if (req.webhookUrl != null) tenant.setWebhookUrl(req.webhookUrl);
-        if (req.countryCode != null) tenant.setCountryCode(req.countryCode);
+        if (req.countryCode != null) tenant.setCountryCode(req.countryCode.trim().toUpperCase());
         if (req.maxDocumentsPerDay != null) tenant.setMaxDocumentsPerDay(req.maxDocumentsPerDay);
 
         em.merge(tenant);
@@ -227,7 +230,40 @@ public class TenantResource {
         if (req.oseApiToken != null && !req.oseApiToken.startsWith("secret://")) {
             return "El token OSE debe usar una referencia secret://";
         }
+        if (req.countryCode != null && !CountryStrategyFactory.isSupported(req.countryCode)) {
+            return "Solo PE está habilitado; otros países requieren compliance y homologación antes de activarse";
+        }
+        if ("OSE".equals(req.sendMode)) {
+            if (!secureHttpUrl(req.oseBaseUrl)) return "OSE requiere una URL HTTPS válida";
+            if (req.oseApiToken == null || !req.oseApiToken.startsWith("secret://")) {
+                return "OSE requiere un token referenciado mediante secret://";
+            }
+        }
         return null;
+    }
+
+    static String validateCreate(CreateTenantRequest req) {
+        if (req == null) return "La configuración es obligatoria";
+        UpdateTenantRequest update = new UpdateTenantRequest();
+        update.issuerRuc = req.issuerRuc;
+        update.issuerUbigeo = req.issuerUbigeo;
+        update.sendMode = req.sendMode;
+        update.environment = req.environment;
+        update.maxDocumentsPerDay = req.maxDocumentsPerDay;
+        update.solPassword = req.solPassword;
+        update.certificatePassword = req.certificatePassword;
+        update.oseApiToken = req.oseApiToken;
+        update.oseBaseUrl = req.oseBaseUrl;
+        update.countryCode = req.countryCode != null ? req.countryCode : "PE";
+        return validateUpdate(update);
+    }
+
+    private static boolean secureHttpUrl(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            var uri = java.net.URI.create(value);
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getUserInfo() == null;
+        } catch (IllegalArgumentException error) { return false; }
     }
 
     public static class CreateTenantRequest {
