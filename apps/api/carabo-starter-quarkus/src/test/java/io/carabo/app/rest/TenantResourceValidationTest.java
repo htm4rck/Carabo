@@ -28,4 +28,18 @@ class TenantResourceValidationTest {
         invalidLimit.maxDocumentsPerDay = 0;
         assertEquals("El máximo diario debe estar entre 1 y 100000", TenantResource.validateUpdate(invalidLimit));
     }
+
+    @Test
+    void requiresSecretReferencesForSensitiveUpdates() {
+        var plaintextSol = new TenantResource.UpdateTenantRequest();
+        plaintextSol.solPassword = "plaintext";
+        assertEquals("La contraseña SOL debe usar una referencia secret://",
+            TenantResource.validateUpdate(plaintextSol));
+
+        var references = new TenantResource.UpdateTenantRequest();
+        references.solPassword = "secret://tenant-sol-password";
+        references.certificatePassword = "secret://tenant-certificate-password";
+        references.oseApiToken = "secret://tenant-ose-token";
+        assertNull(TenantResource.validateUpdate(references));
+    }
 }

@@ -52,6 +52,8 @@ export interface TenantConfig {
   issuerUbigeo: string;
   sendMode: string;
   sunatEndpoint: string;
+  solUser?: string;
+  solPassword?: string;
   oseBaseUrl: string;
   certificateFile: string;
   certificateValidFrom: string;
@@ -65,6 +67,23 @@ export interface TenantConfig {
   maxDocumentsPerDay: number;
   active: boolean;
   countryCode: string;
+}
+
+export interface FiscalReadinessCheck {
+  code: string;
+  label: string;
+  ready: boolean;
+  required: boolean;
+  detail: string;
+}
+
+export interface FiscalReadiness {
+  businessCode: string;
+  environment: string;
+  sendMode: string;
+  ready: boolean;
+  blockers: number;
+  checks: FiscalReadinessCheck[];
 }
 
 export interface SalesReport {
@@ -138,6 +157,10 @@ export class CaraboApiService {
 
   listTenants(): Observable<TenantConfig[]> {
     return this.http.get<TenantConfig[]>(`${this.baseUrl}/tenants`);
+  }
+
+  getFiscalReadiness(businessCode: string): Observable<FiscalReadiness> {
+    return this.http.get<FiscalReadiness>(`${this.baseUrl}/tenants/${encodeURIComponent(businessCode)}/readiness`);
   }
 
   createTenant(data: Partial<TenantConfig>): Observable<TenantConfig> {

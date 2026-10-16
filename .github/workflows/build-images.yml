@@ -17,6 +17,30 @@ concurrency:
 jobs:
   verify-api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: carabo
+          POSTGRES_PASSWORD: carabo_test
+          POSTGRES_DB: carabo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U carabo -d carabo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: carabo
+          RABBITMQ_DEFAULT_PASS: carabo_test
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     defaults:
       run:
         working-directory: apps/api
@@ -29,6 +53,60 @@ jobs:
           cache: gradle
       - name: Run backend tests
         run: ./gradlew test --no-daemon
+      - name: Build API for isolation smoke
+        run: ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
+      - name: Seed cross-tenant fixtures
+        working-directory: .
+        env:
+          PGPASSWORD: carabo_test
+        run: |
+          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql; do
+            psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO carabo.tenant (id,business_code,business_name,issuer_ruc,issuer_name,send_mode,environment,api_key_hash,active)
+          VALUES
+            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','TENANT_A','Tenant A','20111111111','Tenant A SAC','SUNAT_DIRECT','BETA',encode(sha256(convert_to('tenant-a-integration-key','UTF8')),'hex'),true),
+            ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','TENANT_B','Tenant B','20222222222','Tenant B SAC','SUNAT_DIRECT','BETA',encode(sha256(convert_to('tenant-b-integration-key','UTF8')),'hex'),true);
+          INSERT INTO carabo.document (id,business_code,doc_type,series,number,issue_date,issuer_ruc,issuer_name,receiver_doc_type,receiver_doc,receiver_name,tax_base,igv_amount,total,status,external_id)
+          VALUES
+            ('10000000-0000-0000-0000-000000000001','TENANT_A','INVOICE','F001',1,current_date,'20111111111','Tenant A SAC','6','20999999991','Cliente A',100,18,118,'ACCEPTED','external-a'),
+            ('20000000-0000-0000-0000-000000000002','TENANT_B','INVOICE','F001',1,current_date,'20222222222','Tenant B SAC','6','20999999992','Cliente B',100,18,118,'ACCEPTED','external-b');
+          SQL
+          mkdir -p "$RUNNER_TEMP/carabo-artifacts/TENANT_A/F001/1" "$RUNNER_TEMP/carabo-artifacts/TENANT_B/F001/1"
+          printf '<Invoice>A</Invoice>' > "$RUNNER_TEMP/carabo-artifacts/TENANT_A/F001/1/signed.xml"
+          printf '<ApplicationResponse>A</ApplicationResponse>' > "$RUNNER_TEMP/carabo-artifacts/TENANT_A/F001/1/cdr.xml"
+          printf '<Invoice>B</Invoice>' > "$RUNNER_TEMP/carabo-artifacts/TENANT_B/F001/1/signed.xml"
+          printf '<ApplicationResponse>B</ApplicationResponse>' > "$RUNNER_TEMP/carabo-artifacts/TENANT_B/F001/1/cdr.xml"
+      - name: Verify tenant isolation through HTTP
+        working-directory: .
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/carabo_test?currentSchema=carabo
+          DB_USERNAME: carabo
+          DB_PASSWORD: carabo_test
+          RABBITMQ_HOST: localhost
+          RABBITMQ_USERNAME: carabo
+          RABBITMQ_PASSWORD: carabo_test
+          QUARKUS_FLYWAY_MIGRATE_AT_START: "false"
+          STORAGE_PATH: ${{ runner.temp }}/carabo-artifacts
+          CARABO_ADMIN_KEY: ci-admin-key
+          CARABO_TENANT_A_KEY: tenant-a-integration-key
+          CARABO_TENANT_B_KEY: tenant-b-integration-key
+          CARABO_DOCUMENT_A_ID: 10000000-0000-0000-0000-000000000001
+          CARABO_DOCUMENT_B_ID: 20000000-0000-0000-0000-000000000002
+          CARABO_EXTERNAL_A_ID: external-a
+          CARABO_EXTERNAL_B_ID: external-b
+        run: |
+          java -jar apps/api/carabo-starter-quarkus/build/quarkus-app/quarkus-run.jar > "$RUNNER_TEMP/carabo-api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:8998/health >/dev/null; then break; fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then cat "$RUNNER_TEMP/carabo-api.log"; exit 1; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8998/health >/dev/null || { cat "$RUNNER_TEMP/carabo-api.log"; exit 1; }
+          ./scripts/verify-tenant-isolation.sh
 
   verify-ui:
     runs-on: ubuntu-latest

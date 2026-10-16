@@ -9,7 +9,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CaraboApiService, TenantConfig } from '../../services/carabo-api.service';
+import { CaraboApiService, FiscalReadiness, TenantConfig } from '../../services/carabo-api.service';
 
 @Component({
   selector: 'app-config',
@@ -73,6 +73,24 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
               <span class="badge" [class.active]="e.active">{{ e.active ? 'Activo' : 'Inactivo' }}</span>
             </td>
           </ng-container>
+          <ng-container matColumnDef="readiness">
+            <th mat-header-cell *matHeaderCellDef>Preparación SUNAT</th>
+            <td mat-cell *matCellDef="let e">
+              @if (readinessLoading[e.businessCode]) {
+                <span class="readiness-state pending"><mat-icon>sync</mat-icon>Comprobando…</span>
+              } @else if (readiness[e.businessCode]; as state) {
+                <button type="button" class="readiness-trigger" [class.ready]="state.ready"
+                  (click)="showReadiness(e)" [attr.aria-label]="readinessLabel(state)">
+                  <mat-icon>{{ state.ready ? 'task_alt' : 'error_outline' }}</mat-icon>
+                  <span><strong>{{ state.ready ? 'Listo para E2E' : state.blockers + ' pendientes' }}</strong><small>Ver preflight fiscal</small></span>
+                </button>
+              } @else {
+                <button type="button" class="readiness-trigger unavailable" (click)="loadReadiness(e)">
+                  <mat-icon>refresh</mat-icon><span><strong>No disponible</strong><small>Volver a comprobar</small></span>
+                </button>
+              }
+            </td>
+          </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Acciones</th>
             <td mat-cell *matCellDef="let e">
@@ -95,6 +113,38 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
             <p>Solicita en Tordo Auth el acceso de una empresa a Carabo.</p>
           </div>
         }
+        }
+
+        @if (readinessTenant && selectedReadiness) {
+          <section class="action-panel readiness-panel" aria-labelledby="readiness-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="readiness-title">Preflight fiscal de {{ readinessTenant.businessName || readinessTenant.businessCode }}</h2>
+                <p>{{ selectedReadiness.ready ? 'Carabo tiene lo necesario para ejecutar una emisión real.' : 'Resuelve los requisitos obligatorios antes de enviar el primer comprobante.' }}</p>
+              </div>
+              <button type="button" mat-icon-button aria-label="Cerrar preflight" (click)="closeReadiness()"><mat-icon>close</mat-icon></button>
+            </div>
+            <div class="readiness-summary" [class.ready]="selectedReadiness.ready" role="status">
+              <mat-icon>{{ selectedReadiness.ready ? 'verified' : 'rule' }}</mat-icon>
+              <div><strong>{{ selectedReadiness.ready ? 'Ruta SUNAT preparada' : selectedReadiness.blockers + ' requisitos obligatorios pendientes' }}</strong>
+              <span>{{ selectedReadiness.environment }} · {{ selectedReadiness.sendMode }}</span></div>
+            </div>
+            <ul class="readiness-list">
+              @for (check of selectedReadiness.checks; track check.code) {
+                <li [class.complete]="check.ready" [class.optional]="!check.required">
+                  <mat-icon>{{ check.ready ? 'check_circle' : check.required ? 'radio_button_unchecked' : 'info' }}</mat-icon>
+                  <div><strong>{{ check.label }}</strong><span>{{ check.detail }}</span></div>
+                  @if (!check.required) { <small>Opcional</small> }
+                </li>
+              }
+            </ul>
+            <div class="panel-actions">
+              <button type="button" mat-stroked-button (click)="loadReadiness(readinessTenant)"><mat-icon>refresh</mat-icon>Comprobar de nuevo</button>
+              @if (!selectedReadiness.ready) {
+                <button type="button" mat-raised-button color="primary" (click)="editFromReadiness()"><mat-icon>settings</mat-icon>Completar configuración</button>
+              }
+            </div>
+          </section>
         }
 
         @if (editingTenant && draft) {
@@ -140,6 +190,16 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
                     <option value="PRODUCTION">Producción</option>
                   </select>
                 </label>
+                @if (draft.sendMode === 'SUNAT_DIRECT') {
+                  <label>Usuario SOL
+                    <input name="solUser" [(ngModel)]="draft.solUser" maxlength="100" autocomplete="off" placeholder="RUC + usuario SOL">
+                    <small>Se guarda para autenticación SUNAT y nunca se devuelve en las consultas.</small>
+                  </label>
+                  <label>Referencia de contraseña SOL
+                    <input name="solPassword" [(ngModel)]="draft.solPassword" maxlength="100" autocomplete="off" placeholder="secret://empresa-sol-password" pattern="secret://.+">
+                    <small>Déjalo vacío para conservar el valor actual; nunca escribas la contraseña directamente.</small>
+                  </label>
+                }
                 <label>Serie de facturas
                   <input name="invoiceSeries" [(ngModel)]="draft.invoiceSeries" maxlength="10" required>
                 </label>
@@ -243,12 +303,43 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
     .selected-file small { margin-left: auto; color: var(--mutedColor); }
     .panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
     .panel-actions button mat-icon { margin-right: 7px; }
-    @media(max-width: 767px) { mat-card-header{align-items:flex-start!important;flex-direction:column;gap:10px}.action-panel { padding: 18px; } .form-grid, .certificate-grid { grid-template-columns: 1fr; } .form-grid label.wide { grid-column: auto; } .panel-heading { gap: 12px; } .panel-actions { flex-wrap: wrap; } }
+    .readiness-state { display:inline-flex; align-items:center; gap:7px; color:var(--mutedColor); font-size:13px; font-weight:700; }
+    .readiness-state mat-icon { width:18px; height:18px; font-size:18px; }
+    .readiness-state.pending mat-icon { animation: readiness-spin 1.2s linear infinite; }
+    .readiness-trigger { display:flex; align-items:center; gap:9px; min-width:148px; padding:7px 9px; border:1px solid #d7b69a; border-radius:7px; background:#fff8f1; color:#74451f; font:inherit; text-align:left; cursor:pointer; }
+    .readiness-trigger:hover, .readiness-trigger:focus-visible { border-color:#9c6334; background:#fff3e6; }
+    .readiness-trigger.ready { border-color:#a9c6ad; background:#edf6ee; color:#24562b; }
+    .readiness-trigger.ready:hover, .readiness-trigger.ready:focus-visible { border-color:#527852; background:#e4f2e6; }
+    .readiness-trigger.unavailable { border-color:var(--borderColor); background:#fff; color:var(--mutedColor); }
+    .readiness-trigger mat-icon { flex:0 0 auto; width:20px; height:20px; font-size:20px; }
+    .readiness-trigger span { display:flex; flex-direction:column; min-width:0; }
+    .readiness-trigger strong { font-size:12px; line-height:1.25; }
+    .readiness-trigger small { color:inherit; font-size:10px; line-height:1.35; opacity:.8; }
+    .readiness-summary { display:flex; align-items:center; gap:13px; padding:14px 16px; border-radius:8px; background:#fff4e8; color:#74451f; }
+    .readiness-summary.ready { background:#e8f4e9; color:#24562b; }
+    .readiness-summary>mat-icon { width:28px; height:28px; font-size:28px; }
+    .readiness-summary div { display:flex; flex-direction:column; gap:2px; }
+    .readiness-summary span { font-size:12px; }
+    .readiness-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 22px; margin:18px 0 0; padding:0; list-style:none; }
+    .readiness-list li { display:grid; grid-template-columns:22px minmax(0,1fr) auto; align-items:start; gap:9px; padding:12px 0; border-bottom:1px solid var(--borderColor); color:#8a4f27; }
+    .readiness-list li.complete { color:#317039; }
+    .readiness-list li.optional:not(.complete) { color:var(--mutedColor); }
+    .readiness-list mat-icon { width:20px; height:20px; font-size:20px; }
+    .readiness-list div { display:flex; flex-direction:column; min-width:0; gap:3px; }
+    .readiness-list strong { color:var(--forestColor); font-size:13px; line-height:1.3; }
+    .readiness-list span { color:inherit; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+    .readiness-list small { padding:2px 5px; border:1px solid currentColor; border-radius:5px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    @keyframes readiness-spin { to { transform:rotate(360deg); } }
+    @media(prefers-reduced-motion:reduce) { .readiness-state.pending mat-icon { animation:none; } }
+    @media(max-width: 767px) { mat-card-header{align-items:flex-start!important;flex-direction:column;gap:10px}.action-panel { padding: 18px; } .form-grid, .certificate-grid, .readiness-list { grid-template-columns: 1fr; } .form-grid label.wide { grid-column: auto; } .panel-heading { gap: 12px; } .panel-actions { flex-wrap: wrap; } }
   `]
 })
 export class ConfigComponent implements OnInit {
-  displayedColumns = ['businessCode', 'businessName', 'sendMode', 'environment', 'certificate', 'status', 'actions'];
+  displayedColumns = ['businessCode', 'businessName', 'sendMode', 'environment', 'certificate', 'status', 'readiness', 'actions'];
   empresas: TenantConfig[] = [];
+  readiness: Record<string, FiscalReadiness> = {};
+  readinessLoading: Record<string, boolean> = {};
+  readinessTenant: TenantConfig | null = null;
   editingTenant: TenantConfig | null = null;
   certificateTenant: TenantConfig | null = null;
   draft: Partial<TenantConfig> | null = null;
@@ -269,18 +360,24 @@ export class ConfigComponent implements OnInit {
     this.loading = true;
     this.loadError = false;
     this.api.listTenants().subscribe({
-      next: (tenants) => { this.empresas = tenants; this.loading = false; },
+      next: (tenants) => {
+        this.empresas = tenants;
+        this.loading = false;
+        tenants.forEach(tenant => this.loadReadiness(tenant));
+      },
       error: () => { this.loading = false; this.loadError = true; }
     });
   }
 
   editTenant(tenant: TenantConfig) {
+    this.closeReadiness();
     this.certificateTenant = null;
     this.editingTenant = tenant;
     this.draft = { ...tenant };
   }
 
   prepareCertificate(tenant: TenantConfig) {
+    this.closeReadiness();
     this.editingTenant = null;
     this.draft = null;
     this.certificateTenant = tenant;
@@ -297,10 +394,49 @@ export class ConfigComponent implements OnInit {
     this.passwordReference = '';
   }
 
+  get selectedReadiness(): FiscalReadiness | null {
+    return this.readinessTenant ? this.readiness[this.readinessTenant.businessCode] ?? null : null;
+  }
+
+  loadReadiness(tenant: TenantConfig) {
+    if (this.readinessLoading[tenant.businessCode]) return;
+    this.readinessLoading[tenant.businessCode] = true;
+    this.api.getFiscalReadiness(tenant.businessCode).subscribe({
+      next: state => {
+        this.readiness[tenant.businessCode] = state;
+        this.readinessLoading[tenant.businessCode] = false;
+      },
+      error: () => { this.readinessLoading[tenant.businessCode] = false; }
+    });
+  }
+
+  showReadiness(tenant: TenantConfig) {
+    this.closePanels();
+    this.readinessTenant = tenant;
+  }
+
+  closeReadiness() {
+    this.readinessTenant = null;
+  }
+
+  editFromReadiness() {
+    if (!this.readinessTenant) return;
+    const tenant = this.readinessTenant;
+    this.closeReadiness();
+    this.editTenant(tenant);
+  }
+
+  readinessLabel(state: FiscalReadiness): string {
+    return state.ready ? 'Preflight fiscal listo; ver detalle' : `${state.blockers} requisitos fiscales pendientes; ver detalle`;
+  }
+
   saveTenant() {
     if (!this.editingTenant || !this.draft || this.saving) return;
     this.saving = true;
-    this.api.updateTenant(this.editingTenant.id, this.draft).subscribe({
+    const update = { ...this.draft };
+    if (!update.solUser?.trim()) delete update.solUser;
+    if (!update.solPassword?.trim()) delete update.solPassword;
+    this.api.updateTenant(this.editingTenant.id, update).subscribe({
       next: tenant => {
         this.replaceTenant(tenant);
         this.saving = false;

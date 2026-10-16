@@ -2,6 +2,7 @@ package io.carabo.app.rest;
 
 import io.carabo.app.service.TenantService;
 import io.carabo.app.service.CertificateService;
+import io.carabo.app.service.FiscalReadinessService;
 import io.carabo.app.security.ApiKeyService;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.SendMode;
@@ -36,6 +37,9 @@ public class TenantResource {
 
     @Inject
     CertificateService certificateService;
+
+    @Inject
+    FiscalReadinessService fiscalReadinessService;
 
     @POST
     @Transactional
@@ -79,6 +83,15 @@ public class TenantResource {
     public Response getByBusinessCode(@PathParam("businessCode") String businessCode) {
         return tenantService.findByBusinessCode(businessCode)
             .map(t -> Response.ok(toResponse(t)).build())
+            .orElse(Response.status(404).build());
+    }
+
+    @GET
+    @Path("/{businessCode}/readiness")
+    @Operation(summary = "Preflight fiscal del tenant", description = "Comprueba la preparación para SUNAT sin exponer secretos")
+    public Response readiness(@PathParam("businessCode") String businessCode) {
+        return tenantService.findByBusinessCode(businessCode)
+            .map(tenant -> Response.ok(fiscalReadinessService.assess(tenant)).build())
             .orElse(Response.status(404).build());
     }
 
@@ -204,6 +217,15 @@ public class TenantResource {
         }
         if (req.maxDocumentsPerDay != null && (req.maxDocumentsPerDay < 1 || req.maxDocumentsPerDay > 100000)) {
             return "El máximo diario debe estar entre 1 y 100000";
+        }
+        if (req.solPassword != null && !req.solPassword.startsWith("secret://")) {
+            return "La contraseña SOL debe usar una referencia secret://";
+        }
+        if (req.certificatePassword != null && !req.certificatePassword.startsWith("secret://")) {
+            return "La contraseña del certificado debe usar una referencia secret://";
+        }
+        if (req.oseApiToken != null && !req.oseApiToken.startsWith("secret://")) {
+            return "El token OSE debe usar una referencia secret://";
         }
         return null;
     }

@@ -160,6 +160,7 @@ Aplicación ejecutable que integra todos los módulos:
 | GET | `/api/tenants` | Listar tenants |
 | PUT | `/api/tenants/{id}` | Actualizar configuración |
 | POST | `/api/tenants/{id}/regenerate-key` | Regenerar API Key |
+| GET | `/api/tenants/{businessCode}/readiness` | Preflight fiscal seguro para SUNAT |
 
 ### Reportes
 | Método | Ruta | Descripción |
@@ -225,6 +226,8 @@ Cada tenant (empresa) se configura independientemente:
 - **Certificados aislados**: Montados como volumen read-only
 - **Webhook signing**: HMAC-SHA256 para verificar autenticidad de callbacks
 - **Schema isolation**: Todos los datos en schema `carabo` separado
+- **Custodia verificable**: AES-256-GCM, checksum SHA-256 y escrituras atómicas para XML/CDR/PDF
+- **Backup/restore**: Procedimiento DEV con manifiesto de integridad en [`docs/storage-operations.md`](docs/storage-operations.md)
 
 ## Extensibilidad por País
 

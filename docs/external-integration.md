@@ -75,6 +75,7 @@ También puede configurar un webhook para recibir el resultado. Hasta que exista
 - estados `QUEUED`, `PROCESSING`, `PENDING`, `ACCEPTED`, `OBSERVED` o `REJECTED`
 
 No se presume compatibilidad directa con ningún OSE comercial. Para activar `SendMode.OSE` debe seleccionarse un proveedor, implementar su adaptador, ejecutar su suite contractual sandbox y conservar evidencia del XML, CDR y errores.
+La puerta de selección y su Definition of Done están en [`ose-provider-selection.md`](ose-provider-selection.md).
 
 ## Pendientes antes de producción
 
@@ -83,3 +84,19 @@ No se presume compatibilidad directa con ningún OSE comercial. Para activar `Se
 - Outbox persistente para webhooks y eventos.
 - Pruebas de RabbitMQ con reentrega, DLQ y caída del broker.
 - Pruebas de carga para acordar tasa, latencia, concurrencia y límites por tenant.
+
+## Cierre E2E SUNAT beta
+
+Antes de integrar un OSE, ejecute el ciclo autoritativo completo con el tenant piloto:
+
+```bash
+export CARABO_API_KEY='<clave recuperada del secret store del productor>'
+CARABO_E2E_PAYLOAD=examples/sunat-beta-invoice.json ./scripts/e2e-sunat.sh
+```
+
+El runner asigna una fecha e `externalId` únicos, publica por `/documents/ingest`, espera al worker mediante
+`GET /documents/external/{externalId}` y exige un estado `ACCEPTED` u `OBSERVED`. Conserva en
+`build/e2e/<externalId>/` la solicitud, respuestas, XML firmado, CDR y hashes SHA-256. Nunca escribe la API key.
+
+Antes de ejecutarlo, el preflight `GET /tenants/{businessCode}/readiness` debe informar `ready: true`.
+La pantalla Configuración presenta el mismo diagnóstico sin mostrar el usuario, contraseñas ni contenido del certificado.

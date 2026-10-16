@@ -1,0 +1,20 @@
+{
+  "docType": "01",
+  "series": "F001",
+  "currency": "PEN",
+  "receiver": {
+    "docType": "6",
+    "doc": "20131312955",
+    "name": "SUNAT - PRUEBA BETA"
+  },
+  "lines": [
+    {
+      "productCode": "E2E-001",
+      "productName": "Servicio de prueba E2E Carabo",
+      "unitCode": "NIU",
+      "quantity": 1,
+      "unitPrice": 100.00,
+      "affectationCode": "10"
+    }
+  ]
+}

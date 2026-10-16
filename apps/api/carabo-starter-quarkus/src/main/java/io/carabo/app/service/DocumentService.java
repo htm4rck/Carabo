@@ -69,6 +69,9 @@ public class DocumentService {
     @ConfigProperty(name = "carabo.storage.base-path", defaultValue = "/app/storage/documents")
     String storagePath;
 
+    @ConfigProperty(name = "carabo.storage.encryption-key")
+    Optional<String> storageEncryptionKey;
+
     private final UblBuilder ublBuilder = new UblBuilder();
     private final DocumentValidator validator = new DocumentValidator();
 
@@ -326,7 +329,9 @@ public class DocumentService {
     }
 
     private DocumentStorage getStorage() {
-        return new DocumentStorage(storagePath);
+        String configured = storageEncryptionKey.orElse(null);
+        String resolved = configured == null || configured.isBlank() ? null : secretResolver.resolve(configured);
+        return new DocumentStorage(storagePath, resolved);
     }
 
     // --- Document building (uses tenant defaults) ---
