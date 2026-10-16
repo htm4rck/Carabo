@@ -281,8 +281,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-009 | 65% | 🟡 Layout client para documentos/GRE y descargas PDF autenticadas desde UI | E2E Layout con fixtures y aprobación visual fiscal | Verificable DEV, no aprobada |
 | FUN-010 | 78% | 🟢 Backoff 1/5/15/60, timestamps persistidos, límite/FAILED y retry manual/automático | Pruebas de caída, carrera y matriz de errores SUNAT/OSE | Verificable CI/DEV |
 | FUN-011 | 58% | 🟡 Ingesta asíncrona externa, confirmación del broker, NACK, backpressure y DLQ configurados | E2E RabbitMQ de fallo, reentrega y DLQ; política de replay | No lista |
-| FUN-012 | 82% | 🟢 Outbox durable, deduplicación, HMAC v1, timestamp/event ID anti-replay, SSRF, timeout, backoff y auditoría UI | Pruebas E2E contra receptor caído/replay y acción manual de reenvío | Verificable CI/DEV |
-| FUN-013 | 75% | 🟢 RC/RA persistidos, correlativo atómico, ticket, consulta, CDR, historial y mensajes UI | Casos reales SUNAT aceptado/observado/rechazado/timeout | Verificable CI/DEV, no homologada |
+| FUN-012 | 85% | 🟢 Outbox durable, deduplicación, HMAC v1, timestamp/event ID anti-replay, SSRF, timeout, backoff, auditoría UI y replay manual | Pruebas E2E contra receptor caído y ataque de replay | Verificable CI/DEV |
+| FUN-013 | 78% | 🟢 RC/RA persistidos, correlativo atómico, ticket, consulta, CDR descargable, historial y mensajes UI | Casos reales SUNAT aceptado/observado/rechazado/timeout | Verificable CI/DEV, no homologada |
 | FUN-014 | 70% | 🟡 GRE UBL/firma/OAuth, ticket durable, polling automático/manual, CDR/XML cifrados, PDF y monitor UI | Validación XSD/reglas GRE, credenciales beta y homologación | Verificable DEV, no homologada |
 | FUN-015 | 65% | 🟡 Reportes, KPIs y Excel descargable con autenticación | Conciliación contra casos dorados, permisos y pruebas UAT | Verificable DEV |
 | FUN-016 | 85% | 🟢 UI autenticada para emitir, consultar, descargar, reintentar, lotes, GRE, reportes y operación; versiones visibles | Capturas autenticadas y UAT | Lista para sesión manual condicionada a tenant |
@@ -359,3 +359,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 1.6 | 2026-10-16 | Acciones de configuración activas, edición fiscal validada y carga PKCS#12 con clave privada, vigencia, límite y secreto referenciado | Desplegado y probado por HTTP en DEV; FUN-001 al 95% |
 | 1.7 | 2026-10-16 | XSD OASIS 2.1 por tipo, correcciones NC/ND, catálogos de motivo, XMLDSig autoverificable, alias explícito, vigencia y protección XXE | CI verde e imagen `0.2.0-develop.237d1afbb6b6` desplegada en DEV; falta homologación/PKI externa |
 | 1.8 | 2026-10-16 | Flyway V7, retry durable, outbox HMAC/anti-replay, RC/RA persistidos, GRE ticket/CDR/PDF, métricas/correlación y nuevas vistas operativas | CI inicial completo verde; imágenes y `0.2.0-develop.87146869220a` desplegadas en DEV; homologaciones externas pendientes |
+| 1.9 | 2026-10-16 | Replay manual de callbacks/webhooks y descarga autenticada del CDR de RC/RA desde las vistas operativas | CI completo verde e imagen `0.2.0-develop.b3904e15980d` desplegada en DEV |
