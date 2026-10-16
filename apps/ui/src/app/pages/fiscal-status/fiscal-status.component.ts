@@ -30,7 +30,7 @@ import { CaraboApiService, FiscalStatus } from '../../services/carabo-api.servic
           <p>{{ status.businessName || status.businessCode }} · {{ status.environment }} · {{ status.sendMode }}</p></div>
         </div>
         <div class="route-nodes" aria-label="Ruta de preparación fiscal">
-          @for (step of routeSteps; track step.code; let last = $last) {
+          @for (step of routeSteps; track step.label; let last = $last) {
             <div class="route-step" [class.complete]="checkReady(step.codes)"><span><mat-icon>{{ checkReady(step.codes) ? 'check' : 'more_horiz' }}</mat-icon></span><strong>{{ step.label }}</strong></div>
             @if (!last) { <i aria-hidden="true" [class.complete]="checkReady(step.codes)"></i> }
           }

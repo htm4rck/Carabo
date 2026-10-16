@@ -214,6 +214,7 @@ Cada tenant (empresa) se configura independientemente:
 - `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
 - Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.
 - Contrato, códigos HTTP y ejemplos: [`docs/external-integration.md`](docs/external-integration.md).
+- Cada aplicación productora usa una identidad de máquina propia; no requiere usuario, contraseña ni licencia humana. La pantalla **Integraciones** permite observarla y, para Admin/Root, crearla, rotarla o revocarla.
 
 ## Seguridad
 

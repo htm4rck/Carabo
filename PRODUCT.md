@@ -27,7 +27,8 @@ La aplicación se usa durante la operación fiscal diaria para emitir facturas, 
 - Tordo Auth es la autoridad de usuarios, empresas, roles, permisos, sesiones y licencias. Carabo no duplica credenciales ni membresías en su propia base.
 - Roles confirmados: `OPERATOR_Carabo`, `SUPERVISOR_Carabo`, `ADMIN_Carabo`, `INTEGRATION_Carabo` y `ROOT_PLATFORM`.
 - La configuración fiscal y la administración de empresas quedan reservadas para Admin y Root.
-- La API key de tenant se conserva para integraciones máquina a máquina; no sustituye la identidad humana.
+- Cada aplicación productora usa una identidad de máquina y credencial independiente con scopes; no sustituye una identidad humana ni consume una licencia de usuario.
+- Supervisor consulta estado fiscal e integraciones sin revelar secretos; Admin/Root administra certificados y credenciales de productores.
 - Cada solicitud humana debe derivar la empresa y los permisos de una sesión válida de Tordo Auth.
 - La UI y el backend deben mostrar versión, fecha de construcción y revisión desplegada.
 - Perú es el único país del primer alcance. Chile, Colombia y México no pueden presentarse como capacidades productivas.

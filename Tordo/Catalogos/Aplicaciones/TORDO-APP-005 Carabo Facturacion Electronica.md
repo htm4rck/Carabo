@@ -170,6 +170,25 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 - Backup y restauración están probados; despliegue y rollback tienen runbook.
 - El piloto concilia el 100 % de ventas, documentos, estados, CDR y totales.
 
+## Responsabilidades de certificado e integraciones
+
+| Capacidad | Supervisor Carabo | Admin Carabo | Root Platform |
+|---|---|---|---|
+| Consultar estado fiscal, vigencia y preflight | Lectura | Lectura | Lectura |
+| Consultar productores, actividad y errores | Lectura | Lectura | Lectura |
+| Cargar o reemplazar certificado PKCS#12 | No | Sí | Sí |
+| Modificar credenciales SOL/OSE y configuración fiscal | No | Sí | Sí |
+| Crear, rotar, activar o revocar productores | No | Sí | Sí |
+| Reprocesar mensajes y entregas fallidas | Sí | Sí | Sí |
+
+El estado mostrado al Supervisor es un preflight local: comprueba metadatos, archivo, referencia secreta y vigencia, pero no afirma cadena de confianza, revocación ni homologación SUNAT/OSE. Esas garantías requieren evidencia externa.
+
+## Identidad de aplicaciones productoras
+
+Los backends productores no usan usuarios, contraseñas, JWT humanos ni licencias de persona. Cada ERP, ecommerce, POS u otro sistema recibe una identidad de máquina propia, ligada a una empresa y con scopes mínimos (`DOCUMENT_INGEST`, `DOCUMENT_READ` y, sólo cuando se justifique, `DOCUMENT_EMIT`).
+
+La API key se revela una vez, se almacena hasheada en Carabo y debe conservarse en el secret store del productor. Actividad, documentos y fallos se atribuyen al productor; su rotación o revocación no afecta sesiones humanas ni otras integraciones. OAuth2 `client_credentials` con tokens cortos permanece como evolución recomendada; la identidad por productor evita desde ahora la clave compartida por tenant.
+
 ## Decisiones pendientes
 
 | Decisión | Opciones | Recomendación | Fecha límite relativa |

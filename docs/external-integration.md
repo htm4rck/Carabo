@@ -1,5 +1,24 @@
 # Integración de aplicaciones externas con Carabo
 
+## Identidad de máquina y licencias
+
+Una aplicación productora no inicia sesión como una persona y no necesita usuario, correo corporativo ni licencia humana. Cada ERP, ecommerce, POS o backend recibe una identidad de máquina independiente desde **Integraciones**.
+
+- La credencial se entrega una sola vez y se guarda en el secret store del productor.
+- Cada productor tiene sus propios scopes, actividad, rotación y revocación.
+- No comparta una API key entre aplicaciones ni almacene un JWT humano en un servicio backend.
+- Revocar o rotar un productor no invalida las sesiones humanas ni las demás integraciones de la empresa.
+
+Scopes disponibles:
+
+| Scope | Uso |
+|---|---|
+| `DOCUMENT_INGEST` | Publicar por `POST /documents/ingest` |
+| `DOCUMENT_READ` | Consultar estado, XML, CDR y PDF del mismo tenant |
+| `DOCUMENT_EMIT` | Emisión síncrona; reservar para compatibilidad controlada |
+
+Un Supervisor puede consultar estado y actividad. Sólo Admin/Root puede crear, rotar, activar o revocar credenciales.
+
 ## Ruta recomendada
 
 Las aplicaciones que originan un volumen sostenido de comprobantes deben usar la ingestión asíncrona:
@@ -35,7 +54,7 @@ GET /carabo/api/documents/external/venta-2026-00018452
 X-Api-Key: <api-key de la empresa>
 ```
 
-También puede configurar un webhook para recibir el resultado. Hasta que exista outbox persistente, la consulta por `externalId` es el mecanismo de conciliación autoritativo.
+También puede configurar un webhook para recibir el resultado. El outbox conserva y reintenta las entregas; la consulta por `externalId` continúa siendo el mecanismo de conciliación autoritativo.
 
 ## Semántica de reintentos
 
@@ -81,7 +100,6 @@ La puerta de selección y su Definition of Done están en [`ose-provider-selecti
 
 - Prueba E2E con credenciales SUNAT beta y certificado del tenant piloto.
 - Adaptador y contrato del OSE seleccionado.
-- Outbox persistente para webhooks y eventos.
 - Pruebas de RabbitMQ con reentrega, DLQ y caída del broker.
 - Pruebas de carga para acordar tasa, latencia, concurrencia y límites por tenant.
 
