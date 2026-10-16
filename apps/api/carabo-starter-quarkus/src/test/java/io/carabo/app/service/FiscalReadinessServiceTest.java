@@ -54,6 +54,7 @@ class FiscalReadinessServiceTest {
     private FiscalReadinessService service() {
         FiscalReadinessService service = new FiscalReadinessService();
         service.certsBasePath = certificates.toString();
+        service.fiscalClock = new FiscalClock("America/Lima");
         service.secretResolver = new SecretResolver() {
             @Override
             public String resolve(String valueOrReference) {
