@@ -21,20 +21,15 @@ Poner en producción un servicio multitenant de facturación electrónica para P
 
 El repositorio contiene una base funcional amplia: backend Quarkus modular, frontend Angular, modelo de datos, generación UBL, firma XML, clientes SUNAT/OSE, GRE, procesamiento por RabbitMQ, almacenamiento, reportes y despliegue con Docker. Sin embargo, todavía no debe considerarse listo para producción.
 
-Hallazgos principales:
+Estado técnico actual y brechas principales:
 
-- No existen pruebas automatizadas de backend ni frontend.
-- La compilación backend fue validada con Java 21 y Gradle 8.14; el build finaliza correctamente, aunque todavía no contiene pruebas automatizadas que demuestren el comportamiento fiscal e integraciones.
-- El filtro de API key autentica un tenant, pero los recursos aceptan `businessCode` e identificadores sin comprobar que pertenezcan al tenant autenticado. Esto permite acceso cruzado entre tenants.
-- Los endpoints de tenants retornan la entidad completa, que contiene credenciales SOL, contraseña de certificado, token OSE, secreto de webhook y API key.
-- La numeración usa `MAX(number) + 1`; bajo concurrencia puede producir correlativos duplicados.
-- El consumidor RabbitMQ captura la excepción y termina normalmente, sin estrategia explícita de ACK/NACK, reintentos ni cola de mensajes muertos.
-- Los callbacks son asíncronos pero no persistentes; no tienen política verificable de reintentos, timeout o auditoría de entrega.
-- Las migraciones son scripts manuales y no están integradas con Flyway/Liquibase ni verificadas automáticamente al desplegar.
-- El README y las rutas/configuración no están totalmente alineados: documentación `/api/...`, recursos backend `/documents`, frontend productivo `/api` y Nginx `/carabo/api/`.
-- El README declara documentos en “Producción”, pero no hay evidencia automatizada de homologación SUNAT, validación XSD/schematron, pruebas con certificados ni pruebas end-to-end.
-- Chile, Colombia y México están registrados como soportados, aunque sus estrategias declaran estado `STUB`.
-- No se observan métricas de negocio, trazas, alertas, respaldo probado ni procedimiento de recuperación.
+- Existe CI para backend, frontend y PostgreSQL; la suite cubre dominio fiscal base, XSD, firma, seguridad cross-tenant, migraciones e idempotencia. Aún faltan E2E de RabbitMQ con fallos reales y homologación fiscal externa.
+- La API deriva y valida el contexto tenant, usa DTOs sin secretos y protege administración/replay por roles; las pruebas adversariales deben ampliarse cuando aparezcan nuevos jobs.
+- La numeración atómica, retry durable, outbox, callbacks firmados y ledger asíncrono están implementados. Su resiliencia completa todavía debe demostrarse con caídas inducidas.
+- Flyway V1–V8 administra el schema en CI/DEV y la custodia usa cifrado, checksum y rutas por tenant; faltan destino externo de backup y RPO/RTO aprobados.
+- SUNAT dispone de runner E2E preparado y OSE de contrato genérico con simulador; credenciales beta, proveedor real y homologaciones siguen siendo dependencias externas.
+- Sólo Perú se expone como estrategia soportada. CL/CO/MX quedan bloqueados explícitamente hasta tener implementación y compliance propios.
+- Prometheus recoge métricas de Carabo, existen dashboard, alertas y runbook; OpenTelemetry está instrumentado pero su exportación permanece desactivada hasta desplegar un collector.
 
 ## Alcance recomendado para la primera salida
 
@@ -114,7 +109,7 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-001 | 0. Baseline | P0 | Preparar toolchain reproducible: Java 21, wrapper ejecutable, Node 22, npm lockfile y comandos únicos de build/test | Build local y CI reproducibles | Ninguna | DevOps + Backend | 1–2 d | Backend y frontend compilan desde cero en CI | 🟢 CI verde |
 | CAR-002 | 0. Baseline | P0 | Crear pipeline CI con compilación, pruebas, análisis estático, escaneo de dependencias e imágenes | Workflow con controles obligatorios | CAR-001 | DevOps | 2–3 d | Un PR no puede integrarse con controles fallidos | 🟡 Tests y builds obligatorios; faltan análisis, escaneo y branch protection |
 | CAR-003 | 0. Baseline | P0 | Definir contrato OpenAPI real, prefijo de rutas y estrategia de versionado | OpenAPI versionado y rutas coherentes en API, UI, Kong, Nginx y README | CAR-001 | Arquitectura + Backend | 2 d | Prueba smoke confirma todas las rutas publicadas | 🟡 Rutas DEV verificadas; contrato no versionado |
-| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟢 Flyway V1–V7; migración incremental y PostgreSQL real comprobados en CI/DEV |
+| CAR-004 | 0. Baseline | P1 | Integrar migraciones con Flyway o Liquibase | Migraciones automáticas, idempotentes y auditables | CAR-001 | Backend + DBA | 2–3 d | Base vacía y actualización desde versión anterior pasan en CI | 🟢 Flyway V1–V8; migración incremental y PostgreSQL real comprobados en CI/DEV |
 | CAR-005 | 1. Seguridad | P0 | Aplicar autorización por tenant en todos los recursos y servicios | Tenant derivado de la API key; consultas por ID y listados siempre filtrados | CAR-003 | Backend + Seguridad | 3–5 d | Pruebas demuestran que una API key nunca accede a otro tenant | 🟢 CI con dos tenants prueba lista, detalle, externalId, XML, CDR y retry cruzados; revisar alcance de jobs al añadirlos |
 | CAR-006 | 1. Seguridad | P0 | Separar DTOs de administración y ocultar secretos | Respuestas sin SOL password, certificado password, OSE token, webhook secret ni API key | CAR-005 | Backend | 2–3 d | Tests de contrato verifican que ningún secreto se serializa | 🟢 DTO seguro, test estructural y prueba HTTP DEV sin secretos |
 | CAR-007 | 1. Seguridad | P0 | Definir rol administrativo distinto de la API key de tenant | Endpoints de alta/listado/edición de tenants restringidos | CAR-005 | Arquitectura + Seguridad | 3–5 d | Tenant común no puede administrar tenants | 🟡 JWT/JWKS y roles Carabo desplegados; smoke anónimo/API key pasa, falta sesión humana E2E |
@@ -127,21 +122,21 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-014 | 2. Núcleo fiscal | P0 | Completar estados y transiciones del documento | Máquina de estados explícita e idempotente | CAR-011 | Backend | 3–4 d | No existen regresiones de estado y cada transición queda auditada | 🟢 Política persistida de backoff, límite, estado terminal, intento anterior/siguiente y reintento manual/automático; faltan pruebas de resiliencia |
 | CAR-015 | 2. Núcleo fiscal | P1 | Completar RA/RC y consulta de tickets | Flujo asíncrono completo hasta CDR y estado final | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Casos aceptado, observado, rechazado y error transitorio probados | 🟢 Operación durable, identificador atómico por tenant, ticket, consulta, CDR e historial UI; falta E2E SUNAT real |
 | CAR-016 | 2. Núcleo fiscal | P1 | Completar GRE 2.0 o mantenerla deshabilitada | Ciclo envío-ticket-consulta-CDR y validación GRE | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Homologación GRE superada; hasta entonces feature flag desactivado | 🟡 Envío, ticket persistido, polling, CDR/XML cifrados, PDF y monitor UI desplegados; falta homologación |
-| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟡 Ingesta HTTP asíncrona, ACK del broker, NACK de payload inválido, backpressure y DLQ configurados; falta prueba real de reentrega/DLQ |
+| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟢 Ingesta HTTP asíncrona, confirmación del broker, NACK, backpressure y DLQ; ledger durable por tenant, consola y replay autorizado desplegados; falta E2E real de caída/reentrega/DLQ |
 | CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | 🟡 Header/IDs únicos y advisory locks desplegados; falta prueba E2E simultánea REST/MQ |
 | CAR-019 | 3. Integración | P1 | Implementar outbox para eventos/callbacks | Notificaciones persistidas y desacopladas de la transacción fiscal | CAR-014, CAR-017 | Backend | 4–6 d | Caída del receptor no pierde eventos y permite replay seguro | 🟢 Outbox durable por tenant/documento/estado con deduplicación, reintentos y estado terminal desplegado |
 | CAR-020 | 3. Integración | P1 | Formalizar callbacks/webhooks | HMAC versionado, timestamp anti-replay, timeout, backoff y auditoría | CAR-009, CAR-019 | Backend | 3–4 d | Entrega, reintento, firma y replay están cubiertos por pruebas | 🟢 HMAC `v1`, timestamp, event ID, timeout, backoff y auditoría visible; faltan pruebas externas de replay |
 | CAR-021 | 3. Integración | P1 | Probar integración Tordo/Operation y Layout | Contratos, fixtures y pruebas de integración entre servicios | CAR-003, CAR-018, CAR-020 | Backend + Equipos Tordo | 4–6 d | Venta aprobada termina en documento, callback y PDF verificables | Pendiente |
-| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | 🟡 Contrato Carabo OSE Gateway aislado y probado localmente; proveedor comercial aún no seleccionado |
+| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | 🟡 Contrato Carabo OSE Gateway v1, preflight HTTPS/secret, selección por tenant, circuit breaker, simulador contractual y configuración UI desplegados; proveedor comercial aún no seleccionado |
 | CAR-023 | 4. Calidad | P0 | Pruebas unitarias de dominio, UBL, firma, validación y numeración | Suite rápida de regresión | CAR-010–CAR-014 | Backend QA | 6–10 d | Cobertura de reglas críticas y todos los casos fiscales definidos | 🟡 Casos dorados, XSD por tipo, XMLDSig/alteración/alias/vigencia, seguridad e idempotencia en CI; falta matriz fiscal completa |
 | CAR-024 | 4. Calidad | P0 | Pruebas de integración con PostgreSQL y RabbitMQ reales | Suite con contenedores para persistencia y mensajería | CAR-004, CAR-017 | Backend QA | 4–6 d | Pipeline reproduce fallos, reintentos e idempotencia | 🟡 PostgreSQL 16 y concurrencia integrados al CI; falta RabbitMQ/fallos/reintentos |
 | CAR-025 | 4. Calidad | P1 | Pruebas E2E de API y UI | Flujos de emisión, búsqueda, descarga, retry, reportes y configuración | CAR-021 | QA + Frontend | 5–8 d | Flujos críticos pasan en entorno efímero | 🟡 Smoke HTTP cross-tenant real en CI; runner SUNAT completo preparado; faltan UI y sandbox fiscal |
 | CAR-026 | 4. Calidad | P1 | Pruebas de carga, concurrencia y resiliencia | Límites operativos y SLO basados en evidencia | CAR-024 | QA + DevOps | 3–5 d | Se cumplen volumen diario, latencia y recuperación acordados | Pendiente |
 | CAR-027 | 4. Calidad | P1 | Homologación SUNAT con evidencias | Matriz de casos, XML, CDR y acta de resultado | CAR-012–CAR-016, CAR-023 | QA + Fiscal | 5–10 d | Todos los tipos en alcance están homologados | Pendiente |
-| CAR-028 | 5. Operación | P1 | Añadir observabilidad | Logs estructurados sin secretos, correlation ID, métricas, trazas y dashboards | CAR-017, CAR-019 | DevOps + Backend | 4–6 d | Alertas detectan cola detenida, tasa de rechazo, latencia y expiración de certificados | 🟡 Correlation ID/MDC, métricas Prometheus y consola operativa de callbacks desplegados; faltan dashboards, trazas y alertas |
+| CAR-028 | 5. Operación | P1 | Añadir observabilidad | Logs estructurados sin secretos, correlation ID, métricas, trazas y dashboards | CAR-017, CAR-019 | DevOps + Backend | 4–6 d | Alertas detectan cola detenida, tasa de rechazo, latencia y expiración de certificados | 🟢 Correlation ID/MDC, métricas técnicas y de negocio, scrape Prometheus, dashboard versionado, cuatro alertas y consola operativa desplegados; OpenTelemetry está preparado pero sin collector/exportación activa |
 | CAR-029 | 5. Operación | P1 | Definir almacenamiento, retención, cifrado y respaldo | Política y jobs de backup de BD/XML/CDR/PDF | CAR-008 | DevOps + Seguridad | 3–5 d | Restauración completa probada con RPO/RTO acordados | 🟡 AES-256-GCM/checksum/escritura atómica; backup/restore DEV 2026-10-16 conservó tenant e inventario; faltan RPO/RTO y retención aprobada |
 | CAR-030 | 5. Operación | P1 | Endurecer despliegue | Imágenes fijadas, usuario no root, health/readiness, recursos y rollback | CAR-002, CAR-028 | DevOps | 3–5 d | Despliegue y rollback ensayados sin pérdida de documentos | 🟡 Imágenes CI y health DEV |
-| CAR-031 | 5. Operación | P1 | Crear runbooks y soporte | Procedimientos para caída SUNAT/OSE, DLQ, certificados, reenvíos y recuperación | CAR-027–CAR-030 | Operaciones | 2–4 d | Guardia puede resolver simulacros usando solo el runbook | Pendiente |
+| CAR-031 | 5. Operación | P1 | Crear runbooks y soporte | Procedimientos para caída SUNAT/OSE, DLQ, certificados, reenvíos y recuperación | CAR-027–CAR-030 | Operaciones | 2–4 d | Guardia puede resolver simulacros usando solo el runbook | 🟡 Runbook versionado para API, DLQ/replay, webhooks, SUNAT/OSE, certificados y restore; falta ejecutar y aprobar simulacros con Operaciones |
 | CAR-032 | 6. Salida | P1 | Piloto controlado con un tenant y series de prueba | Operación paralela, monitoreo y conciliación diaria | CAR-025–CAR-031 | Producto + Operaciones | 5–10 d | Cero pérdida/duplicidad y conciliación 100 % durante el piloto | Pendiente |
 | CAR-033 | 6. Salida | P1 | Go-live progresivo | Activación por tenant con feature flags y plan de reversa | CAR-032 | Producto + Operaciones | 2–5 d | Checklist aprobado y SLO estable durante ventana acordada | Pendiente |
 | CAR-034 | 7. Evolución | P3 | Implementar países adicionales como proyectos independientes | Compliance, modelo, firma, transporte y homologación por país | CAR-033 | Producto + Arquitectura | Por estimar | Ningún país se declara soportado sin homologación propia | Pendiente |
@@ -211,16 +206,17 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 
 | Evidencia | Resultado |
 |---|---|
-| GitHub Actions Carabo `38915938962` | Tests API/UI/PostgreSQL y construcción de imágenes API/UI completados; sólo falló el dispatch por ausencia de `PLATFORM_DEPLOY_TOKEN` |
-| Commit Carabo desplegado | `8aef2c3e10b2` en `develop`; versión `0.2.0-develop.8aef2c3e10b2` |
+| GitHub Actions Carabo `38938528836` | Tests API/UI/PostgreSQL y construcción de imágenes API/UI completados; sólo falló el dispatch por ausencia de `PLATFORM_DEPLOY_TOKEN` |
+| Commit Carabo desplegado | `ea2fa0008011` en `develop`; versión `0.2.0-develop.ea2fa0008011` |
 | Despliegue | API/UI actualizadas manualmente en serie para proteger la RAM; ambos contenedores saludables |
 | API pública | `https://dev.tordo.io/carabo/api/health` → `200 OK` |
 | UI pública | `https://dev.tordo.io/carabo/ui/` → `200 OK` |
 | Contrato exploratorio | `/carabo/api/swagger/` y `/carabo/api/q/openapi` → `200` |
-| PostgreSQL/Flyway | DEV en V6; correlativos, secretos, firma y timestamps UTC `TIMESTAMPTZ` aplicados y validados en PostgreSQL 16 |
+| PostgreSQL/Flyway | DEV en V8; 9 migraciones validadas, incluido ledger asíncrono por tenant, sobre PostgreSQL 16 |
 | Seguridad HTTP | Sin credencial, documentos responde `401`; CI prueba accesos cross-tenant negativos en lista, detalle, externalId, XML, CDR y retry |
 | Layout | 5 plantillas `ELECTRONIC_*` cargadas |
 | RabbitMQ | Cola `carabo.document.emit`, un consumidor activo |
+| Observabilidad | Prometheus `up{job="carabo"}=1`; dashboard versionado y alertas `CaraboApiDown`, `CaraboDeadMessages`, `CaraboWebhookDead` y `CaraboFiscalErrorsHigh` cargadas y saludables |
 | Runtime | Quarkus 3.18.4, Java 21, perfil prod y broker conectado |
 
 ### Hallazgos bloqueantes
@@ -232,12 +228,12 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 | ASB-03 | La numeración usaba `MAX(number)+1` | Duplicados concurrentes | Crítica | Resuelto en DEV con contador atómico V3 y prueba 40/40 |
 | ASB-04 | Existe suite mínima obligatoria; faltan dominio, integración y compliance | Evidencia insuficiente | Alta | Mitigación parcial |
 | ASB-05 | Validación fiscal todavía no cubre toda la matriz SUNAT | XML inválido/rechazos | Alta | Mitigación parcial: XSD por tipo y reglas base/catálogos 07/09/10 pasan en CI |
-| ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica | Mitigación parcial: NACK/DLQ/backpressure configurados; falta prueba con caída y reentrega real |
+| ASB-06 | No se demostró todavía el ciclo real de reentrega y DLQ | Pérdida silenciosa | Crítica | Mitigación fuerte: NACK/DLQ/backpressure, auditoría durable, replay por tenant/rol y métricas desplegados; falta E2E con fallo real del broker/consumer |
 | ASB-07 | Callback no persistente | Notificaciones perdidas | Alta | Resuelto con outbox durable V7, backoff y auditoría por tenant |
-| ASB-08 | Migraciones del schema Carabo administradas por Flyway V1–V7 | Drift y despliegue no reproducible | Alta | Resuelto en CI/DEV |
+| ASB-08 | Migraciones del schema Carabo administradas por Flyway V1–V8 | Drift y despliegue no reproducible | Alta | Resuelto en CI/DEV |
 | ASB-09 | Credenciales fiscales históricas continúan en BD hasta su migración a referencias `secret://` | Compromiso de tenant | Crítica | Mitigación parcial; API keys ya no se almacenan en claro |
 | ASB-10 | README ya distingue implementación de homologación/producción | Expectativa incorrecta | Alta | Resuelto |
-| ASB-11 | CL/CO/MX están registrados aunque sus estrategias son stubs | Falso soporte regional | Alta | Pendiente |
+| ASB-11 | CL/CO/MX tenían estrategias stub registradas como soportadas | Falso soporte regional | Alta | Resuelto: sólo PE se registra; alta/configuración rechaza países no homologados y las pruebas fijan esta puerta |
 | ASB-12 | El job de dispatch CI→Tordo.Platform falló después del build | Deploy manual | Alta | Pendiente |
 | ASB-13 | El entorno efectivo incorpora perfil, secretos, cifrado y servicios Carabo | Redeploy global o administración incompleta | Alta | Resuelto en DEV |
 
@@ -260,10 +256,10 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | Dimensión | Avance | Estado | Evidencia/falta principal |
 |---|---:|---|---|
 | Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
-| Fundación técnica DEV | 94% | 🟢 | CI con tests API/UI/PostgreSQL/RabbitMQ, imágenes, Flyway V7 y despliegue DEV verificado; dispatch automático sigue pendiente |
+| Fundación técnica DEV | 96% | 🟢 | CI con tests API/UI/PostgreSQL/RabbitMQ, imágenes, Flyway V8, métricas/alertas y despliegue DEV verificado; dispatch automático sigue pendiente |
 | Producto funcional integral | 71% | 🟡 | Flujos manuales, custodia, retry, lotes, GRE y outbox operables; faltan reglas fiscales completas y homologación |
 | MVP Perú | 76% | 🟢 | XSD, XMLDSig, transporte, reintentos y operación manual verificables; E2E beta y homologación bloquean |
-| Preparación productiva | 36% | 🟡 | Restore, métricas, correlación y auditoría DEV; faltan homologación, piloto, alertas, destino externo y runbooks aprobados |
+| Preparación productiva | 44% | 🟡 | Restore, métricas, correlación, dashboard, alertas, auditoría y runbook en DEV; faltan homologación, piloto, alert routing, destino externo y simulacros aprobados |
 | Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
 
 ### Matriz de capacidades
@@ -275,12 +271,12 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-003 | 75% | 🟡 Builder corregido y validado con XSD OASIS 2.1 para factura, boleta, NC y ND; reglas de serie, conciliación y catálogos de motivo | Completar catálogos/reglas SUNAT, gratuitos/anticipos y homologación | Verificable DEV/CI, no homologada |
 | FUN-004 | 78% | 🟡 RSA-SHA256 con verificación independiente, detección de alteración, alias explícito persistido, vigencia y parser anti-XXE | Validar cadena/revocación y certificar interoperabilidad con SUNAT/OSE | Verificable DEV/CI, no homologada |
 | FUN-005 | 68% | 🟡 Cliente SUNAT endurecido, CDR/errores, backoff durable y runner reproducible ingestión→RabbitMQ→worker→XML→firma→SUNAT→CDR→GET | Cargar credenciales/certificado beta, ejecutar E2E real y homologar | Desarrollo listo; validación externa pendiente |
-| FUN-006 | 45% | 🟡 Contrato Carabo OSE Gateway v1 probado y puerta de selección contrastada con el padrón oficial SUNAT | Contratar/seleccionar proveedor, implementar su adaptador y aprobar sandbox | No lista |
+| FUN-006 | 65% | 🟡 Contrato Carabo OSE Gateway v1, configuración segura por tenant, preflight HTTPS/secret, circuit breaker y simulador contractual implementados | Contratar/seleccionar proveedor, adaptar su contrato concreto y aprobar su sandbox | Desarrollo genérico verificable; integración externa pendiente |
 | FUN-007 | 82% | 🟢 Custodia por tenant con rutas endurecidas, AES-256-GCM, checksum SHA-256 y escritura atómica; backup/restore DEV ejecutado con manifiesto íntegro e inventario preservado | Acordar RPO/RTO, destino externo de backups y aprobar retención fiscal | Verificable CI/DEV |
 | FUN-008 | 90% | 🟢 Consulta, externalId, XML, CDR, PDF y retry ligados al contexto; descargas UI autenticadas y fixtures cross-tenant HTTP | Ampliar regresión a cada job futuro y UAT de navegador | Verificable CI/DEV |
 | FUN-009 | 65% | 🟡 Layout client para documentos/GRE y descargas PDF autenticadas desde UI | E2E Layout con fixtures y aprobación visual fiscal | Verificable DEV, no aprobada |
 | FUN-010 | 78% | 🟢 Backoff 1/5/15/60, timestamps persistidos, límite/FAILED y retry manual/automático | Pruebas de caída, carrera y matriz de errores SUNAT/OSE | Verificable CI/DEV |
-| FUN-011 | 58% | 🟡 Ingesta asíncrona externa, confirmación del broker, NACK, backpressure y DLQ configurados | E2E RabbitMQ de fallo, reentrega y DLQ; política de replay | No lista |
+| FUN-011 | 80% | 🟢 Ingesta externa, confirmación del broker, NACK/backpressure/DLQ, auditoría durable por tenant, métricas, consola y replay protegido por rol | E2E RabbitMQ de fallo, reentrega, poison message y DLQ; aprobar política operativa de replay | Verificable CI/DEV; resiliencia real pendiente |
 | FUN-012 | 85% | 🟢 Outbox durable, deduplicación, HMAC v1, timestamp/event ID anti-replay, SSRF, timeout, backoff, auditoría UI y replay manual | Pruebas E2E contra receptor caído y ataque de replay | Verificable CI/DEV |
 | FUN-013 | 78% | 🟢 RC/RA persistidos, correlativo atómico, ticket, consulta, CDR descargable, historial y mensajes UI | Casos reales SUNAT aceptado/observado/rechazado/timeout | Verificable CI/DEV, no homologada |
 | FUN-014 | 70% | 🟡 GRE UBL/firma/OAuth, ticket durable, polling automático/manual, CDR/XML cifrados, PDF y monitor UI | Validación XSD/reglas GRE, credenciales beta y homologación | Verificable DEV, no homologada |
@@ -288,8 +284,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-016 | 85% | 🟢 UI autenticada para emitir, consultar, descargar, reintentar, lotes, GRE, reportes y operación; versiones visibles | Capturas autenticadas y UAT | Lista para sesión manual condicionada a tenant |
 | FUN-017 | 65% | 🟡 Selector de empresa, roles y contexto humano en UI/API; vistas supervisor/admin separadas | E2E sesión humana adversarial cross-tenant | Verificable DEV |
 | FUN-018 | 70% | 🟡 JWT humano + API key máquina, contexto obligatorio y recursos/jobs/storage filtrados por tenant | Prueba adversarial MQ/jobs completa y smoke con sesión humana | Verificable CI/DEV parcial |
-| FUN-019 | 60% | 🟡 Health, correlation ID/MDC, métricas Prometheus y panel de entregas fallidas/reintentos | Dashboards, tracing distribuido, alertas y runbooks aprobados | Verificable DEV |
-| FUN-020 | 5% | ⚪ Interfaces/stubs | Implementación y compliance por país | No lista |
+| FUN-019 | 82% | 🟢 Health, correlation ID/MDC, métricas de negocio, scrape Prometheus, dashboard, cuatro alertas, panel operativo y runbook versionados | Activar collector/exportación OpenTelemetry, alert routing y aprobar simulacros/runbooks | Verificable DEV |
+| FUN-020 | 20% | ⚪ Arquitectura de estrategias y puerta segura: únicamente PE se registra; CL/CO/MX se rechazan explícitamente y quedan sin falsa exposición | Implementación, reglas, firma, transporte, pruebas y homologación por cada país | No lista; riesgo de falso soporte cerrado |
 
 ### Checklist del MVP Perú
 
@@ -297,8 +293,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---:|---|---:|---|
 | 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
 | 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
-| 3 | Schema/migraciones | 98% | Flyway V1–V7 automático; UTC/TIMESTAMPTZ, outbox, retry y lotes verificados en PostgreSQL CI/DEV |
-| 4 | RabbitMQ conectado | 75% | Cola/consumer e ingesta externa activos; NACK/DLQ configurados, falta prueba de caída/reentrega |
+| 3 | Schema/migraciones | 98% | Flyway V1–V8 automático; UTC/TIMESTAMPTZ, outbox, retry, lotes y ledger asíncrono verificados en PostgreSQL CI/DEV |
+| 4 | RabbitMQ conectado | 82% | Cola/consumer e ingesta externa activos; NACK/DLQ, ledger y replay operables; falta E2E de caída/reentrega |
 | 5 | Tenant de prueba seguro | 55% | Tenant DEV, usuarios Columba y roles Carabo sembrados; falta E2E HTTP |
 | 6 | Correlativos/idempotencia | 75% | Correlativo atómico probado 40/40; claves únicas y locks desplegados; falta E2E concurrente REST/MQ |
 | 7 | Factura/boleta/NC/ND válidas | 72% | Los cuatro tipos pasan XSD OASIS 2.1 y reglas base; falta matriz fiscal/homologación SUNAT |
@@ -307,7 +303,7 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 10 | XML/CDR/PDF custodiados | 82% | AES-256-GCM, checksum y rutas seguras; backup/restore DEV ejecutado con hashes e inventario preservado |
 | 11 | Seguridad cross-tenant | 85% | Fixtures adversariales y smoke HTTP real en CI cubren lista, detalle, externalId, XML, CDR y retry |
 | 12 | Suite automática | 70% | Tests backend/UI/PostgreSQL/RabbitMQ, custodia, tiempo UTC/Lima y cross-tenant pasan; falta sandbox fiscal real y fallos del broker |
-| 13 | Observabilidad/backup/runbook | 62% | Backup/restore, métricas Prometheus, correlation ID y consola operativa DEV; faltan destino externo, alertas y RPO/RTO |
+| 13 | Observabilidad/backup/runbook | 82% | Backup/restore, métricas Prometheus, correlation ID, dashboard, alertas, consola y runbook en DEV; faltan destino externo, alert routing, tracing activo y RPO/RTO aprobados |
 | 14 | Homologación/piloto | 0% | No iniciados |
 
 ### Cola futura de validación con usuario
@@ -361,3 +357,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 1.8 | 2026-10-16 | Flyway V7, retry durable, outbox HMAC/anti-replay, RC/RA persistidos, GRE ticket/CDR/PDF, métricas/correlación y nuevas vistas operativas | CI inicial completo verde; imágenes y `0.2.0-develop.87146869220a` desplegadas en DEV; homologaciones externas pendientes |
 | 1.9 | 2026-10-16 | Replay manual de callbacks/webhooks y descarga autenticada del CDR de RC/RA desde las vistas operativas | CI completo verde e imagen `0.2.0-develop.b3904e15980d` desplegada en DEV |
 | 2.0 | 2026-10-16 | Reporte vacío libera siempre el estado de carga y comunica explícitamente que no existen documentos en el periodo | UI `5bed106` compilada en CI y desplegada en DEV |
+| 2.1 | 2026-10-16 | Ledger/replay RabbitMQ por tenant, métricas de negocio, dashboard/alertas/runbook, OpenTelemetry preparado, OSE genérico con circuit breaker/simulador y bloqueo seguro de países stub | CI `38938528836` con verificaciones e imágenes verdes; `0.2.0-develop.ea2fa0008011` desplegada en DEV; quedan E2E/homologaciones externas y dispatch automático |
