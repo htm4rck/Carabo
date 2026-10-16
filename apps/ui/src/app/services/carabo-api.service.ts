@@ -56,6 +56,7 @@ export interface TenantConfig {
   solUser?: string;
   solPassword?: string;
   oseBaseUrl: string;
+  oseApiToken?: string;
   certificateFile: string;
   certificateValidFrom: string;
   certificateValidTo: string;
