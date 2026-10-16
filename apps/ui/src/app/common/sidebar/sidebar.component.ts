@@ -11,22 +11,25 @@ import { AuthService } from '../../auth/auth.service';
   standalone: true,
   imports: [RouterLink, RouterLinkActive, NgClass, NgScrollbarModule, MatExpansionModule],
   template: `
-    <div class="sidebar-area bg-white box-shadow" [ngClass]="{'active': isToggled}">
+    <nav
+      id="carabo-navigation"
+      class="sidebar-area bg-white box-shadow"
+      [ngClass]="{'collapsed': desktopCollapsed, 'open': mobileOpen}"
+      aria-label="Navegación principal"
+    >
       <div class="logo">
         <a routerLink="/" class="d-flex align-items-center" aria-label="Carabo, ir al centro fiscal">
           <img class="brand-icon" src="assets/images/icono.png" alt="">
           <span class="brand-copy"><b>CARABO</b><small>Facturación electrónica</small></span>
         </a>
+        <button type="button" class="drawer-close" (click)="closeMobile()" aria-label="Cerrar menú principal">
+          <i class="ri-close-line" aria-hidden="true"></i>
+        </button>
       </div>
-      <div class="burger-menu" (click)="toggle()" [ngClass]="{'active': isToggled}">
-        <span class="top-bar"></span>
-        <span class="middle-bar"></span>
-        <span class="bottom-bar"></span>
-      </div>
-      <ng-scrollbar visibility="hover" style="height: 100vh;">
+      <ng-scrollbar visibility="hover" style="height: 100dvh;">
         <div class="sidebar-inner">
           <div class="sidebar-menu">
-            <mat-accordion>
+            <mat-accordion (click)="closeAfterNavigation($event)">
               <span class="sub-title">OPERACIÓN</span>
               <a routerLink="/" class="sidebar-menu-link" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
                 <i class="ri-dashboard-line"></i>
@@ -67,16 +70,25 @@ import { AuthService } from '../../auth/auth.service';
           </div>
         </div>
       </ng-scrollbar>
-    </div>
+    </nav>
   `,
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent {
-  isToggled = false;
+  desktopCollapsed = false;
+  mobileOpen = false;
 
   constructor(private toggleService: ToggleService, public auth: AuthService) {
-    this.toggleService.isToggled$.subscribe(v => this.isToggled = v);
+    this.toggleService.desktopCollapsed$.subscribe(value => this.desktopCollapsed = value);
+    this.toggleService.mobileOpen$.subscribe(value => this.mobileOpen = value);
   }
 
-  toggle() { this.toggleService.toggle(); }
+  closeMobile(): void {
+    this.toggleService.closeMobile();
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>('.header-area .burger-menu')?.focus());
+  }
+
+  closeAfterNavigation(event: Event): void {
+    if ((event.target as HTMLElement).closest('a.sidebar-menu-link')) this.toggleService.closeMobile();
+  }
 }

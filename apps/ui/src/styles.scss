@@ -53,6 +53,10 @@ body {
   };
 }
 
+@media (max-width: 1199px) {
+  body.nav-drawer-open { overflow: hidden; }
+}
+
 button, input, select, textarea { font-family: var(--fontFamily); }
 :focus-visible { outline: 3px solid rgba(128,239,128,.65); outline-offset: 2px; }
 ::selection { color: var(--forestColor); background: var(--signalColor); }

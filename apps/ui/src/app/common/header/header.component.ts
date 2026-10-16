@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, HostListener } from '@angular/core';
 import { ToggleService } from './toggle.service';
 import { NgClass } from '@angular/common';
 import { AuthService } from '../../auth/auth.service';
@@ -9,14 +9,22 @@ import { BuildInfoService } from '../../services/build-info.service';
   standalone: true,
   imports: [NgClass],
   template: `
-    <header class="header-area bg-white border-bottom-radius box-shadow" [ngClass]="{'active': isToggled}">
+    <header class="header-area bg-white border-bottom-radius box-shadow" [ngClass]="{'active': desktopCollapsed}">
       <div class="d-md-flex align-items-center justify-content-space-between">
         <div class="header-left-side d-flex align-items-center">
-          <div class="burger-menu" (click)="toggle()" [ngClass]="{'active': isToggled}">
+          <button
+            type="button"
+            class="burger-menu"
+            (click)="toggleNavigation()"
+            [ngClass]="{'active': isMobile ? mobileOpen : desktopCollapsed}"
+            [attr.aria-expanded]="isMobile ? mobileOpen : !desktopCollapsed"
+            aria-controls="carabo-navigation"
+            [attr.aria-label]="navigationLabel"
+          >
             <span class="top-bar"></span>
             <span class="middle-bar"></span>
             <span class="bottom-bar"></span>
-          </div>
+          </button>
           <div class="context-title"><span>Operación fiscal</span><small>{{ activeRole }}</small></div>
         </div>
         <ul class="header-right-side d-flex align-items-center mt-0 mb-0">
@@ -44,14 +52,35 @@ import { BuildInfoService } from '../../services/build-info.service';
   styleUrls: ['./header.component.scss']
 })
 export class HeaderComponent {
-  isToggled = false;
+  desktopCollapsed = false;
+  mobileOpen = false;
+  isMobile = window.innerWidth < 1200;
   currentDate = new Date();
 
   constructor(private toggleService: ToggleService, public auth: AuthService, public buildInfo: BuildInfoService) {
-    this.toggleService.isToggled$.subscribe(v => this.isToggled = v);
+    this.toggleService.desktopCollapsed$.subscribe(value => this.desktopCollapsed = value);
+    this.toggleService.mobileOpen$.subscribe(value => this.mobileOpen = value);
   }
 
-  toggle() { this.toggleService.toggle(); }
+  @HostListener('window:resize')
+  onViewportChange(): void {
+    const wasMobile = this.isMobile;
+    this.isMobile = window.innerWidth < 1200;
+    if (wasMobile && !this.isMobile) this.toggleService.closeMobile();
+  }
+
+  toggleNavigation(): void {
+    if (this.isMobile) {
+      this.toggleService.toggleMobile();
+      return;
+    }
+    this.toggleService.toggleDesktop();
+  }
+
+  get navigationLabel(): string {
+    if (this.isMobile) return this.mobileOpen ? 'Cerrar menú principal' : 'Abrir menú principal';
+    return this.desktopCollapsed ? 'Expandir menú principal' : 'Contraer menú principal';
+  }
   shortCommit(commit: string): string { return commit && commit !== 'local' ? commit.slice(0, 7) : (commit || 'sin revisión'); }
 
   get displayName(): string {
