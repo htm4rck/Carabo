@@ -124,6 +124,9 @@ public class Document {
     @Column(name = "ref_reason", length = 500)
     private String refReason;
 
+    @Column(name = "ref_reason_code", length = 2)
+    private String refReasonCode;
+
     // Callback
     @Column(name = "callback_url", length = 500)
     private String callbackUrl;
@@ -229,6 +232,8 @@ public class Document {
     public void setRefNumber(Integer refNumber) { this.refNumber = refNumber; }
     public String getRefReason() { return refReason; }
     public void setRefReason(String refReason) { this.refReason = refReason; }
+    public String getRefReasonCode() { return refReasonCode; }
+    public void setRefReasonCode(String refReasonCode) { this.refReasonCode = refReasonCode; }
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
     public String getExternalId() { return externalId; }

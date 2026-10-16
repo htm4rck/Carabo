@@ -291,7 +291,8 @@ public class DocumentService {
     private XmlSigner createSigner(Tenant tenant) {
         try {
             String certPath = Path.of(certsBasePath, tenant.getCertificateFile()).toString();
-            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()));
+            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()),
+                tenant.getCertificateAlias());
         } catch (Exception e) {
             throw new RuntimeException("Cannot load certificate for tenant " + tenant.getBusinessCode(), e);
         }
@@ -418,6 +419,7 @@ public class DocumentService {
             doc.setRefDocType(req.getReference().getDocType());
             doc.setRefSeries(req.getReference().getSeries());
             doc.setRefNumber(req.getReference().getNumber());
+            doc.setRefReasonCode(req.getReference().getReasonCode());
             doc.setRefReason(req.getReference().getReason());
         }
 

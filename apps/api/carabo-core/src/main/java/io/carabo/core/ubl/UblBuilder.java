@@ -15,6 +15,8 @@ import java.time.format.DateTimeFormatter;
  */
 public class UblBuilder {
 
+    private static final UblSchemaValidator SCHEMA_VALIDATOR = new UblSchemaValidator();
+
     private static final String UBL_NS = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2";
     private static final String CN_NS = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2";
     private static final String DN_NS = "urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2";
@@ -27,12 +29,14 @@ public class UblBuilder {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
 
     public String build(Document doc) {
-        return switch (doc.getDocType()) {
+        String xml = switch (doc.getDocType()) {
             case INVOICE, RECEIPT -> buildInvoice(doc);
             case CREDIT_NOTE -> buildCreditNote(doc);
             case DEBIT_NOTE -> buildDebitNote(doc);
             default -> throw new IllegalArgumentException("Unsupported doc type for UBL: " + doc.getDocType());
         };
+        SCHEMA_VALIDATOR.validate(xml, doc.getDocType());
+        return xml;
     }
 
     private String buildInvoice(Document doc) {
@@ -53,7 +57,7 @@ public class UblBuilder {
         appendSupplier(xml, doc);
         appendCustomer(xml, doc);
         appendTaxTotal(xml, doc);
-        appendLegalMonetaryTotal(xml, doc);
+        appendMonetaryTotal(xml, doc, "LegalMonetaryTotal");
         appendLines(xml, doc, "InvoiceLine");
 
         xml.append("</Invoice>");
@@ -77,7 +81,7 @@ public class UblBuilder {
         xml.append("  <cac:DiscrepancyResponse>\n");
         xml.append("    <cbc:ReferenceID>").append(doc.getRefSeries()).append("-")
             .append(String.format("%08d", doc.getRefNumber())).append("</cbc:ReferenceID>\n");
-        xml.append("    <cbc:ResponseCode>01</cbc:ResponseCode>\n"); // 01=Anulación
+        xml.append("    <cbc:ResponseCode>").append(doc.getRefReasonCode()).append("</cbc:ResponseCode>\n");
         xml.append("    <cbc:Description>").append(escapeXml(doc.getRefReason())).append("</cbc:Description>\n");
         xml.append("  </cac:DiscrepancyResponse>\n");
 
@@ -94,7 +98,7 @@ public class UblBuilder {
         appendSupplier(xml, doc);
         appendCustomer(xml, doc);
         appendTaxTotal(xml, doc);
-        appendLegalMonetaryTotal(xml, doc);
+        appendMonetaryTotal(xml, doc, "LegalMonetaryTotal");
         appendLines(xml, doc, "CreditNoteLine");
 
         xml.append("</CreditNote>");
@@ -118,7 +122,7 @@ public class UblBuilder {
         xml.append("  <cac:DiscrepancyResponse>\n");
         xml.append("    <cbc:ReferenceID>").append(doc.getRefSeries()).append("-")
             .append(String.format("%08d", doc.getRefNumber())).append("</cbc:ReferenceID>\n");
-        xml.append("    <cbc:ResponseCode>01</cbc:ResponseCode>\n");
+        xml.append("    <cbc:ResponseCode>").append(doc.getRefReasonCode()).append("</cbc:ResponseCode>\n");
         xml.append("    <cbc:Description>").append(escapeXml(doc.getRefReason())).append("</cbc:Description>\n");
         xml.append("  </cac:DiscrepancyResponse>\n");
 
@@ -135,7 +139,7 @@ public class UblBuilder {
         appendSupplier(xml, doc);
         appendCustomer(xml, doc);
         appendTaxTotal(xml, doc);
-        appendLegalMonetaryTotal(xml, doc);
+        appendMonetaryTotal(xml, doc, "RequestedMonetaryTotal");
         appendLines(xml, doc, "DebitNoteLine");
 
         xml.append("</DebitNote>");
@@ -149,6 +153,7 @@ public class UblBuilder {
         xml.append("  xmlns:cbc=\"").append(CBC).append("\"\n");
         xml.append("  xmlns:ext=\"").append(EXT).append("\"\n");
         xml.append("  xmlns:ds=\"").append(DS).append("\"\n");
+        xml.append("  xmlns:carabo=\"urn:carabo:ubl:placeholder\"\n");
         xml.append("  xmlns:sac=\"").append(SUNAT_NS).append("\"");
     }
 
@@ -156,7 +161,7 @@ public class UblBuilder {
         xml.append("  <ext:UBLExtensions>\n");
         xml.append("    <ext:UBLExtension>\n");
         xml.append("      <ext:ExtensionContent>\n");
-        xml.append("        <!-- Signature placeholder -->\n");
+        xml.append("        <carabo:SignaturePlaceholder/>\n");
         xml.append("      </ext:ExtensionContent>\n");
         xml.append("    </ext:UBLExtension>\n");
         xml.append("  </ext:UBLExtensions>\n");
@@ -274,8 +279,8 @@ public class UblBuilder {
         xml.append("  </cac:TaxTotal>\n");
     }
 
-    private void appendLegalMonetaryTotal(StringBuilder xml, Document doc) {
-        xml.append("  <cac:LegalMonetaryTotal>\n");
+    private void appendMonetaryTotal(StringBuilder xml, Document doc, String element) {
+        xml.append("  <cac:").append(element).append(">\n");
         xml.append("    <cbc:LineExtensionAmount currencyID=\"").append(doc.getCurrency()).append("\">")
             .append(doc.getTaxBase()).append("</cbc:LineExtensionAmount>\n");
         xml.append("    <cbc:TaxInclusiveAmount currencyID=\"").append(doc.getCurrency()).append("\">")
@@ -286,7 +291,7 @@ public class UblBuilder {
         }
         xml.append("    <cbc:PayableAmount currencyID=\"").append(doc.getCurrency()).append("\">")
             .append(doc.getTotal()).append("</cbc:PayableAmount>\n");
-        xml.append("  </cac:LegalMonetaryTotal>\n");
+        xml.append("  </cac:").append(element).append(">\n");
     }
 
     private void appendLines(StringBuilder xml, Document doc, String lineTag) {
@@ -294,8 +299,14 @@ public class UblBuilder {
             var profile = PeruTaxRules.profile(line.getAffectationCode());
             xml.append("  <cac:").append(lineTag).append(">\n");
             xml.append("    <cbc:ID>").append(line.getLineNumber()).append("</cbc:ID>\n");
-            xml.append("    <cbc:InvoicedQuantity unitCode=\"").append(line.getUnitCode()).append("\">")
-                .append(line.getQuantity()).append("</cbc:InvoicedQuantity>\n");
+            String quantityElement = switch (lineTag) {
+                case "CreditNoteLine" -> "CreditedQuantity";
+                case "DebitNoteLine" -> "DebitedQuantity";
+                default -> "InvoicedQuantity";
+            };
+            xml.append("    <cbc:").append(quantityElement).append(" unitCode=\"")
+                .append(line.getUnitCode()).append("\">").append(line.getQuantity())
+                .append("</cbc:").append(quantityElement).append(">\n");
             xml.append("    <cbc:LineExtensionAmount currencyID=\"").append(doc.getCurrency()).append("\">")
                 .append(line.getTaxBase()).append("</cbc:LineExtensionAmount>\n");
 

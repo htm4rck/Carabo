@@ -16,6 +16,11 @@ import java.util.List;
  */
 public class DocumentValidator {
 
+    private static final java.util.Set<String> CREDIT_NOTE_REASON_CODES = java.util.Set.of(
+        "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13");
+    private static final java.util.Set<String> DEBIT_NOTE_REASON_CODES = java.util.Set.of(
+        "01", "02", "03", "11", "12");
+
     public List<String> validate(Document doc, Tenant tenant) {
         List<String> errors = new ArrayList<>();
 
@@ -38,6 +43,9 @@ public class DocumentValidator {
         if (tenant.getCertificateFile() == null || tenant.getCertificateFile().isBlank()) {
             errors.add("Certificado digital no configurado");
         }
+        if (tenant.getCertificateValidFrom() != null && tenant.getCertificateValidFrom().isAfter(LocalDate.now())) {
+            errors.add("Certificado digital aún no vigente (válido desde " + tenant.getCertificateValidFrom() + ")");
+        }
         if (tenant.getCertificateValidTo() != null && tenant.getCertificateValidTo().isBefore(LocalDate.now())) {
             errors.add("Certificado digital vencido (válido hasta " + tenant.getCertificateValidTo() + ")");
         }
@@ -55,10 +63,16 @@ public class DocumentValidator {
         }
         if (doc.getCurrency() == null || doc.getCurrency().isBlank()) {
             errors.add("Moneda requerida");
+        } else if (!doc.getCurrency().matches("[A-Z]{3}")) {
+            errors.add("Moneda debe ser un código ISO 4217 de tres letras mayúsculas");
         }
-        // Validate series prefix matches doc type
+        // SUNAT electronic series have four alphanumeric characters and F/B family semantics.
         if (doc.getSeries() != null && !doc.getSeries().isBlank() && doc.getDocType() != null) {
-            String prefix = doc.getSeries().substring(0, 1).toUpperCase();
+            String normalized = doc.getSeries().toUpperCase();
+            if (!normalized.matches("[FB][A-Z0-9]{3}")) {
+                errors.add("Serie electrónica inválida: usa F/B y cuatro caracteres alfanuméricos");
+            }
+            String prefix = normalized.substring(0, 1);
             if (doc.getDocType() == DocumentType.INVOICE && !prefix.equals("F")) {
                 errors.add("Serie de factura debe iniciar con F");
             }
@@ -69,7 +83,7 @@ public class DocumentValidator {
     }
 
     private void validateIssuer(Document doc, List<String> errors) {
-        if (doc.getIssuerRuc() == null || doc.getIssuerRuc().length() != 11) {
+        if (doc.getIssuerRuc() == null || !doc.getIssuerRuc().matches("\\d{11}")) {
             errors.add("RUC del emisor debe tener 11 dígitos");
         }
         if (doc.getIssuerName() == null || doc.getIssuerName().isBlank()) {
@@ -121,6 +135,15 @@ public class DocumentValidator {
             if (line.getUnitPrice() == null || line.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
                 errors.add(prefix + "precio unitario inválido");
             }
+            if (line.getUnitCode() == null || line.getUnitCode().isBlank()) {
+                errors.add(prefix + "unidad de medida requerida");
+            }
+            if (line.getTaxBase() == null || line.getTaxBase().compareTo(BigDecimal.ZERO) < 0) {
+                errors.add(prefix + "base imponible inválida");
+            }
+            if (line.getIgvAmount() == null || line.getIgvAmount().compareTo(BigDecimal.ZERO) < 0) {
+                errors.add(prefix + "IGV inválido");
+            }
             var profile = PeruTaxRules.profile(line.getAffectationCode());
             if (profile == null) {
                 errors.add(prefix + "código de afectación IGV no soportado: " + line.getAffectationCode());
@@ -152,23 +175,67 @@ public class DocumentValidator {
                 errors.add("IGV no cuadra: esperado " + expectedIgv + ", recibido " + doc.getIgvAmount());
             }
         }
+        if (doc.getLines() != null && doc.getTaxBase() != null) {
+            BigDecimal expectedBase = doc.getLines().stream()
+                .map(DocumentLine::getTaxBase)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (doc.getTaxBase().subtract(expectedBase).abs().compareTo(new BigDecimal("0.02")) > 0) {
+                errors.add("Base imponible no cuadra: esperado " + expectedBase + ", recibido " + doc.getTaxBase());
+            }
+        }
+        if (doc.getTotal() != null && doc.getTaxBase() != null && doc.getIgvAmount() != null) {
+            BigDecimal expectedTotal = doc.getTaxBase().add(doc.getIgvAmount())
+                .add(valueOrZero(doc.getIscAmount())).add(valueOrZero(doc.getOtherTaxes()))
+                .subtract(valueOrZero(doc.getDiscountTotal()));
+            if (doc.getTotal().subtract(expectedTotal).abs().compareTo(new BigDecimal("0.02")) > 0) {
+                errors.add("Total no cuadra: esperado " + expectedTotal + ", recibido " + doc.getTotal());
+            }
+        }
     }
 
     private void validateReference(Document doc, List<String> errors) {
         if (doc.getDocType() == DocumentType.CREDIT_NOTE || doc.getDocType() == DocumentType.DEBIT_NOTE) {
             if (doc.getRefDocType() == null || doc.getRefDocType().isBlank()) {
                 errors.add("Nota requiere tipo de documento de referencia");
+            } else if (!java.util.Set.of("01", "03").contains(doc.getRefDocType())) {
+                errors.add("Nota solo puede referenciar factura (01) o boleta (03)");
             }
             if (doc.getRefSeries() == null || doc.getRefSeries().isBlank()) {
                 errors.add("Nota requiere serie del documento de referencia");
             }
-            if (doc.getRefNumber() == null) {
+            if (doc.getRefNumber() == null || doc.getRefNumber() <= 0) {
                 errors.add("Nota requiere número del documento de referencia");
             }
             if (doc.getRefReason() == null || doc.getRefReason().isBlank()) {
                 errors.add("Nota requiere motivo");
             }
+            java.util.Set<String> acceptedCodes = doc.getDocType() == DocumentType.CREDIT_NOTE
+                ? CREDIT_NOTE_REASON_CODES : DEBIT_NOTE_REASON_CODES;
+            if (doc.getRefReasonCode() == null || !acceptedCodes.contains(doc.getRefReasonCode())) {
+                errors.add("Código de motivo inválido para "
+                    + (doc.getDocType() == DocumentType.CREDIT_NOTE ? "catálogo SUNAT 09" : "catálogo SUNAT 10"));
+            }
+            if (doc.getRefSeries() != null && !doc.getRefSeries().matches("[FB][A-Z0-9]{3}")) {
+                errors.add("Serie del documento de referencia inválida");
+            }
+            if (doc.getRefDocType() != null && doc.getRefSeries() != null && !doc.getRefSeries().isBlank()) {
+                if ("01".equals(doc.getRefDocType()) && !doc.getRefSeries().startsWith("F")) {
+                    errors.add("La factura referenciada debe tener serie F");
+                }
+                if ("03".equals(doc.getRefDocType()) && !doc.getRefSeries().startsWith("B")) {
+                    errors.add("La boleta referenciada debe tener serie B");
+                }
+                if (doc.getSeries() != null && !doc.getSeries().isBlank()
+                    && doc.getSeries().charAt(0) != doc.getRefSeries().charAt(0)) {
+                    errors.add("La nota y el comprobante referenciado deben pertenecer a la misma familia F/B");
+                }
+            }
         }
+    }
+
+    private BigDecimal valueOrZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private void validateDateRange(Document doc, List<String> errors) {

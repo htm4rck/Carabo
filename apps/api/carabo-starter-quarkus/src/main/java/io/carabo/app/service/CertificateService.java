@@ -16,6 +16,7 @@ import java.security.cert.X509Certificate;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Enumeration;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -33,7 +34,8 @@ public class CertificateService {
                                                 long size, String passwordReference) {
         validateRequest(originalFileName, upload, size, passwordReference);
         String password = secretResolver.resolve(passwordReference);
-        X509Certificate certificate = readSigningCertificate(upload, password);
+        SigningMaterial signingMaterial = readSigningCertificate(upload, password);
+        X509Certificate certificate = signingMaterial.certificate();
 
         try {
             certificate.checkValidity();
@@ -65,7 +67,7 @@ public class CertificateService {
 
         LocalDate validFrom = certificate.getNotBefore().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate validTo = certificate.getNotAfter().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
-        return new CertificateMetadata(storedFileName, passwordReference, validFrom, validTo);
+        return new CertificateMetadata(storedFileName, passwordReference, signingMaterial.alias(), validFrom, validTo);
     }
 
     private void validateRequest(String originalFileName, Path upload, long size, String passwordReference) {
@@ -84,20 +86,27 @@ public class CertificateService {
         }
     }
 
-    private X509Certificate readSigningCertificate(Path upload, String password) {
+    private SigningMaterial readSigningCertificate(Path upload, String password) {
         try (InputStream input = Files.newInputStream(upload)) {
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
             char[] passwordChars = password.toCharArray();
             keyStore.load(input, passwordChars);
             Enumeration<String> aliases = keyStore.aliases();
+            var candidates = new ArrayList<SigningMaterial>();
             while (aliases.hasMoreElements()) {
                 String alias = aliases.nextElement();
                 if (keyStore.isKeyEntry(alias) && keyStore.getKey(alias, passwordChars) != null
                     && keyStore.getCertificate(alias) instanceof X509Certificate certificate) {
-                    return certificate;
+                    candidates.add(new SigningMaterial(alias, certificate));
                 }
             }
-            throw new IllegalArgumentException("El PKCS#12 no contiene una clave privada y certificado válidos");
+            if (candidates.isEmpty()) {
+                throw new IllegalArgumentException("El PKCS#12 no contiene una clave privada y certificado válidos");
+            }
+            if (candidates.size() > 1) {
+                throw new IllegalArgumentException("El PKCS#12 contiene múltiples claves privadas; carga un archivo con una sola identidad de firma");
+            }
+            return candidates.get(0);
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
@@ -105,6 +114,8 @@ public class CertificateService {
         }
     }
 
-    public record CertificateMetadata(String fileName, String passwordReference,
+    private record SigningMaterial(String alias, X509Certificate certificate) {}
+
+    public record CertificateMetadata(String fileName, String passwordReference, String alias,
                                       LocalDate validFrom, LocalDate validTo) {}
 }

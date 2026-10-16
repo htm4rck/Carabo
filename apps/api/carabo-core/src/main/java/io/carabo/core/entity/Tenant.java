@@ -70,6 +70,9 @@ public class Tenant {
     @Column(name = "certificate_valid_to")
     private java.time.LocalDate certificateValidTo;
 
+    @Column(name = "certificate_alias", length = 200)
+    private String certificateAlias;
+
     // Environment
     @Column(name = "environment", length = 20)
     private String environment = "BETA"; // BETA, HOMOLOGATION, PRODUCTION
@@ -174,6 +177,8 @@ public class Tenant {
     public void setCertificateValidFrom(java.time.LocalDate certificateValidFrom) { this.certificateValidFrom = certificateValidFrom; }
     public java.time.LocalDate getCertificateValidTo() { return certificateValidTo; }
     public void setCertificateValidTo(java.time.LocalDate certificateValidTo) { this.certificateValidTo = certificateValidTo; }
+    public String getCertificateAlias() { return certificateAlias; }
+    public void setCertificateAlias(String certificateAlias) { this.certificateAlias = certificateAlias; }
     public String getEnvironment() { return environment; }
     public void setEnvironment(String environment) { this.environment = environment; }
     public String getWebhookUrl() { return webhookUrl; }

@@ -217,7 +217,8 @@ public class BatchService {
     private XmlSigner createSigner(Tenant tenant) {
         try {
             String certPath = Path.of(certsBasePath, tenant.getCertificateFile()).toString();
-            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()));
+            return new XmlSigner(new FileInputStream(certPath), secretResolver.resolve(tenant.getCertificatePassword()),
+                tenant.getCertificateAlias());
         } catch (Exception e) {
             throw new RuntimeException("Cannot load certificate for " + tenant.getBusinessCode(), e);
         }

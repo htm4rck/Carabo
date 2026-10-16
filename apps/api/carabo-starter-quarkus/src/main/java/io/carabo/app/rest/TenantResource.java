@@ -176,6 +176,7 @@ public class TenantResource {
                 passwordReference);
             tenant.setCertificateFile(metadata.fileName());
             tenant.setCertificatePassword(metadata.passwordReference());
+            tenant.setCertificateAlias(metadata.alias());
             tenant.setCertificateValidFrom(metadata.validFrom());
             tenant.setCertificateValidTo(metadata.validTo());
             em.merge(tenant);
@@ -252,6 +253,7 @@ public class TenantResource {
         response.certificateFile = tenant.getCertificateFile();
         response.certificateValidFrom = tenant.getCertificateValidFrom();
         response.certificateValidTo = tenant.getCertificateValidTo();
+        response.certificateAlias = tenant.getCertificateAlias();
         response.invoiceSeries = tenant.getInvoiceSeries();
         response.receiptSeries = tenant.getReceiptSeries();
         response.creditNoteSeries = tenant.getCreditNoteSeries();
@@ -283,6 +285,7 @@ public class TenantResource {
         public String certificateFile;
         public java.time.LocalDate certificateValidFrom;
         public java.time.LocalDate certificateValidTo;
+        public String certificateAlias;
         public String invoiceSeries;
         public String receiptSeries;
         public String creditNoteSeries;

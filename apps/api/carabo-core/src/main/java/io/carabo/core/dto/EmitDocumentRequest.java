@@ -91,6 +91,7 @@ public class EmitDocumentRequest {
         private String docType;
         private String series;
         private Integer number;
+        private String reasonCode;
         private String reason;
 
         public String getDocType() { return docType; }
@@ -99,6 +100,8 @@ public class EmitDocumentRequest {
         public void setSeries(String series) { this.series = series; }
         public Integer getNumber() { return number; }
         public void setNumber(Integer number) { this.number = number; }
+        public String getReasonCode() { return reasonCode; }
+        public void setReasonCode(String reasonCode) { this.reasonCode = reasonCode; }
         public String getReason() { return reason; }
         public void setReason(String reason) { this.reason = reason; }
     }
