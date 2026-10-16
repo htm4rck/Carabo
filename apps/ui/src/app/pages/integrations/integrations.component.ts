@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +14,7 @@ import { CaraboApiService, ProducerCredential, ProducerIntegration, ProducerScop
   template: `
     <header class="page-heading">
       <div><h1>Integraciones</h1><p>Identidades independientes para ERP, ecommerce, POS y otras aplicaciones productoras.</p></div>
-      @if (auth.canAdminister()) { <button type="button" mat-raised-button color="primary" (click)="creating=!creating"><mat-icon>{{ creating ? 'close' : 'add' }}</mat-icon>{{ creating ? 'Cerrar formulario' : 'Nuevo productor' }}</button> }
+      @if (auth.canAdminister()) { <button type="button" mat-raised-button color="primary" (click)="creating=!creating" [disabled]="!!credential" [title]="credential ? 'Confirma que guardaste la credencial pendiente antes de continuar' : ''"><mat-icon>{{ creating ? 'close' : 'add' }}</mat-icon>{{ creating ? 'Cerrar formulario' : 'Nuevo productor' }}</button> }
     </header>
 
     <section class="trust-strip" aria-label="Modelo de seguridad">
@@ -64,8 +64,8 @@ import { CaraboApiService, ProducerCredential, ProducerIntegration, ProducerScop
               <div class="scope-list">@for(scope of producer.scopes; track scope){<span>{{ scopeLabel(scope) }}</span>}</div>
               @if (auth.canAdminister()) {
                 <div class="actions">
-                  <button type="button" mat-icon-button [attr.aria-label]="'Rotar credencial de '+producer.name" title="Rotar credencial" (click)="rotate(producer)" [disabled]="busyId===producer.id"><mat-icon>autorenew</mat-icon></button>
-                  <button type="button" mat-icon-button [attr.aria-label]="(producer.status==='ACTIVE'?'Revocar ':'Activar ')+producer.name" [title]="producer.status==='ACTIVE'?'Revocar':'Activar'" (click)="toggle(producer)" [disabled]="busyId===producer.id"><mat-icon>{{ producer.status==='ACTIVE' ? 'block' : 'play_circle' }}</mat-icon></button>
+                  <button type="button" mat-icon-button [attr.aria-label]="'Rotar credencial de '+producer.name" title="Rotar credencial" (click)="rotate(producer)" [disabled]="!!credential || busyId===producer.id"><mat-icon>autorenew</mat-icon></button>
+                  <button type="button" mat-icon-button [attr.aria-label]="(producer.status==='ACTIVE'?'Revocar ':'Activar ')+producer.name" [title]="producer.status==='ACTIVE'?'Revocar':'Activar'" (click)="toggle(producer)" [disabled]="!!credential || busyId===producer.id"><mat-icon>{{ producer.status==='ACTIVE' ? 'block' : 'play_circle' }}</mat-icon></button>
                 </div>
               }
             </article>
@@ -112,17 +112,20 @@ export class IntegrationsComponent implements OnInit {
   readonly queryExample = 'GET /carabo/api/documents/external/venta-2026-00018452\nX-Api-Key: <secret del productor>';
   constructor(private api: CaraboApiService, public auth: AuthService, private snack: MatSnackBar) {}
   ngOnInit(): void { this.load(); }
+  @HostListener('window:beforeunload', ['$event'])
+  protectPendingCredential(event: BeforeUnloadEvent): void { if(this.credential&&!this.credentialStored){event.preventDefault();event.returnValue='';} }
+  canLeaveWithCredential(): boolean { if(!this.credential||this.credentialStored)return true;this.snack.open('Confirma “Ya la guardé” antes de salir para no perder la credencial.','Cerrar',{duration:5000});return false; }
   load(): void { this.loading=true;this.error='';this.api.listProducerIntegrations().subscribe({next:v=>{this.producers=v;this.loading=false},error:()=>{this.error='No pudimos consultar las integraciones de la empresa activa.';this.loading=false}}); }
   get selectedScopes(): ProducerScope[] { return (Object.keys(this.scopeSelection) as ProducerScope[]).filter(scope=>this.scopeSelection[scope]); }
   get activeCount(): number { return this.producers.filter(p=>p.status==='ACTIVE').length; }
   get degradedCount(): number { return this.producers.filter(p=>p.health==='DEGRADED').length; }
   get revokedCount(): number { return this.producers.filter(p=>p.status==='REVOKED').length; }
   create(): void {
-    if(this.saving||this.selectedScopes.length===0)return;this.saving=true;
+    if(this.saving||this.credential||this.selectedScopes.length===0)return;this.saving=true;
     this.api.createProducerIntegration({...this.draft,scopes:this.selectedScopes}).subscribe({next:result=>{this.showCredential(result);this.producers=[result.producer,...this.producers];this.draft={code:'',name:'',description:''};this.resetScopes();this.creating=false;this.saving=false},error:error=>{this.saving=false;this.snack.open(error?.error?.error||'No se pudo crear el productor','Cerrar',{duration:5000})}});
   }
-  rotate(producer: ProducerIntegration): void { if(this.busyId||!window.confirm(`Rotar la credencial de ${producer.name} invalidará inmediatamente la clave anterior. Confirma que puedes actualizar el secret store del productor.`))return;this.busyId=producer.id;this.api.rotateProducerCredential(producer.id).subscribe({next:result=>{this.showCredential(result);this.replace(result.producer);this.busyId=''},error:()=>{this.busyId='';this.snack.open('No se pudo rotar la credencial','Cerrar',{duration:4000})}}); }
-  toggle(producer: ProducerIntegration): void { const activating=producer.status!=='ACTIVE';const impact=activating?'volverá a permitir solicitudes de esta aplicación':`detendrá inmediatamente las solicitudes de ${producer.name}`;if(this.busyId||!window.confirm(`${activating?'Activar':'Revocar'} ${producer.name} ${impact}. ¿Deseas continuar?`))return;this.busyId=producer.id;this.api.setProducerIntegrationActive(producer.id,activating).subscribe({next:updated=>{this.replace(updated);this.busyId=''},error:()=>{this.busyId='';this.snack.open('No se pudo cambiar el estado','Cerrar',{duration:4000})}}); }
+  rotate(producer: ProducerIntegration): void { if(this.busyId||this.credential||!window.confirm(`Rotar la credencial de ${producer.name} invalidará inmediatamente la clave anterior. Confirma que puedes actualizar el secret store del productor.`))return;this.busyId=producer.id;this.api.rotateProducerCredential(producer.id).subscribe({next:result=>{this.showCredential(result);this.replace(result.producer);this.busyId=''},error:()=>{this.busyId='';this.snack.open('No se pudo rotar la credencial','Cerrar',{duration:4000})}}); }
+  toggle(producer: ProducerIntegration): void { const activating=producer.status!=='ACTIVE';const impact=activating?'volverá a permitir solicitudes de esta aplicación':`detendrá inmediatamente las solicitudes de ${producer.name}`;if(this.busyId||this.credential||!window.confirm(`${activating?'Activar':'Revocar'} ${producer.name} ${impact}. ¿Deseas continuar?`))return;this.busyId=producer.id;this.api.setProducerIntegrationActive(producer.id,activating).subscribe({next:updated=>{this.replace(updated);this.busyId=''},error:()=>{this.busyId='';this.snack.open('No se pudo cambiar el estado','Cerrar',{duration:4000})}}); }
   copyCredential(): void { if(!this.credential)return;const clipboard=navigator.clipboard;if(!clipboard){this.snack.open('El portapapeles no está disponible. Copia manualmente la credencial.','Cerrar',{duration:4500});return}clipboard.writeText(this.credential.apiKey).then(()=>this.snack.open('Credencial copiada. Guárdala ahora en el secret store.','Cerrar',{duration:3500})).catch(()=>this.snack.open('El navegador rechazó el portapapeles. Selecciona y copia la credencial manualmente.','Cerrar',{duration:5000})); }
   showCredential(value: ProducerCredential): void { this.credential=value;this.credentialStored=false; }
   dismissCredential(): void { if(!this.credentialStored)return;this.credential=null;this.credentialStored=false; }

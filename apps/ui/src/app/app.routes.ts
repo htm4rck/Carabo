@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, authGuard, supervisorGuard } from './auth/guards/auth.guard';
+import { pendingCredentialGuard } from './auth/guards/pending-credential.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
@@ -13,6 +14,6 @@ export const routes: Routes = [
   { path: 'dispatch-guides', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/dispatch-guides/dispatch-guides.component').then(m => m.DispatchGuidesComponent) },
   { path: 'operations', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/operations/operations.component').then(m => m.OperationsComponent) },
   { path: 'fiscal-status', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/fiscal-status/fiscal-status.component').then(m => m.FiscalStatusComponent) },
-  { path: 'integrations', canActivate: [authGuard, supervisorGuard], loadComponent: () => import('./pages/integrations/integrations.component').then(m => m.IntegrationsComponent) },
+  { path: 'integrations', canActivate: [authGuard, supervisorGuard], canDeactivate: [pendingCredentialGuard], loadComponent: () => import('./pages/integrations/integrations.component').then(m => m.IntegrationsComponent) },
   { path: '**', redirectTo: '' },
 ];
