@@ -57,7 +57,7 @@ public class BatchService {
             .getResultList();
 
         if (boletas.isEmpty()) {
-            return new BatchResult(false, null, "No hay boletas para resumir en " + date, 0);
+            return new BatchResult(false, null, "EMPTY", "No hay boletas para resumir en " + date, 0);
         }
 
         String identifier = tenant.getIssuerRuc() + "-RC-" + date.format(DateTimeFormatter.BASIC_ISO_DATE) + "-1";
@@ -68,13 +68,13 @@ public class BatchService {
             XmlSigner.SignResult signed = signer.sign(xml);
 
             SunatBillService sunat = new SunatBillService(
-                tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
+                sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
-            return new BatchResult(true, ticket, "Resumen enviado, ticket: " + ticket, boletas.size());
+            return new BatchResult(true, ticket, "SENT", "Resumen enviado, ticket: " + ticket, boletas.size());
         } catch (Exception e) {
             LOG.error("Daily summary failed for " + businessCode, e);
-            return new BatchResult(false, null, e.getMessage(), boletas.size());
+            return new BatchResult(false, null, "ERROR", e.getMessage(), boletas.size());
         }
     }
 
@@ -94,7 +94,7 @@ public class BatchService {
             .getResultList();
 
         if (docs.isEmpty()) {
-            return new BatchResult(false, null, "No hay documentos válidos para anular", 0);
+            return new BatchResult(false, null, "EMPTY", "No hay documentos válidos para anular", 0);
         }
 
         LocalDate today = LocalDate.now();
@@ -106,7 +106,7 @@ public class BatchService {
             XmlSigner.SignResult signed = signer.sign(xml);
 
             SunatBillService sunat = new SunatBillService(
-                tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
+                sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
             // Mark documents as VOID_REQUESTED
@@ -116,10 +116,10 @@ public class BatchService {
                 em.merge(doc);
             }
 
-            return new BatchResult(true, ticket, "Baja enviada, ticket: " + ticket, docs.size());
+            return new BatchResult(true, ticket, "SENT", "Baja enviada, ticket: " + ticket, docs.size());
         } catch (Exception e) {
             LOG.error("Voided communication failed for " + businessCode, e);
-            return new BatchResult(false, null, e.getMessage(), docs.size());
+            return new BatchResult(false, null, "ERROR", e.getMessage(), docs.size());
         }
     }
 
@@ -129,10 +129,13 @@ public class BatchService {
     public BatchResult checkTicket(String businessCode, String ticket) {
         Tenant tenant = tenantService.resolve(businessCode);
         SunatBillService sunat = new SunatBillService(
-            tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
+            sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
         SunatBillService.SendBillResult result = sunat.getStatus(ticket);
 
-        return new BatchResult(result.accepted(), ticket, result.responseMsg(), 0);
+        String status = result.processing() ? "PENDING"
+            : result.accepted() ? (result.observed() ? "OBSERVED" : "ACCEPTED")
+            : result.retryable() ? "ERROR" : "REJECTED";
+        return new BatchResult(result.accepted(), ticket, status, result.responseMsg(), 0);
     }
 
     // --- XML builders for batch documents ---
@@ -224,5 +227,13 @@ public class BatchService {
         }
     }
 
-    public record BatchResult(boolean success, String ticket, String message, int documentCount) {}
+    private String sunatEndpoint(Tenant tenant) {
+        if (tenant.getSunatEndpoint() != null && !tenant.getSunatEndpoint().isBlank()) {
+            return tenant.getSunatEndpoint();
+        }
+        return "PRODUCTION".equalsIgnoreCase(tenant.getEnvironment())
+            ? SunatBillService.PROD_URL : SunatBillService.BETA_URL;
+    }
+
+    public record BatchResult(boolean success, String ticket, String status, String message, int documentCount) {}
 }

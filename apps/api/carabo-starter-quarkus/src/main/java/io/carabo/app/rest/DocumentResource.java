@@ -18,8 +18,13 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
+import org.eclipse.microprofile.reactive.messaging.OnOverflow;
 
 import java.time.LocalDate;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,11 +49,18 @@ public class DocumentResource {
     @Inject
     TenantContext tenantContext;
 
+    @Inject
+    @Channel("document-emit-out")
+    @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 1024)
+    Emitter<EmitDocumentRequest> documentEmitter;
+
     @POST
     @Path("/emit")
     @Operation(summary = "Emitir documento electrónico", description = "Valida, firma, envía a SUNAT/OSE y retorna resultado")
     @APIResponse(responseCode = "200", description = "Documento procesado")
     public Response emit(EmitDocumentRequest request, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        if (request == null) return Response.status(Response.Status.BAD_REQUEST)
+            .entity(new IntegrationError("INVALID_REQUEST", "El cuerpo de la solicitud es obligatorio")).build();
         String normalizedKey = normalizeIdempotencyKey(idempotencyKey);
         if (normalizedKey != null) {
             if (normalizedKey.length() > 100) {
@@ -64,13 +76,76 @@ public class DocumentResource {
         }
         request.setBusinessCode(tenantContext.businessCode());
         EmitDocumentResponse response = documentService.emit(request);
+        if ("VALIDATION_ERROR".equals(response.getStatus())) {
+            return Response.status(422).entity(response).build();
+        }
         return Response.ok(response).build();
+    }
+
+    @POST
+    @Path("/ingest")
+    @Operation(summary = "Encolar emisión asíncrona", description = "Punto de entrada recomendado para aplicaciones externas y alto volumen")
+    @APIResponse(responseCode = "202", description = "Solicitud confirmada por RabbitMQ")
+    public Response ingest(EmitDocumentRequest request, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        if (request == null) return Response.status(Response.Status.BAD_REQUEST)
+            .entity(new IntegrationError("INVALID_REQUEST", "El cuerpo de la solicitud es obligatorio")).build();
+        String key = normalizeIdempotencyKey(idempotencyKey);
+        if (key == null) key = normalizeIdempotencyKey(request.getExternalId());
+        if (key == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new IntegrationError("IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key es obligatorio para la ingestión asíncrona")).build();
+        }
+        if (key.length() > 100) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new IntegrationError("IDEMPOTENCY_KEY_TOO_LONG", "Idempotency-Key no puede exceder 100 caracteres")).build();
+        }
+        String requestExternalId = normalizeIdempotencyKey(request.getExternalId());
+        if (requestExternalId != null && !requestExternalId.equals(key)) {
+            return Response.status(Response.Status.CONFLICT)
+                .entity(new IntegrationError("IDEMPOTENCY_KEY_CONFLICT", "Idempotency-Key y externalId deben coincidir")).build();
+        }
+
+        String businessCode = tenantContext.businessCode();
+        var existing = documentService.findByExternalId(key, businessCode);
+        String statusUrl = "/documents/external/" + pathSegment(key);
+        if (existing.isPresent()) {
+            Document document = existing.get();
+            return Response.ok(new IngestionResponse(key, document.getStatus().name(),
+                statusUrl, document.getId())).build();
+        }
+
+        request.setExternalId(key);
+        request.setBusinessCode(businessCode);
+        try {
+            documentEmitter.send(request).toCompletableFuture().join();
+            return Response.accepted(new IngestionResponse(key, "QUEUED", statusUrl, null))
+                .header("Location", statusUrl)
+                .header("Retry-After", "2")
+                .build();
+        } catch (RuntimeException error) {
+            return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                .entity(new IntegrationError("BROKER_UNAVAILABLE", "No fue posible confirmar la solicitud; puede reenviarla con la misma clave")).build();
+        }
+    }
+
+    @GET
+    @Path("/external/{externalId}")
+    @Operation(summary = "Consultar documento por identificador externo")
+    public Response getByExternalId(@PathParam("externalId") String externalId) {
+        return documentService.findByExternalId(externalId, tenantContext.businessCode())
+            .map(document -> Response.ok(toSummary(document)).build())
+            .orElse(Response.status(Response.Status.NOT_FOUND)
+                .entity(new IntegrationError("NOT_FOUND", "La solicitud aún no fue procesada o no existe")).build());
     }
 
     private static String normalizeIdempotencyKey(String value) {
         if (value == null) return null;
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String pathSegment(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     @GET
@@ -255,4 +330,7 @@ public class DocumentResource {
         public String businessCode;
         public String date;
     }
+
+    public record IngestionResponse(String externalId, String status, String statusUrl, UUID documentId) {}
+    public record IntegrationError(String code, String message) {}
 }

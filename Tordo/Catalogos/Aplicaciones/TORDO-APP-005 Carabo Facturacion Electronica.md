@@ -124,15 +124,15 @@ Convenciones: `P0` bloquea cualquier salida; `P1` bloquea producción; `P2` comp
 | CAR-011 | 2. Núcleo fiscal | P0 | Validar reglas fiscales, redondeos y tipos de afectación | Motor de validación con casos gravados, exonerados, inafectos, gratuitos, descuentos y anticipos definidos en alcance | CAR-010 | Backend + Especialista fiscal | 5–8 d | Batería de casos dorados concilia bases, impuestos y total | 🟡 Gravado/exonerado/inafecto/exportación y redondeo cubiertos; faltan gratuitos, anticipos y revisión fiscal |
 | CAR-012 | 2. Núcleo fiscal | P0 | Validar UBL con XSD y reglas SUNAT antes del envío | Validador estructural y reporte de errores accionable | CAR-011 | Backend | 4–6 d | XML de cada tipo pasa XSD/reglas y casos inválidos son rechazados | 🟡 XSD OASIS 2.1 aplicado antes de firma para factura, boleta, NC y ND; reglas de serie, totales y catálogos 09/10 probadas; faltan reglas SUNAT completas y homologación |
 | CAR-013 | 2. Núcleo fiscal | P0 | Certificar firma XML y manejo de certificados | Firma compatible con SUNAT, selección segura de alias y control de vigencia | CAR-008, CAR-012 | Backend + Seguridad | 3–5 d | Firma verificada externamente; certificados vencidos o inválidos fallan de forma controlada | 🟡 Verificación XMLDSig independiente, detección de alteración, alias persistido/seleccionado y vigencia probados; faltan cadena de confianza/revocación e interoperabilidad SUNAT |
-| CAR-014 | 2. Núcleo fiscal | P0 | Completar estados y transiciones del documento | Máquina de estados explícita e idempotente | CAR-011 | Backend | 3–4 d | No existen regresiones de estado y cada transición queda auditada | Pendiente |
+| CAR-014 | 2. Núcleo fiscal | P0 | Completar estados y transiciones del documento | Máquina de estados explícita e idempotente | CAR-011 | Backend | 3–4 d | No existen regresiones de estado y cada transición queda auditada | 🟡 SUNAT/OSE distinguen aceptado, observado, pendiente, rechazo y error reintentable; falta formalizar todas las transiciones |
 | CAR-015 | 2. Núcleo fiscal | P1 | Completar RA/RC y consulta de tickets | Flujo asíncrono completo hasta CDR y estado final | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Casos aceptado, observado, rechazado y error transitorio probados | 🟡 Código sin evidencia E2E |
 | CAR-016 | 2. Núcleo fiscal | P1 | Completar GRE 2.0 o mantenerla deshabilitada | Ciclo envío-ticket-consulta-CDR y validación GRE | CAR-012, CAR-014 | Backend + Fiscal | 5–8 d | Homologación GRE superada; hasta entonces feature flag desactivado | 🟡 Código no homologado |
-| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟡 Consumer conectado; política pendiente |
+| CAR-017 | 3. Integración | P0 | Diseñar entrega RabbitMQ confiable | ACK/NACK correcto, reintentos con backoff, DLQ y deduplicación | CAR-014 | Backend + DevOps | 4–6 d | Fallos transitorios reintentan; poison messages llegan a DLQ; no hay doble emisión | 🟡 Ingesta HTTP asíncrona, ACK del broker, NACK de payload inválido, backpressure y DLQ configurados; falta prueba real de reentrega/DLQ |
 | CAR-018 | 3. Integración | P0 | Reforzar idempotencia REST y mensajes | Clave idempotente única por tenant/origen y respuesta repetible | CAR-010, CAR-017 | Backend + DBA | 3–4 d | Solicitudes simultáneas iguales generan un solo documento | 🟡 Header/IDs únicos y advisory locks desplegados; falta prueba E2E simultánea REST/MQ |
 | CAR-019 | 3. Integración | P1 | Implementar outbox para eventos/callbacks | Notificaciones persistidas y desacopladas de la transacción fiscal | CAR-014, CAR-017 | Backend | 4–6 d | Caída del receptor no pierde eventos y permite replay seguro | Pendiente |
 | CAR-020 | 3. Integración | P1 | Formalizar callbacks/webhooks | HMAC versionado, timestamp anti-replay, timeout, backoff y auditoría | CAR-009, CAR-019 | Backend | 3–4 d | Entrega, reintento, firma y replay están cubiertos por pruebas | 🟡 HMAC básico no durable |
 | CAR-021 | 3. Integración | P1 | Probar integración Tordo/Operation y Layout | Contratos, fixtures y pruebas de integración entre servicios | CAR-003, CAR-018, CAR-020 | Backend + Equipos Tordo | 4–6 d | Venta aprobada termina en documento, callback y PDF verificables | Pendiente |
-| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | ⚪ Cliente genérico |
+| CAR-022 | 3. Integración | P2 | Crear adaptador por OSE seleccionado | Contrato aislado, mapeo de errores y pruebas sandbox | CAR-014 | Backend | 4–8 d/proveedor | Suite contractual aprobada por proveedor | 🟡 Contrato Carabo OSE Gateway aislado y probado localmente; proveedor comercial aún no seleccionado |
 | CAR-023 | 4. Calidad | P0 | Pruebas unitarias de dominio, UBL, firma, validación y numeración | Suite rápida de regresión | CAR-010–CAR-014 | Backend QA | 6–10 d | Cobertura de reglas críticas y todos los casos fiscales definidos | 🟡 Casos dorados, XSD por tipo, XMLDSig/alteración/alias/vigencia, seguridad e idempotencia en CI; falta matriz fiscal completa |
 | CAR-024 | 4. Calidad | P0 | Pruebas de integración con PostgreSQL y RabbitMQ reales | Suite con contenedores para persistencia y mensajería | CAR-004, CAR-017 | Backend QA | 4–6 d | Pipeline reproduce fallos, reintentos e idempotencia | 🟡 PostgreSQL 16 y concurrencia integrados al CI; falta RabbitMQ/fallos/reintentos |
 | CAR-025 | 4. Calidad | P1 | Pruebas E2E de API y UI | Flujos de emisión, búsqueda, descarga, retry, reportes y configuración | CAR-021 | QA + Frontend | 5–8 d | Flujos críticos pasan en entorno efímero | Pendiente |
@@ -232,7 +232,7 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 | ASB-03 | La numeración usaba `MAX(number)+1` | Duplicados concurrentes | Crítica | Resuelto en DEV con contador atómico V3 y prueba 40/40 |
 | ASB-04 | Existe suite mínima obligatoria; faltan dominio, integración y compliance | Evidencia insuficiente | Alta | Mitigación parcial |
 | ASB-05 | No se demostró validación XSD/reglas SUNAT | XML inválido/rechazos | Alta | Pendiente |
-| ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica | Pendiente |
+| ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica | Mitigación parcial: NACK/DLQ/backpressure configurados; falta prueba con caída y reentrega real |
 | ASB-07 | Callback no persistente | Notificaciones perdidas | Alta | Pendiente |
 | ASB-08 | Migraciones del schema Carabo administradas por Flyway V1/V2 | Drift y despliegue no reproducible | Alta | Resuelto en DEV |
 | ASB-09 | Credenciales fiscales históricas continúan en BD hasta su migración a referencias `secret://` | Compromiso de tenant | Crítica | Mitigación parcial; API keys ya no se almacenan en claro |
@@ -261,8 +261,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---|---:|---|---|
 | Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
 | Fundación técnica DEV | 88% | 🟢 | CI con tests API/UI/PostgreSQL, imágenes y Flyway V5; dispatch automático sigue pendiente |
-| Producto funcional integral | 54% | 🟡 | UBL estructural y firma endurecida desplegados; faltan reglas fiscales completas y homologación |
-| MVP Perú | 65% | 🟡 | XSD por tipo y XMLDSig verificable operan; resiliencia MQ, confianza PKI y homologación bloquean |
+| Producto funcional integral | 57% | 🟡 | Transporte SUNAT/OSE y entrada asíncrona endurecidos; faltan reglas fiscales completas y homologación |
+| MVP Perú | 68% | 🟡 | XSD, XMLDSig y contrato de transporte verificables; confianza PKI, E2E sandbox y homologación bloquean |
 | Preparación productiva | 8% | ⚪ | Sin homologación, piloto, restore, observabilidad ni runbooks |
 | Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
 
@@ -274,13 +274,13 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-002 | 80% | 🟡 Pipeline, correlativos concurrentes, XSD por tipo y casos dorados gravado/exonerado/inafecto/exportación | Firma homologada, casos avanzados y homologación SUNAT | No lista |
 | FUN-003 | 75% | 🟡 Builder corregido y validado con XSD OASIS 2.1 para factura, boleta, NC y ND; reglas de serie, conciliación y catálogos de motivo | Completar catálogos/reglas SUNAT, gratuitos/anticipos y homologación | Verificable DEV/CI, no homologada |
 | FUN-004 | 78% | 🟡 RSA-SHA256 con verificación independiente, detección de alteración, alias explícito persistido, vigencia y parser anti-XXE | Validar cadena/revocación y certificar interoperabilidad con SUNAT/OSE | Verificable DEV/CI, no homologada |
-| FUN-005 | 35% | 🟡 Cliente SUNAT | Sandbox/E2E/CDR/errores | No lista |
-| FUN-006 | 25% | 🟡 Cliente OSE genérico | Proveedor y contrato real | No lista |
+| FUN-005 | 58% | 🟡 Cliente SUNAT con parseo seguro de SOAP/CDR y errores clasificados; suite contractual local para aceptación, observación, rechazo, ticket y caída | Credenciales sandbox, E2E real y homologación | No lista |
+| FUN-006 | 42% | 🟡 Contrato Carabo OSE Gateway v1, JSON robusto, idempotencia, estados y CDR cubiertos por tests | Seleccionar proveedor, implementar adaptador y aprobar su sandbox | No lista |
 | FUN-007 | 50% | 🟡 Volumen y rutas por tenant | Cifrado, checksum, retención y restore | No lista |
 | FUN-008 | 65% | 🟡 Consultas/descargas ligadas al contexto tenant | Fixtures cross-tenant y E2E | No lista |
 | FUN-009 | 35% | 🟡 Layout client y plantillas | PDF E2E y aprobación | No lista |
 | FUN-010 | 30% | 🟡 Retry/scheduler básicos | Política por error y estados | No lista |
-| FUN-011 | 40% | 🟡 Cola/consumer conectados | ACK/NACK, DLQ y deduplicación | No lista |
+| FUN-011 | 58% | 🟡 Ingesta asíncrona externa, confirmación del broker, NACK, backpressure y DLQ configurados | E2E RabbitMQ de fallo, reentrega y DLQ; política de replay | No lista |
 | FUN-012 | 35% | 🟡 Callback/HMAC básicos | Outbox, retry y anti-replay | No lista |
 | FUN-013 | 30% | 🟡 Servicios RA/RC | Tickets/CDR/E2E | No lista |
 | FUN-014 | 30% | 🟡 GRE builder/client/API | Ciclo completo y homologación | No lista |
@@ -298,15 +298,15 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
 | 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
 | 3 | Schema/migraciones | 92% | Flyway V1–V5 automático; alias y motivo de nota verificados en PostgreSQL CI/DEV |
-| 4 | RabbitMQ conectado | 65% | Cola/consumer activos; faltan fallos/reentrega |
+| 4 | RabbitMQ conectado | 75% | Cola/consumer e ingesta externa activos; NACK/DLQ configurados, falta prueba de caída/reentrega |
 | 5 | Tenant de prueba seguro | 55% | Tenant DEV, usuarios Columba y roles Carabo sembrados; falta E2E HTTP |
 | 6 | Correlativos/idempotencia | 75% | Correlativo atómico probado 40/40; claves únicas y locks desplegados; falta E2E concurrente REST/MQ |
 | 7 | Factura/boleta/NC/ND válidas | 72% | Los cuatro tipos pasan XSD OASIS 2.1 y reglas base; falta matriz fiscal/homologación SUNAT |
 | 8 | Firma/certificado | 75% | XMLDSig se autoverifica, controla alias/vigencia y detecta alteración; falta PKI/homologación externa |
-| 9 | SUNAT sandbox/CDR | 10% | Cliente presente; flujo real no evidenciado |
+| 9 | SUNAT sandbox/CDR | 35% | SOAP/CDR/observaciones/errores cubiertos con servidor contractual local; flujo SUNAT beta real no evidenciado |
 | 10 | XML/CDR/PDF custodiados | 35% | Volumen/endpoints; faltan E2E/backup |
 | 11 | Seguridad cross-tenant | 30% | Contexto y política de roles implementados; faltan fixtures adversariales |
-| 12 | Suite automática | 48% | Tests backend/UI/PostgreSQL, XSD por tipo y XMLDSig pasan; falta cobertura funcional fiscal y RabbitMQ |
+| 12 | Suite automática | 55% | Tests backend/UI/PostgreSQL, XSD, XMLDSig y contratos SUNAT/OSE pasan; falta E2E RabbitMQ y sandbox fiscal real |
 | 13 | Observabilidad/backup/runbook | 5% | Sólo health/logs básicos |
 | 14 | Homologación/piloto | 0% | No iniciados |
 

@@ -118,7 +118,7 @@ public class DocumentService {
 
             doc.setSunatTicket(result.ticket());
             doc.setSunatResponse(result.responseMsg());
-            doc.setStatus(result.accepted() ? DocumentStatus.ACCEPTED : DocumentStatus.REJECTED);
+            doc.setStatus(result.status());
 
             if (result.cdrXml() != null) {
                 getStorage().storeCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), result.cdrXml());
@@ -129,7 +129,7 @@ public class DocumentService {
             LOG.error("Emit pipeline failed for " + doc.getFullNumber(), e);
             doc.setStatus(DocumentStatus.ERROR);
             doc.setSunatResponse(e.getMessage());
-            logSend(doc, new SendResult(false, null, null, null, e.getMessage(), null));
+            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, e.getMessage(), null));
         }
 
         em.merge(doc);
@@ -153,7 +153,9 @@ public class DocumentService {
     public void retry(UUID documentId) {
         Document doc = em.find(Document.class, documentId);
         if (doc == null || doc.getRetryCount() >= MAX_RETRIES) return;
-        if (doc.getStatus() != DocumentStatus.PENDING && doc.getStatus() != DocumentStatus.ERROR) return;
+        if (doc.getStatus() != DocumentStatus.PENDING
+            && doc.getStatus() != DocumentStatus.ERROR
+            && doc.getStatus() != DocumentStatus.VALIDATED) return;
 
         Tenant tenant = tenantService.resolve(doc.getBusinessCode());
         doc.setRetryCount(doc.getRetryCount() + 1);
@@ -170,7 +172,7 @@ public class DocumentService {
 
             doc.setSunatTicket(result.ticket());
             doc.setSunatResponse(result.responseMsg());
-            doc.setStatus(result.accepted() ? DocumentStatus.ACCEPTED : DocumentStatus.REJECTED);
+            doc.setStatus(result.status());
 
             if (result.cdrXml() != null) {
                 getStorage().storeCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), result.cdrXml());
@@ -180,7 +182,7 @@ public class DocumentService {
         } catch (Exception e) {
             doc.setStatus(DocumentStatus.ERROR);
             doc.setSunatResponse(e.getMessage());
-            logSend(doc, new SendResult(false, null, null, null, e.getMessage(), null));
+            logSend(doc, new SendResult(DocumentStatus.ERROR, null, null, null, e.getMessage(), null));
         }
 
         em.merge(doc);
@@ -198,6 +200,17 @@ public class DocumentService {
         return em.createQuery(
                 "SELECT d FROM Document d WHERE d.id = :id AND d.businessCode = :bc", Document.class)
             .setParameter("id", id)
+            .setParameter("bc", businessCode)
+            .getResultStream()
+            .findFirst();
+    }
+
+    public Optional<Document> findByExternalId(String externalId, String businessCode) {
+        String normalized = IdempotencyService.normalize(externalId);
+        if (normalized == null) return Optional.empty();
+        return em.createQuery(
+                "SELECT d FROM Document d WHERE d.externalId = :externalId AND d.businessCode = :bc", Document.class)
+            .setParameter("externalId", normalized)
             .setParameter("bc", businessCode)
             .getResultStream()
             .findFirst();
@@ -275,17 +288,31 @@ public class DocumentService {
 
     private SendResult sendViaSunat(String fileName, String signedXml, Tenant tenant) {
         SunatBillService sunat = new SunatBillService(
-            tenant.getSunatEndpoint(), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
+            sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
         SunatBillService.SendBillResult result = sunat.sendBill(fileName, signedXml);
-        return new SendResult(result.accepted(), null, result.ticket(),
+        DocumentStatus status = result.processing() ? DocumentStatus.PENDING
+            : result.accepted() ? (result.observed() ? DocumentStatus.OBSERVED : DocumentStatus.ACCEPTED)
+            : result.retryable() ? DocumentStatus.ERROR : DocumentStatus.REJECTED;
+        return new SendResult(status, null, result.ticket(),
             result.responseCode(), result.responseMsg(), result.cdrXml());
     }
 
     private SendResult sendViaOse(String fileName, String signedXml, Tenant tenant) {
         OseClient ose = new OseClient(tenant.getOseBaseUrl(), secretResolver.resolve(tenant.getOseApiToken()));
         OseClient.OseResult result = ose.send(fileName, signedXml);
-        return new SendResult(result.accepted(), result.digestValue(), null,
+        DocumentStatus status = result.processing() ? DocumentStatus.PENDING
+            : result.accepted() ? (result.observed() ? DocumentStatus.OBSERVED : DocumentStatus.ACCEPTED)
+            : result.retryable() ? DocumentStatus.ERROR : DocumentStatus.REJECTED;
+        return new SendResult(status, result.digestValue(), result.externalId(),
             result.responseCode(), result.responseMsg(), result.cdrXml());
+    }
+
+    private String sunatEndpoint(Tenant tenant) {
+        if (tenant.getSunatEndpoint() != null && !tenant.getSunatEndpoint().isBlank()) {
+            return tenant.getSunatEndpoint();
+        }
+        return "PRODUCTION".equalsIgnoreCase(tenant.getEnvironment())
+            ? SunatBillService.PROD_URL : SunatBillService.BETA_URL;
     }
 
     private XmlSigner createSigner(Tenant tenant) {
@@ -441,7 +468,7 @@ public class DocumentService {
         log.setDocument(doc);
         log.setAttempt(doc.getRetryCount() + 1);
         log.setSendMode(doc.getSendMode().name());
-        log.setStatus(result.accepted() ? "ACCEPTED" : "ERROR");
+        log.setStatus(result.status().name());
         log.setTicket(result.ticket());
         log.setResponseCode(result.responseCode());
         log.setResponseMsg(result.responseMsg());
@@ -453,7 +480,7 @@ public class DocumentService {
 
     private void notifyCallback(Document doc) {
         try {
-            DocumentCallback cb = doc.getStatus() == DocumentStatus.ACCEPTED
+            DocumentCallback cb = isFiscalSuccess(doc.getStatus())
                 ? DocumentCallback.success(doc.getId(), doc.getExternalId(), doc.getFullNumber(), doc.getHashCode())
                 : DocumentCallback.failure(doc.getId(), doc.getExternalId(), doc.getStatus().name(), null, doc.getSunatResponse());
 
@@ -474,7 +501,7 @@ public class DocumentService {
 
     private void notifyWebhook(Document doc, Tenant tenant) {
         try {
-            DocumentCallback cb = doc.getStatus() == DocumentStatus.ACCEPTED
+            DocumentCallback cb = isFiscalSuccess(doc.getStatus())
                 ? DocumentCallback.success(doc.getId(), doc.getExternalId(), doc.getFullNumber(), doc.getHashCode())
                 : DocumentCallback.failure(doc.getId(), doc.getExternalId(), doc.getStatus().name(), null, doc.getSunatResponse());
 
@@ -510,5 +537,9 @@ public class DocumentService {
         }
     }
 
-    record SendResult(boolean accepted, String digestValue, String ticket, String responseCode, String responseMsg, String cdrXml) {}
+    private boolean isFiscalSuccess(DocumentStatus status) {
+        return status == DocumentStatus.ACCEPTED || status == DocumentStatus.OBSERVED;
+    }
+
+    record SendResult(DocumentStatus status, String digestValue, String ticket, String responseCode, String responseMsg, String cdrXml) {}
 }

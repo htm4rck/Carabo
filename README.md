@@ -13,7 +13,7 @@ Carabo es un servicio standalone de facturación electrónica que genera, firma,
 | Build | Gradle 8.14 |
 | Base de datos | PostgreSQL (schema `carabo`) |
 | Mensajería | RabbitMQ (SmallRye Reactive Messaging) |
-| Frontend | Angular 20 (standalone components) |
+| Frontend | Angular 21 (standalone components) |
 | Contenedores | Docker multi-stage |
 | API Docs | OpenAPI 3 / Swagger UI |
 
@@ -29,7 +29,7 @@ Carabo es un servicio standalone de facturación electrónica que genera, firma,
                           ▼                    ▼                    ▼
                    ┌─────────────┐    ┌──────────────┐    ┌──────────────┐
                    │ SUNAT Direct│    │  SUNAT REST  │    │     OSE      │
-                   │ (SOAP/REST) │    │  (GRE 2.0)  │    │ (Nubefact+)  │
+                   │ (SOAP/REST) │    │  (GRE 2.0)  │    │  Adapter     │
                    └─────────────┘    └──────────────┘    └──────────────┘
                                                │
                                                ▼
@@ -59,7 +59,7 @@ Carabo/
 │   │   │   └── country/{pe,cl,co,mx}/    # Estrategias por país (extensible)
 │   │   ├── carabo-signer/                # Firma digital XML (XMLDSig, SHA-256, enveloped)
 │   │   ├── carabo-sunat-client/          # Cliente SOAP BillService + REST GRE 2.0
-│   │   ├── carabo-ose-client/            # Cliente HTTP hacia OSE (Nubefact, Bizlinks, PSE)
+│   │   ├── carabo-ose-client/            # Contrato HTTP Carabo OSE Gateway v1
 │   │   ├── carabo-storage/               # Almacenamiento filesystem (XML firmado, CDR, PDF)
 │   │   ├── carabo-scheduler/             # Jobs programados (reintentos, resumen diario)
 │   │   └── carabo-starter-quarkus/       # Aplicación Quarkus
@@ -69,8 +69,8 @@ Carabo/
 │   │       ├── client/                   # Cliente HTTP a Layout service
 │   │       ├── scheduler/                # Scheduler de reintentos automáticos
 │   │       └── security/                 # API Key filter por tenant
-│   └── ui/                               # Frontend Angular 20
-├── migrations/                           # SQL migrations (001-005)
+│   └── ui/                               # Frontend Angular 21
+├── migrations/                           # SQL migrations (001-006)
 ├── templates/                            # Plantillas Handlebars para PDF
 ├── infra/
 │   └── docker-compose.yml                # Despliegue containerizado
@@ -103,9 +103,10 @@ Comunicación directa con SUNAT:
 
 ### carabo-ose-client
 Cliente HTTP para Operadores de Servicios Electrónicos:
-- Compatible con API Nubefact y proveedores similares (Bizlinks, PSE)
+- Implementa el contrato explícito Carabo OSE Gateway v1; no presume compatibilidad con proveedores comerciales
 - Envío de XML firmado en Base64
 - Consulta de estado y descarga de CDR
+- Requiere un adaptador contractual y pruebas sandbox para el OSE seleccionado
 
 ### carabo-storage
 Almacenamiento organizado por tenant:
@@ -135,6 +136,8 @@ Aplicación ejecutable que integra todos los módulos:
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/documents/emit` | Emitir documento (factura, boleta, NC, ND) |
+| POST | `/api/documents/ingest` | Encolar emisión asíncrona para aplicaciones externas |
+| GET | `/api/documents/external/{externalId}` | Consultar resultado por identificador externo |
 | GET | `/api/documents/{id}` | Obtener documento por ID |
 | GET | `/api/documents` | Listar documentos (paginado, filtros) |
 | GET | `/api/documents/{id}/xml` | Descargar XML firmado |
@@ -205,9 +208,11 @@ Cada tenant (empresa) se configura independientemente:
 
 - Los correlativos se reservan atómicamente por tenant, clase de documento y serie; no se calculan con `MAX + 1`.
 - `POST /api/documents/emit` y `POST /api/dispatch-guides/emit` aceptan el header `Idempotency-Key` (máximo 100 caracteres).
+- `POST /api/documents/ingest` exige `Idempotency-Key`, confirma la publicación en RabbitMQ y responde `202`; es la ruta recomendada para alto volumen.
 - Repetir simultáneamente una solicitud con la misma clave retorna el documento existente y no vuelve a enviarlo a SUNAT/OSE.
 - `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
 - Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.
+- Contrato, códigos HTTP y ejemplos: [`docs/external-integration.md`](docs/external-integration.md).
 
 ## Seguridad
 
@@ -288,7 +293,7 @@ docker compose up -d
 
 ## Migraciones
 
-Flyway ejecuta automáticamente las migraciones V1–V4 del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
+Flyway ejecuta automáticamente las migraciones V1–V5 del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
 
 ## Integración con el Ecosistema Tordo
 

@@ -114,7 +114,7 @@ export class SummariesComponent {
     this.api.checkTicket(s.businessCode, s.ticket).subscribe({
       next: (res) => {
         this.checkingTicket = null;
-        s.status = res.status || (res.accepted ? 'ACCEPTED' : 'PENDING');
+        s.status = res.status || (res.success ? 'ACCEPTED' : 'PENDING');
         this.snackBar.open(`Ticket: ${res.status || 'consultado'}`, 'Cerrar', { duration: 3000 });
       },
       error: () => { this.checkingTicket = null; this.snackBar.open('No se pudo consultar el ticket', 'Cerrar', { duration: 4000 }); }
