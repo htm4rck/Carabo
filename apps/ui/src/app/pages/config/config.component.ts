@@ -126,7 +126,7 @@ import { CaraboApiService, FiscalReadiness, TenantConfig } from '../../services/
             </div>
             <div class="readiness-summary" [class.ready]="selectedReadiness.ready" role="status">
               <mat-icon>{{ selectedReadiness.ready ? 'verified' : 'rule' }}</mat-icon>
-              <div><strong>{{ selectedReadiness.ready ? 'Ruta SUNAT preparada' : selectedReadiness.blockers + ' requisitos obligatorios pendientes' }}</strong>
+              <div><strong>{{ selectedReadiness.ready ? 'Ruta fiscal preparada' : selectedReadiness.blockers + ' requisitos obligatorios pendientes' }}</strong>
               <span>{{ selectedReadiness.environment }} · {{ selectedReadiness.sendMode }}</span></div>
             </div>
             <ul class="readiness-list">
@@ -198,6 +198,16 @@ import { CaraboApiService, FiscalReadiness, TenantConfig } from '../../services/
                   <label>Referencia de contraseña SOL
                     <input name="solPassword" [(ngModel)]="draft.solPassword" maxlength="100" autocomplete="off" placeholder="secret://empresa-sol-password" pattern="secret://.+">
                     <small>Déjalo vacío para conservar el valor actual; nunca escribas la contraseña directamente.</small>
+                  </label>
+                }
+                @if (draft.sendMode === 'OSE') {
+                  <label class="wide">URL HTTPS del adaptador OSE
+                    <input name="oseBaseUrl" [(ngModel)]="draft.oseBaseUrl" type="url" maxlength="500" required placeholder="https://ose-proveedor.example/api">
+                    <small>Debe implementar el contrato Carabo OSE Gateway v1.</small>
+                  </label>
+                  <label class="wide">Referencia del token OSE
+                    <input name="oseApiToken" [(ngModel)]="draft.oseApiToken" maxlength="100" autocomplete="off" placeholder="secret://empresa-ose-token" pattern="secret://.+">
+                    <small>Déjalo vacío solo si no estás cambiando el token ya configurado.</small>
                   </label>
                 }
                 <label>Serie de facturas

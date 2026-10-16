@@ -116,6 +116,11 @@ public class TenantResource {
 
         String validationError = validateUpdate(req);
         if (validationError != null) return Response.status(400).entity(new ErrorResponse(validationError)).build();
+        String effectiveMode = req.sendMode != null ? req.sendMode : tenant.getSendMode().name();
+        String oseError = validateOse(effectiveMode,
+            req.oseBaseUrl != null ? req.oseBaseUrl : tenant.getOseBaseUrl(),
+            req.oseApiToken != null ? req.oseApiToken : tenant.getOseApiToken());
+        if (oseError != null) return Response.status(400).entity(new ErrorResponse(oseError)).build();
 
         if (req.businessName != null) tenant.setBusinessName(req.businessName);
         if (req.issuerRuc != null) tenant.setIssuerRuc(req.issuerRuc);
@@ -233,12 +238,6 @@ public class TenantResource {
         if (req.countryCode != null && !CountryStrategyFactory.isSupported(req.countryCode)) {
             return "Solo PE está habilitado; otros países requieren compliance y homologación antes de activarse";
         }
-        if ("OSE".equals(req.sendMode)) {
-            if (!secureHttpUrl(req.oseBaseUrl)) return "OSE requiere una URL HTTPS válida";
-            if (req.oseApiToken == null || !req.oseApiToken.startsWith("secret://")) {
-                return "OSE requiere un token referenciado mediante secret://";
-            }
-        }
         return null;
     }
 
@@ -255,7 +254,17 @@ public class TenantResource {
         update.oseApiToken = req.oseApiToken;
         update.oseBaseUrl = req.oseBaseUrl;
         update.countryCode = req.countryCode != null ? req.countryCode : "PE";
-        return validateUpdate(update);
+        String basic = validateUpdate(update);
+        return basic != null ? basic : validateOse(req.sendMode, req.oseBaseUrl, req.oseApiToken);
+    }
+
+    private static String validateOse(String sendMode, String baseUrl, String token) {
+        if (!"OSE".equals(sendMode)) return null;
+        if (!secureHttpUrl(baseUrl)) return "OSE requiere una URL HTTPS válida";
+        if (token == null || !token.startsWith("secret://")) {
+            return "OSE requiere un token referenciado mediante secret://";
+        }
+        return null;
     }
 
     private static boolean secureHttpUrl(String value) {
