@@ -43,6 +43,7 @@ import { CaraboApiService, DocumentSummary, QueryParams } from '../../services/c
               <mat-option value="PENDING">Pendiente</mat-option>
               <mat-option value="VALIDATED">Validado</mat-option>
               <mat-option value="ACCEPTED">Aceptado</mat-option>
+              <mat-option value="OBSERVED">Observado</mat-option>
               <mat-option value="REJECTED">Rechazado</mat-option>
               <mat-option value="ERROR">Error</mat-option>
               <mat-option value="VOIDED">Anulado</mat-option>
@@ -147,6 +148,7 @@ import { CaraboApiService, DocumentSummary, QueryParams } from '../../services/c
     .state-error>mat-icon { color:#a14d45; }
     .badge { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; background: #e3f2fd; color: #1565c0; }
     .badge[data-status="ACCEPTED"] { background: #e8f5e9; color: #2e7d32; }
+    .badge[data-status="OBSERVED"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="REJECTED"] { background: #ffebee; color: #c62828; }
     .badge[data-status="PENDING"], .badge[data-status="VALIDATED"] { background: #fff3e0; color: #e65100; }
     .badge[data-status="ERROR"] { background: #fce4ec; color: #b71c1c; }
@@ -227,6 +229,6 @@ export class DocumentsComponent implements OnInit {
   }
 
   statusLabel(status: string): string {
-    return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', ACCEPTED: 'Aceptado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
+    return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
   }
 }

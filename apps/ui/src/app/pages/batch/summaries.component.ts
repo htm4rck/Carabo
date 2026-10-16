@@ -75,6 +75,7 @@ import { AuthService } from '../../auth/auth.service';
     .breadcrumb-area p { margin: 0; font-size: 13px; }
     .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; background: #e3f2fd; color: #1565c0; }
     .badge[data-status="ACCEPTED"] { background: #e8f5e9; color: #2e7d32; }
+    .badge[data-status="OBSERVED"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="REJECTED"] { background: #ffebee; color: #c62828; }
     .badge[data-status="SENT"] { background: #fff3e0; color: #e65100; }
     mat-card-header small { display:block; margin-top:4px; color:var(--mutedColor); }
@@ -121,5 +122,5 @@ export class SummariesComponent {
     });
   }
 
-  statusLabel(status: string): string { return ({ SENT: 'Enviado', ACCEPTED: 'Aceptado', REJECTED: 'Rechazado', PENDING: 'Pendiente' } as Record<string,string>)[status] ?? status; }
+  statusLabel(status: string): string { return ({ SENT: 'Enviado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', PENDING: 'Pendiente', ERROR: 'Error' } as Record<string,string>)[status] ?? status; }
 }
