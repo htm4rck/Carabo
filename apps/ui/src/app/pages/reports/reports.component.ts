@@ -8,13 +8,15 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CaraboApiService, SalesReport } from '../../services/carabo-api.service';
 import { AuthService } from '../../auth/auth.service';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule, MatSnackBarModule],
   template: `
     <div class="breadcrumb-area">
       <h1>Reportes Tributarios</h1>
@@ -54,6 +56,15 @@ import { AuthService } from '../../auth/auth.service';
     }
 
     @if (report && !loading) {
+      @if (report.totalDocuments === 0) {
+        <section class="feedback empty-feedback" role="status" aria-live="polite">
+          <mat-icon>event_busy</mat-icon>
+          <div>
+            <h2>No hay documentos en este periodo</h2>
+            <p>No encontramos ventas entre el {{ from }} y el {{ to }} para la empresa activa.</p>
+          </div>
+        </section>
+      }
       <div class="stats-grid">
         <mat-card>
           <mat-card-content>
@@ -128,6 +139,7 @@ import { AuthService } from '../../auth/auth.service';
     .feedback p { margin:0; color:var(--mutedColor); }
     .error-feedback { justify-content:flex-start; border-color:#e4c2be; background:#fff8f7; }
     .error-feedback>mat-icon { color:#a14d45; }
+    .empty-feedback { justify-content:flex-start; border-color:#cbd8cb; background:#f7faf7; }
     .error-feedback button { margin-left:auto; }
     @media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:560px){.filters{display:grid;grid-template-columns:1fr}.filters mat-form-field{min-width:0}.filters button{width:100%;margin-bottom:0}.stats-grid{grid-template-columns:1fr}.feedback{align-items:flex-start;flex-wrap:wrap}.error-feedback button{width:100%;margin-left:0}}
@@ -141,7 +153,7 @@ export class ReportsComponent {
   errorMessage = '';
   reportColumns = ['docType', 'count', 'taxBase', 'igvAmount', 'total'];
 
-  constructor(private api: CaraboApiService, private auth: AuthService) {
+  constructor(private api: CaraboApiService, private auth: AuthService, private snackBar: MatSnackBar) {
     const now = new Date();
     this.from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     this.to = now.toISOString().split('T')[0];
@@ -155,10 +167,23 @@ export class ReportsComponent {
     const bc = this.auth.session()?.tenantId ?? '';
     if (!bc) { this.errorMessage = 'Selecciona una empresa antes de generar el reporte.'; return; }
     this.loading = true;
+    this.report = null;
     this.errorMessage = '';
-    this.api.salesReport(bc, this.from, this.to).subscribe({
-      next: (r) => { this.report = r; this.loading = false; },
-      error: () => { this.report = null; this.loading = false; this.errorMessage = 'No fue posible consultar el periodo. Inténtalo nuevamente.'; }
+    this.api.salesReport(bc, this.from, this.to).pipe(
+      finalize(() => this.loading = false)
+    ).subscribe({
+      next: (r) => {
+        this.report = r;
+        const message = r.totalDocuments === 0
+          ? 'No hay documentos en el periodo seleccionado.'
+          : `Reporte generado: ${r.totalDocuments} documento(s).`;
+        this.snackBar.open(message, 'Cerrar', { duration: 4500 });
+      },
+      error: () => {
+        this.report = null;
+        this.errorMessage = 'No fue posible consultar el periodo. Inténtalo nuevamente.';
+        this.snackBar.open(this.errorMessage, 'Cerrar', { duration: 5000 });
+      }
     });
   }
 
