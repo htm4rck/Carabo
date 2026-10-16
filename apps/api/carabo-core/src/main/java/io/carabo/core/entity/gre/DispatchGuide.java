@@ -4,7 +4,7 @@ import io.carabo.core.enums.DocumentStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -134,19 +134,19 @@ public class DispatchGuide {
     private String externalId;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @OneToMany(mappedBy = "dispatchGuide", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DispatchGuideItem> items = new ArrayList<>();
 
     @PrePersist
-    void prePersist() { createdAt = updatedAt = LocalDateTime.now(); }
+    void prePersist() { createdAt = updatedAt = Instant.now(); }
 
     @PreUpdate
-    void preUpdate() { updatedAt = LocalDateTime.now(); }
+    void preUpdate() { updatedAt = Instant.now(); }
 
     public String getFullNumber() { return series + "-" + String.format("%08d", number); }
 
@@ -221,8 +221,8 @@ public class DispatchGuide {
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
     public String getExternalId() { return externalId; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
     public List<DispatchGuideItem> getItems() { return items; }
     public void setItems(List<DispatchGuideItem> items) { this.items = items; }
 }

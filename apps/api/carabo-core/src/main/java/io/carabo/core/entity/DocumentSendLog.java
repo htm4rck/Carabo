@@ -1,7 +1,7 @@
 package io.carabo.core.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -38,10 +38,10 @@ public class DocumentSendLog {
     private String cdrXml;
 
     @Column(name = "sent_at")
-    private LocalDateTime sentAt;
+    private Instant sentAt;
 
     @PrePersist
-    void prePersist() { sentAt = LocalDateTime.now(); }
+    void prePersist() { sentAt = Instant.now(); }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -61,5 +61,5 @@ public class DocumentSendLog {
     public void setResponseMsg(String responseMsg) { this.responseMsg = responseMsg; }
     public String getCdrXml() { return cdrXml; }
     public void setCdrXml(String cdrXml) { this.cdrXml = cdrXml; }
-    public LocalDateTime getSentAt() { return sentAt; }
+    public Instant getSentAt() { return sentAt; }
 }

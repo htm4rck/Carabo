@@ -2,7 +2,7 @@ package io.carabo.core.entity;
 
 import io.carabo.core.enums.SendMode;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -106,7 +106,7 @@ public class Tenant {
     private String apiKeyHash;
 
     @Column(name = "api_key_rotated_at")
-    private LocalDateTime apiKeyRotatedAt;
+    private Instant apiKeyRotatedAt;
 
     // Country / tax authority
     @Column(name = "country_code", length = 3)
@@ -117,16 +117,16 @@ public class Tenant {
     private boolean active = true;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
-    void prePersist() { createdAt = updatedAt = LocalDateTime.now(); }
+    void prePersist() { createdAt = updatedAt = Instant.now(); }
 
     @PreUpdate
-    void preUpdate() { updatedAt = LocalDateTime.now(); }
+    void preUpdate() { updatedAt = Instant.now(); }
 
     // Getters & Setters
     public UUID getId() { return id; }
@@ -171,8 +171,8 @@ public class Tenant {
     public void setDebitNoteSeries(String debitNoteSeries) { this.debitNoteSeries = debitNoteSeries; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
     public java.time.LocalDate getCertificateValidFrom() { return certificateValidFrom; }
     public void setCertificateValidFrom(java.time.LocalDate certificateValidFrom) { this.certificateValidFrom = certificateValidFrom; }
     public java.time.LocalDate getCertificateValidTo() { return certificateValidTo; }
@@ -191,6 +191,6 @@ public class Tenant {
     public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
     public String getApiKeyHash() { return apiKeyHash; }
     public void setApiKeyHash(String apiKeyHash) { this.apiKeyHash = apiKeyHash; }
-    public LocalDateTime getApiKeyRotatedAt() { return apiKeyRotatedAt; }
-    public void setApiKeyRotatedAt(LocalDateTime apiKeyRotatedAt) { this.apiKeyRotatedAt = apiKeyRotatedAt; }
+    public Instant getApiKeyRotatedAt() { return apiKeyRotatedAt; }
+    public void setApiKeyRotatedAt(Instant apiKeyRotatedAt) { this.apiKeyRotatedAt = apiKeyRotatedAt; }
 }

@@ -6,8 +6,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { CaraboApiService } from '../../services/carabo-api.service';
+import { finalize } from 'rxjs';
+import { BatchResult, CaraboApiService } from '../../services/carabo-api.service';
 import { AuthService } from '../../auth/auth.service';
+
+interface SummaryView extends BatchResult {
+  businessCode: string;
+}
 
 @Component({
   selector: 'app-summaries',
@@ -27,10 +32,30 @@ import { AuthService } from '../../auth/auth.service';
         </button>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
+        @if (lastResult) {
+          <section class="operation-result" [attr.data-status]="lastResult.status" role="status" aria-live="polite">
+            <mat-icon>{{ resultIcon(lastResult.status) }}</mat-icon>
+            <div>
+              <strong>{{ statusLabel(lastResult.status) }}</strong>
+              <p>{{ lastResult.message }}</p>
+              <small>
+                Fecha fiscal: {{ lastResult.referenceDate || 'No aplica' }} ·
+                {{ lastResult.documentCount }} comprobante(s) ·
+                Generado {{ formatGeneratedAt(lastResult.generatedAt, lastResult.timeZone) }}
+              </small>
+            </div>
+          </section>
+        }
+        @if (operationError) {
+          <section class="operation-result" data-status="ERROR" role="alert">
+            <mat-icon>error_outline</mat-icon>
+            <div><strong>No se pudo completar la operación</strong><p>{{ operationError }}</p></div>
+          </section>
+        }
         <div class="table-scroll"><table mat-table [dataSource]="summaries" class="w-100" aria-label="Resúmenes generados en esta sesión">
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Fecha</th>
-            <td mat-cell *matCellDef="let s">{{ s.date }}</td>
+            <td mat-cell *matCellDef="let s">{{ s.referenceDate || '—' }}</td>
           </ng-container>
           <ng-container matColumnDef="business">
             <th mat-header-cell *matHeaderCellDef>Empresa</th>
@@ -78,7 +103,15 @@ import { AuthService } from '../../auth/auth.service';
     .badge[data-status="OBSERVED"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="REJECTED"] { background: #ffebee; color: #c62828; }
     .badge[data-status="SENT"] { background: #fff3e0; color: #e65100; }
+    .badge[data-status="EMPTY"] { background: #edf3ed; color: #173317; }
+    .badge[data-status="ERROR"] { background: #ffebee; color: #a51d2d; }
     mat-card-header small { display:block; margin-top:4px; color:var(--mutedColor); }
+    .operation-result { display:flex; gap:12px; align-items:flex-start; margin:0 0 18px; padding:14px 16px; border:1px solid #cbd8cb; border-left:4px solid #768a76; border-radius:8px; background:#f7faf7; color:#173317; }
+    .operation-result[data-status="SENT"], .operation-result[data-status="ACCEPTED"] { border-left-color:#2e7d32; background:#f1f8f2; }
+    .operation-result[data-status="ERROR"], .operation-result[data-status="REJECTED"] { border-left-color:#b3261e; background:#fff7f6; color:#68120d; }
+    .operation-result mat-icon { flex:0 0 auto; margin-top:1px; }
+    .operation-result p { margin:2px 0 5px; }
+    .operation-result small { color:inherit; opacity:.78; }
     .table-scroll { overflow-x:auto; }
     table { min-width:620px; }
     .empty-state { min-height:210px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--mutedColor); }
@@ -90,37 +123,76 @@ import { AuthService } from '../../auth/auth.service';
 })
 export class SummariesComponent {
   displayedColumns = ['date', 'business', 'ticket', 'status', 'actions'];
-  summaries: any[] = [];
+  summaries: SummaryView[] = [];
   generating = false;
   checkingTicket: string | null = null;
+  lastResult: SummaryView | null = null;
+  operationError = '';
 
   constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
 
   generate() {
     const bc = this.auth.session()?.tenantId ?? '';
-    if (!bc || this.generating) return;
+    if (!bc || this.generating) {
+      if (!bc) this.operationError = 'Selecciona una empresa antes de generar el resumen.';
+      return;
+    }
     this.generating = true;
-    this.api.generateSummary(bc).subscribe({
+    this.lastResult = null;
+    this.operationError = '';
+    this.api.generateSummary(bc).pipe(
+      finalize(() => this.generating = false)
+    ).subscribe({
       next: (res) => {
-        this.generating = false;
-        this.summaries.unshift(res);
-        this.snackBar.open('Resumen generado', 'Cerrar', { duration: 3000 });
+        const result = { ...res, businessCode: bc };
+        this.lastResult = result;
+        this.summaries.unshift(result);
+        this.snackBar.open(res.message, 'Cerrar', { duration: res.status === 'EMPTY' ? 5000 : 3000 });
       },
-      error: () => { this.generating = false; this.snackBar.open('No se pudo generar el resumen', 'Cerrar', { duration: 4000 }); }
+      error: (error) => {
+        this.operationError = error?.error?.message || error?.error?.details || 'No se pudo generar el resumen. Intenta nuevamente.';
+        this.snackBar.open(this.operationError, 'Cerrar', { duration: 5000 });
+      }
     });
   }
 
-  checkTicket(s: any) {
+  checkTicket(s: SummaryView) {
     this.checkingTicket = s.ticket;
-    this.api.checkTicket(s.businessCode, s.ticket).subscribe({
+    if (!s.ticket) return;
+    this.operationError = '';
+    this.api.checkTicket(s.businessCode, s.ticket).pipe(
+      finalize(() => this.checkingTicket = null)
+    ).subscribe({
       next: (res) => {
-        this.checkingTicket = null;
         s.status = res.status || (res.success ? 'ACCEPTED' : 'PENDING');
-        this.snackBar.open(`Ticket: ${res.status || 'consultado'}`, 'Cerrar', { duration: 3000 });
+        s.message = res.message;
+        s.generatedAt = res.generatedAt;
+        s.timeZone = res.timeZone;
+        this.lastResult = s;
+        this.snackBar.open(res.message || `Ticket: ${res.status || 'consultado'}`, 'Cerrar', { duration: 3000 });
       },
-      error: () => { this.checkingTicket = null; this.snackBar.open('No se pudo consultar el ticket', 'Cerrar', { duration: 4000 }); }
+      error: () => {
+        this.operationError = 'No se pudo consultar el ticket. Intenta nuevamente.';
+        this.snackBar.open(this.operationError, 'Cerrar', { duration: 4000 });
+      }
     });
   }
 
-  statusLabel(status: string): string { return ({ SENT: 'Enviado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', PENDING: 'Pendiente', ERROR: 'Error' } as Record<string,string>)[status] ?? status; }
+  statusLabel(status: string): string { return ({ EMPTY: 'Sin boletas', SENT: 'Enviado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', PENDING: 'Pendiente', ERROR: 'Error' } as Record<string,string>)[status] ?? status; }
+
+  resultIcon(status: string): string {
+    if (status === 'EMPTY') return 'info_outline';
+    if (status === 'ERROR' || status === 'REJECTED') return 'error_outline';
+    if (status === 'ACCEPTED') return 'check_circle_outline';
+    return 'schedule_send';
+  }
+
+  formatGeneratedAt(value: string, timeZone = 'America/Lima'): string {
+    if (!value) return `en ${timeZone}`;
+    const instant = new Date(value);
+    if (Number.isNaN(instant.getTime())) return `${value} (${timeZone})`;
+    return `${new Intl.DateTimeFormat('es-PE', {
+      dateStyle: 'medium', timeStyle: 'medium', timeZone
+    }).format(instant)} (${timeZone})`;
+  }
 }

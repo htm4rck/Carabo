@@ -19,6 +19,7 @@ export interface DocumentSummary {
   businessCode: string;
   sunatResponse: string;
   createdAt: string;
+  timeZone: string;
 }
 
 export interface QueryResponse {
@@ -105,6 +106,17 @@ export interface DashboardStats {
   tenants: number;
 }
 
+export interface BatchResult {
+  success: boolean;
+  ticket: string | null;
+  status: 'EMPTY' | 'SENT' | 'PENDING' | 'ACCEPTED' | 'OBSERVED' | 'REJECTED' | 'ERROR' | string;
+  message: string;
+  documentCount: number;
+  referenceDate: string | null;
+  generatedAt: string;
+  timeZone: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CaraboApiService {
   private baseUrl = environment.apiUrl;
@@ -180,16 +192,16 @@ export class CaraboApiService {
 
   // --- Batch ---
 
-  generateSummary(businessCode: string, date?: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/documents/batch/summary`, { businessCode, date });
+  generateSummary(businessCode: string, date?: string): Observable<BatchResult> {
+    return this.http.post<BatchResult>(`${this.baseUrl}/documents/batch/summary`, { businessCode, date });
   }
 
   sendVoided(businessCode: string, documentIds: string[], reason: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/documents/batch/void`, { businessCode, documentIds, reason });
   }
 
-  checkTicket(businessCode: string, ticket: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/documents/batch/ticket/${businessCode}/${ticket}`);
+  checkTicket(businessCode: string, ticket: string): Observable<BatchResult> {
+    return this.http.get<BatchResult>(`${this.baseUrl}/documents/batch/ticket/${businessCode}/${ticket}`);
   }
 
   // --- Reports ---

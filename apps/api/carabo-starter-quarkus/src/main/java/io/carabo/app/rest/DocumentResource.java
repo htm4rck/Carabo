@@ -4,6 +4,7 @@ import io.carabo.app.client.LayoutClient;
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentQueryService;
 import io.carabo.app.service.DocumentService;
+import io.carabo.app.service.FiscalClock;
 import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
@@ -42,6 +43,9 @@ public class DocumentResource {
 
     @Inject
     BatchService batchService;
+
+    @Inject
+    FiscalClock fiscalClock;
 
     @Inject
     LayoutClient layoutClient;
@@ -244,7 +248,7 @@ public class DocumentResource {
     public Response dailySummary(SummaryRequest request) {
         var result = batchService.sendDailySummary(
             tenantContext.businessCode(),
-            request.date != null ? LocalDate.parse(request.date) : LocalDate.now().minusDays(1)
+            request.date != null ? LocalDate.parse(request.date) : fiscalClock.today().minusDays(1)
         );
         return Response.ok(result).build();
     }
@@ -285,6 +289,7 @@ public class DocumentResource {
         s.businessCode = doc.getBusinessCode();
         s.sunatResponse = doc.getSunatResponse();
         s.createdAt = doc.getCreatedAt() != null ? doc.getCreatedAt().toString() : null;
+        s.timeZone = fiscalClock.zoneId();
         return s;
     }
 
@@ -304,6 +309,7 @@ public class DocumentResource {
         public String businessCode;
         public String sunatResponse;
         public String createdAt;
+        public String timeZone;
     }
 
     public static class QueryResponse {

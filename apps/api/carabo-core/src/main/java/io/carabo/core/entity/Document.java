@@ -6,7 +6,7 @@ import io.carabo.core.enums.SendMode;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -139,10 +139,10 @@ public class Document {
 
     // Audit
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     // Relations
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -156,13 +156,13 @@ public class Document {
 
     @PrePersist
     void prePersist() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = Instant.now();
+        updatedAt = createdAt;
     }
 
     @PreUpdate
     void preUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 
     // Getters & Setters
@@ -240,8 +240,8 @@ public class Document {
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public String getSourceDocId() { return sourceDocId; }
     public void setSourceDocId(String sourceDocId) { this.sourceDocId = sourceDocId; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
     public List<DocumentLine> getLines() { return lines; }
     public void setLines(List<DocumentLine> lines) { this.lines = lines; }
     public List<DocumentTax> getTaxes() { return taxes; }

@@ -8,6 +8,7 @@ import io.carabo.core.validation.PeruTaxRules;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 
 /**
  * Generates UBL 2.1 XML compliant with SUNAT Peru electronic invoicing.
@@ -27,6 +28,8 @@ public class UblBuilder {
     private static final String SUNAT_NS = "urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1";
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ssXXX");
+    private static final ZoneId PERU_ZONE = ZoneId.of("America/Lima");
 
     public String build(Document doc) {
         String xml = switch (doc.getDocType()) {
@@ -50,6 +53,7 @@ public class UblBuilder {
         appendUblVersion(xml);
         appendId(xml, doc);
         appendIssueDate(xml, doc);
+        appendIssueTime(xml, doc);
         appendDueDate(xml, doc);
         appendInvoiceTypeCode(xml, doc);
         appendCurrency(xml, doc);
@@ -75,6 +79,7 @@ public class UblBuilder {
         appendUblVersion(xml);
         appendId(xml, doc);
         appendIssueDate(xml, doc);
+        appendIssueTime(xml, doc);
         appendCurrency(xml, doc);
 
         // Discrepancy response
@@ -116,6 +121,7 @@ public class UblBuilder {
         appendUblVersion(xml);
         appendId(xml, doc);
         appendIssueDate(xml, doc);
+        appendIssueTime(xml, doc);
         appendCurrency(xml, doc);
 
         // Discrepancy response
@@ -178,6 +184,14 @@ public class UblBuilder {
 
     private void appendIssueDate(StringBuilder xml, Document doc) {
         xml.append("  <cbc:IssueDate>").append(doc.getIssueDate().format(DATE_FMT)).append("</cbc:IssueDate>\n");
+    }
+
+    private void appendIssueTime(StringBuilder xml, Document doc) {
+        if (doc.getCreatedAt() != null) {
+            xml.append("  <cbc:IssueTime>")
+                .append(doc.getCreatedAt().atZone(PERU_ZONE).format(TIME_FMT))
+                .append("</cbc:IssueTime>\n");
+        }
     }
 
     private void appendDueDate(StringBuilder xml, Document doc) {

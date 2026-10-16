@@ -63,6 +63,9 @@ public class DocumentService {
     @Inject
     SecretResolver secretResolver;
 
+    @Inject
+    FiscalClock fiscalClock;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -349,7 +352,7 @@ public class DocumentService {
         }
         doc.setSeries(series);
 
-        doc.setIssueDate(req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now());
+        doc.setIssueDate(req.getIssueDate() != null ? req.getIssueDate() : fiscalClock.today());
         doc.setDueDate(req.getDueDate());
         doc.setCurrency(req.getCurrency() != null ? req.getCurrency() : "PEN");
         doc.setCallbackUrl(req.getCallbackUrl());

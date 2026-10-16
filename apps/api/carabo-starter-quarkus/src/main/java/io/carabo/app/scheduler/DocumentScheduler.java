@@ -2,6 +2,7 @@ package io.carabo.app.scheduler;
 
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentService;
+import io.carabo.app.service.FiscalClock;
 import io.carabo.core.entity.Document;
 import io.carabo.core.entity.Tenant;
 import io.quarkus.scheduler.Scheduled;
@@ -27,6 +28,9 @@ public class DocumentScheduler {
     @Inject
     EntityManager em;
 
+    @Inject
+    FiscalClock fiscalClock;
+
     /**
      * Retries failed/pending documents every 5 minutes.
      */
@@ -49,9 +53,9 @@ public class DocumentScheduler {
      * Generates daily summaries for all active tenants at 6:00 AM.
      * Summarizes receipts (boletas) from the previous day.
      */
-    @Scheduled(cron = "0 0 6 * * ?", identity = "daily-summary")
+    @Scheduled(cron = "0 0 6 * * ?", timeZone = "America/Lima", identity = "daily-summary")
     void generateDailySummaries() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDate yesterday = fiscalClock.today().minusDays(1);
         List<Tenant> tenants = getActiveTenants();
 
         LOG.info("Generating daily summaries for " + tenants.size() + " tenants, date: " + yesterday);
@@ -71,9 +75,10 @@ public class DocumentScheduler {
      * Checks certificate expiry every day at 8:00 AM.
      * Logs warnings for certificates expiring within 30 days.
      */
-    @Scheduled(cron = "0 0 8 * * ?", identity = "certificate-check")
+    @Scheduled(cron = "0 0 8 * * ?", timeZone = "America/Lima", identity = "certificate-check")
     void checkCertificateExpiry() {
-        LocalDate threshold = LocalDate.now().plusDays(30);
+        LocalDate today = fiscalClock.today();
+        LocalDate threshold = today.plusDays(30);
 
         @SuppressWarnings("unchecked")
         List<Tenant> expiring = em.createQuery(
@@ -82,7 +87,7 @@ public class DocumentScheduler {
             .getResultList();
 
         for (Tenant tenant : expiring) {
-            long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), tenant.getCertificateValidTo());
+            long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(today, tenant.getCertificateValidTo());
             if (daysLeft <= 0) {
                 LOG.error("CERTIFICATE EXPIRED for " + tenant.getBusinessCode() + " (expired " + tenant.getCertificateValidTo() + ")");
             } else {

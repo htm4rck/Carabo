@@ -88,8 +88,11 @@ import { CaraboApiService, DocumentSummary, QueryParams } from '../../services/c
             <td mat-cell *matCellDef="let d">{{ d.currency }} {{ d.total | number:'1.2-2' }}</td>
           </ng-container>
           <ng-container matColumnDef="issueDate">
-            <th mat-header-cell *matHeaderCellDef>Fecha</th>
-            <td mat-cell *matCellDef="let d">{{ d.issueDate }}</td>
+            <th mat-header-cell *matHeaderCellDef>Fecha fiscal / generación</th>
+            <td mat-cell *matCellDef="let d">
+              {{ d.issueDate }}
+              <br><small class="gray-color">{{ formatGeneratedAt(d.createdAt, d.timeZone) }}</small>
+            </td>
           </ng-container>
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Estado</th>
@@ -230,5 +233,14 @@ export class DocumentsComponent implements OnInit {
 
   statusLabel(status: string): string {
     return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
+  }
+
+  formatGeneratedAt(value: string, timeZone = 'America/Lima'): string {
+    if (!value) return `Hora local: ${timeZone}`;
+    const instant = new Date(value);
+    if (Number.isNaN(instant.getTime())) return `${value} (${timeZone})`;
+    return `${new Intl.DateTimeFormat('es-PE', {
+      dateStyle: 'short', timeStyle: 'medium', timeZone
+    }).format(instant)} (${timeZone})`;
   }
 }

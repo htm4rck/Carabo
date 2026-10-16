@@ -18,7 +18,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.UUID;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Path("/tenants")
 @Produces(MediaType.APPLICATION_JSON)
@@ -72,7 +72,7 @@ public class TenantResource {
         tenant.setMaxDocumentsPerDay(req.maxDocumentsPerDay != null ? req.maxDocumentsPerDay : 1000);
         String apiKey = apiKeyService.generate();
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
-        tenant.setApiKeyRotatedAt(LocalDateTime.now());
+        tenant.setApiKeyRotatedAt(Instant.now());
         em.persist(tenant);
         return Response.status(201).entity(new CreatedTenantResponse(toResponse(tenant), apiKey)).build();
     }
@@ -165,7 +165,7 @@ public class TenantResource {
 
         String apiKey = apiKeyService.generate();
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
-        tenant.setApiKeyRotatedAt(LocalDateTime.now());
+        tenant.setApiKeyRotatedAt(Instant.now());
         em.merge(tenant);
         tenantService.evict(tenant.getBusinessCode());
         return Response.ok(new RotatedApiKeyResponse(apiKey, tenant.getApiKeyRotatedAt())).build();
@@ -317,13 +317,13 @@ public class TenantResource {
         public String countryCode;
         public Integer maxDocumentsPerDay;
         public boolean active;
-        public java.time.LocalDateTime createdAt;
-        public java.time.LocalDateTime updatedAt;
-        public java.time.LocalDateTime apiKeyRotatedAt;
+        public Instant createdAt;
+        public Instant updatedAt;
+        public Instant apiKeyRotatedAt;
     }
 
     /** API key is returned once at creation and never by read/update endpoints. */
     public record CreatedTenantResponse(TenantResponse tenant, String apiKey) {}
-    public record RotatedApiKeyResponse(String apiKey, LocalDateTime rotatedAt) {}
+    public record RotatedApiKeyResponse(String apiKey, Instant rotatedAt) {}
     public record ErrorResponse(String error) {}
 }

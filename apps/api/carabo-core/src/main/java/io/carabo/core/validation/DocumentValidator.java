@@ -7,6 +7,7 @@ import io.carabo.core.enums.DocumentType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,8 @@ import java.util.List;
  * Returns a list of errors. Empty list = valid.
  */
 public class DocumentValidator {
+
+    private static final ZoneId PERU_ZONE = ZoneId.of("America/Lima");
 
     private static final java.util.Set<String> CREDIT_NOTE_REASON_CODES = java.util.Set.of(
         "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13");
@@ -43,10 +46,10 @@ public class DocumentValidator {
         if (tenant.getCertificateFile() == null || tenant.getCertificateFile().isBlank()) {
             errors.add("Certificado digital no configurado");
         }
-        if (tenant.getCertificateValidFrom() != null && tenant.getCertificateValidFrom().isAfter(LocalDate.now())) {
+        if (tenant.getCertificateValidFrom() != null && tenant.getCertificateValidFrom().isAfter(today())) {
             errors.add("Certificado digital aún no vigente (válido desde " + tenant.getCertificateValidFrom() + ")");
         }
-        if (tenant.getCertificateValidTo() != null && tenant.getCertificateValidTo().isBefore(LocalDate.now())) {
+        if (tenant.getCertificateValidTo() != null && tenant.getCertificateValidTo().isBefore(today())) {
             errors.add("Certificado digital vencido (válido hasta " + tenant.getCertificateValidTo() + ")");
         }
     }
@@ -240,7 +243,7 @@ public class DocumentValidator {
 
     private void validateDateRange(Document doc, List<String> errors) {
         if (doc.getIssueDate() != null) {
-            LocalDate today = LocalDate.now();
+            LocalDate today = today();
             // SUNAT allows up to 7 days in the past for invoices
             if (doc.getIssueDate().isBefore(today.minusDays(7))) {
                 errors.add("Fecha de emisión fuera del plazo permitido (máximo 7 días atrás)");
@@ -249,5 +252,9 @@ public class DocumentValidator {
                 errors.add("Fecha de emisión no puede ser futura");
             }
         }
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(PERU_ZONE);
     }
 }

@@ -17,6 +17,7 @@ import org.jboss.logging.Logger;
 import java.io.FileInputStream;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +35,9 @@ public class BatchService {
 
     @Inject
     SecretResolver secretResolver;
+
+    @Inject
+    FiscalClock fiscalClock;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -57,7 +61,7 @@ public class BatchService {
             .getResultList();
 
         if (boletas.isEmpty()) {
-            return new BatchResult(false, null, "EMPTY", "No hay boletas para resumir en " + date, 0);
+            return result(false, null, "EMPTY", "No hay boletas para resumir en " + date, 0, date);
         }
 
         String identifier = tenant.getIssuerRuc() + "-RC-" + date.format(DateTimeFormatter.BASIC_ISO_DATE) + "-1";
@@ -71,10 +75,10 @@ public class BatchService {
                 sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
             String ticket = sunat.sendSummary(identifier, signed.signedXml());
 
-            return new BatchResult(true, ticket, "SENT", "Resumen enviado, ticket: " + ticket, boletas.size());
+            return result(true, ticket, "SENT", "Resumen enviado, ticket: " + ticket, boletas.size(), date);
         } catch (Exception e) {
             LOG.error("Daily summary failed for " + businessCode, e);
-            return new BatchResult(false, null, "ERROR", e.getMessage(), boletas.size());
+            return result(false, null, "ERROR", safeErrorMessage(e), boletas.size(), date);
         }
     }
 
@@ -94,10 +98,10 @@ public class BatchService {
             .getResultList();
 
         if (docs.isEmpty()) {
-            return new BatchResult(false, null, "EMPTY", "No hay documentos válidos para anular", 0);
+            return result(false, null, "EMPTY", "No hay documentos válidos para anular", 0, fiscalClock.today());
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = fiscalClock.today();
         String identifier = tenant.getIssuerRuc() + "-RA-" + today.format(DateTimeFormatter.BASIC_ISO_DATE) + "-1";
         String xml = buildVoidedXml(tenant, docs, today, identifier, reason);
 
@@ -116,10 +120,10 @@ public class BatchService {
                 em.merge(doc);
             }
 
-            return new BatchResult(true, ticket, "SENT", "Baja enviada, ticket: " + ticket, docs.size());
+            return result(true, ticket, "SENT", "Baja enviada, ticket: " + ticket, docs.size(), today);
         } catch (Exception e) {
             LOG.error("Voided communication failed for " + businessCode, e);
-            return new BatchResult(false, null, "ERROR", e.getMessage(), docs.size());
+            return result(false, null, "ERROR", safeErrorMessage(e), docs.size(), today);
         }
     }
 
@@ -135,7 +139,7 @@ public class BatchService {
         String status = result.processing() ? "PENDING"
             : result.accepted() ? (result.observed() ? "OBSERVED" : "ACCEPTED")
             : result.retryable() ? "ERROR" : "REJECTED";
-        return new BatchResult(result.accepted(), ticket, status, result.responseMsg(), 0);
+        return result(result.accepted(), ticket, status, result.responseMsg(), 0, null);
     }
 
     // --- XML builders for batch documents ---
@@ -152,7 +156,7 @@ public class BatchService {
         xml.append("  <cbc:CustomizationID>1.1</cbc:CustomizationID>\n");
         xml.append("  <cbc:ID>").append(identifier).append("</cbc:ID>\n");
         xml.append("  <cbc:ReferenceDate>").append(date).append("</cbc:ReferenceDate>\n");
-        xml.append("  <cbc:IssueDate>").append(LocalDate.now()).append("</cbc:IssueDate>\n");
+        xml.append("  <cbc:IssueDate>").append(fiscalClock.today()).append("</cbc:IssueDate>\n");
         xml.append("  <cac:Signature><cbc:ID>IDSign").append(tenant.getIssuerRuc()).append("</cbc:ID>");
         xml.append("<cac:SignatoryParty><cac:PartyIdentification><cbc:ID>").append(tenant.getIssuerRuc()).append("</cbc:ID></cac:PartyIdentification></cac:SignatoryParty>");
         xml.append("<cac:DigitalSignatureAttachment><cac:ExternalReference><cbc:URI>#SignatureValue</cbc:URI></cac:ExternalReference></cac:DigitalSignatureAttachment></cac:Signature>\n");
@@ -235,5 +239,18 @@ public class BatchService {
             ? SunatBillService.PROD_URL : SunatBillService.BETA_URL;
     }
 
-    public record BatchResult(boolean success, String ticket, String status, String message, int documentCount) {}
+    private BatchResult result(boolean success, String ticket, String status, String message,
+                               int documentCount, LocalDate referenceDate) {
+        return new BatchResult(success, ticket, status, message, documentCount, referenceDate,
+            fiscalClock.nowUtc(), fiscalClock.zoneId());
+    }
+
+    private String safeErrorMessage(Exception exception) {
+        return exception.getMessage() != null && !exception.getMessage().isBlank()
+            ? exception.getMessage() : "La operación no pudo completarse";
+    }
+
+    public record BatchResult(boolean success, String ticket, String status, String message,
+                              int documentCount, LocalDate referenceDate,
+                              Instant generatedAt, String timeZone) {}
 }

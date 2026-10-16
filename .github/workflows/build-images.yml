@@ -60,7 +60,7 @@ jobs:
         env:
           PGPASSWORD: carabo_test
         run: |
-          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql; do
+          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql; do
             psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 -f "$migration"
           done
           psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -156,6 +156,21 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f migrations/004-correlatives-and-idempotency.sql
           psql -v ON_ERROR_STOP=1 -f migrations/005-api-key-hardening.sql
           psql -v ON_ERROR_STOP=1 -f migrations/006-signing-and-note-metadata.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/007-utc-timestamps.sql
+      - name: Verify UTC timestamp contract
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE column_type text;
+          BEGIN
+            SELECT data_type INTO column_type
+            FROM information_schema.columns
+            WHERE table_schema = 'carabo' AND table_name = 'document' AND column_name = 'created_at';
+            IF column_type <> 'timestamp with time zone' THEN
+              RAISE EXCEPTION 'document.created_at must be TIMESTAMPTZ, got %', column_type;
+            END IF;
+          END $$;
+          SQL
       - name: Verify concurrent allocation
         run: bash scripts/verify-correlative-concurrency.sh 40 12
 

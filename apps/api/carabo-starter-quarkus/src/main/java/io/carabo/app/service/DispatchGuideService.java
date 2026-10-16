@@ -43,6 +43,9 @@ public class DispatchGuideService {
     @Inject
     SecretResolver secretResolver;
 
+    @Inject
+    FiscalClock fiscalClock;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -71,8 +74,8 @@ public class DispatchGuideService {
         gre.setSeries(request.getSeries() != null ? request.getSeries() : "T001");
         gre.setNumber(correlativeService.next(
             request.getBusinessCode(), CorrelativeService.Kind.DISPATCH_GUIDE, gre.getSeries()));
-        gre.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : LocalDate.now());
-        gre.setStartDate(request.getStartDate() != null ? request.getStartDate() : LocalDate.now());
+        gre.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : fiscalClock.today());
+        gre.setStartDate(request.getStartDate() != null ? request.getStartDate() : fiscalClock.today());
 
         // Issuer from tenant
         gre.setIssuerRuc(tenant.getIssuerRuc());

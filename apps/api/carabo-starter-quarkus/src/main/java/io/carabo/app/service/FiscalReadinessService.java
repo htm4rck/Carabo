@@ -21,6 +21,9 @@ public class FiscalReadinessService {
     @Inject
     SecretResolver secretResolver;
 
+    @Inject
+    FiscalClock fiscalClock;
+
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
 
@@ -79,7 +82,7 @@ public class FiscalReadinessService {
     }
 
     private boolean certificateIsCurrent(Tenant tenant) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = fiscalClock.today();
         return tenant.getCertificateValidFrom() != null && tenant.getCertificateValidTo() != null
             && !tenant.getCertificateValidFrom().isAfter(today)
             && !tenant.getCertificateValidTo().isBefore(today);
