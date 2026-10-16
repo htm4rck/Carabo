@@ -252,6 +252,15 @@ La secuencia Emisión → Firma → SUNAT → CDR combina nodos circulares y con
 
 La cabecera translúcida mantiene juntos contexto, versiones, empresa activa e identidad. El selector de empresa es un control compacto de 42px con borde visible; las versiones usan cifras tabulares y no se esconden, sino que pasan a una fila propia en anchuras estrechas.
 
+### Executable Integration Documentation
+
+- **Contexto por productor:** la acción nace en cada productor y abre una guía personalizada con su identidad, scopes y contrato efectivo.
+- **Contrato copiable:** credencial, Base URL y headers aparecen antes del transporte; los ejemplos incluyen cuerpo completo, `Idempotency-Key` y una solicitud ejecutable, no fragmentos aislados.
+- **Disponibilidad honesta:** cada transporte declara si está soportado, interno o bloqueado, explica por qué y ofrece la alternativa operativa sin presentar capacidades futuras como actuales.
+- **Comparar antes de emitir:** el documento del productor se contrasta con una referencia por tipo y se valida sin reservar correlativo ni enviar a SUNAT; cada hallazgo muestra ruta, valor recibido, valor esperado y corrección.
+
+**The Copy Must Run Rule.** Si una integración se presenta como copiable, el bloque debe contener todo lo necesario para ejecutar o validar el caso, salvo secretos y valores que la interfaz marque explícitamente como variables.
+
 ### Security-Critical Flows
 
 - **Revelación única:** una credencial nueva se presenta en un panel inequívoco como visible una sola vez. Copiarla no cierra el panel: antes de ocultarla o salir, la persona confirma que la guardó en el secret store del productor; cualquier intento de abandonar sin confirmar advierte que no podrá recuperarse.

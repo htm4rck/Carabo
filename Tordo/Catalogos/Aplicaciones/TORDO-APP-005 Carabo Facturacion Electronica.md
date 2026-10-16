@@ -189,6 +189,14 @@ Los backends productores no usan usuarios, contraseñas, JWT humanos ni licencia
 
 La API key se revela una vez, se almacena hasheada en Carabo y debe conservarse en el secret store del productor. Actividad, documentos y fallos se atribuyen al productor; su rotación o revocación no afecta sesiones humanas ni otras integraciones. OAuth2 `client_credentials` con tokens cortos permanece como evolución recomendada; la identidad por productor evita desde ahora la clave compartida por tenant.
 
+### Canales y documentación ejecutable para productores
+
+La vista **Integraciones** permite a Supervisor, Admin y Root abrir un asistente por productor. El asistente muestra la URL absoluta del ambiente, los headers `X-Api-Key`, `Idempotency-Key` y `Content-Type`, los scopes asignados, ejemplos completos de factura, boleta, nota de crédito y nota de débito, y un `curl` copiable. Admin/Root crea o rota la credencial; el secreto se revela una sola vez y el backend productor lo registra en su secret store.
+
+El canal externo habilitado es HTTP: `POST https://dev.tordo.io/carabo/api/documents/ingest`. Antes de emitir, el productor puede enviar el mismo JSON a `POST /documents/validate`; este endpoint no reserva correlativo ni envía a SUNAT y responde hallazgos con ruta JSON exacta, valor recibido, valor esperado y corrección sugerida. El comparador embebido contrasta el documento del productor con un ejemplo correcto del mismo tipo.
+
+RabbitMQ se usa internamente detrás del endpoint HTTP: exchange `carabo.exchange`, routing key `document.emit` y cola `carabo.document.emit`. **No está habilitado como canal directo para productores externos.** `X-Api-Key` autentica HTTP y no es una contraseña AMQP. Habilitar AMQP directo exige identidad RabbitMQ por productor, TLS, vhost/ACL, cuotas, publisher confirms, correlación, revocación y pruebas de aislamiento/DLQ. No se requiere una librería propietaria; si se aprueba ese canal se documentarán clientes AMQP 0-9-1 oficiales y credenciales distintas de la API key.
+
 ## Decisiones pendientes
 
 | Decisión | Opciones | Recomendación | Fecha límite relativa |
@@ -276,8 +284,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---|---:|---|---|
 | Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
 | Fundación técnica DEV | 97% | 🟢 | CI con tests API/UI/PostgreSQL/RabbitMQ, imágenes, Flyway V9, métricas/alertas y despliegue DEV verificado; dispatch automático sigue pendiente |
-| Producto funcional integral | 73% | 🟡 | Flujos manuales, custodia, retry, lotes, GRE, productores y supervisión fiscal operables; faltan reglas fiscales completas y homologación |
-| MVP Perú | 78% | 🟢 | XSD, XMLDSig, transporte, reintentos, identidades productoras y operación manual verificables; E2E beta y homologación bloquean |
+| Producto funcional integral | 74% | 🟡 | Flujos manuales, custodia, retry, lotes, GRE, productores, validación previa y supervisión fiscal operables; faltan reglas fiscales completas y homologación |
+| MVP Perú | 79% | 🟢 | XSD, XMLDSig, transporte, reintentos, identidades productoras, comparador de contratos y operación manual verificables; E2E beta y homologación bloquean |
 | Preparación productiva | 44% | 🟡 | Restore, métricas, correlación, dashboard, alertas, auditoría y runbook en DEV; faltan homologación, piloto, alert routing, destino externo y simulacros aprobados |
 | Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
 
@@ -301,8 +309,8 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | FUN-014 | 70% | 🟡 GRE UBL/firma/OAuth, ticket durable, polling automático/manual, CDR/XML cifrados, PDF y monitor UI | Validación XSD/reglas GRE, credenciales beta y homologación | Verificable DEV, no homologada |
 | FUN-015 | 65% | 🟡 Reportes, KPIs y Excel descargable con autenticación | Conciliación contra casos dorados, permisos y pruebas UAT | Verificable DEV |
 | FUN-016 | 85% | 🟢 UI autenticada para emitir, consultar, descargar, reintentar, lotes, GRE, reportes y operación; versiones visibles | Capturas autenticadas y UAT | Lista para sesión manual condicionada a tenant |
-| FUN-017 | 82% | 🟢 Selector de empresa, roles y contexto humano; Estado fiscal para Supervisor e Integraciones con administración exclusiva Admin/Root | E2E de sesión humana adversarial cross-tenant y UAT de las dos vistas | Verificable DEV |
-| FUN-018 | 86% | 🟢 JWT humano separado de identidades máquina por productor, scopes mínimos, claves hasheadas/rotables/revocables, atribución y contexto tenant obligatorio | OAuth2 `client_credentials`, prueba adversarial MQ/jobs completa y smoke autenticado humano/productor | Verificable CI/DEV |
+| FUN-017 | 86% | 🟢 Selector de empresa, roles y contexto humano; Estado fiscal e Integraciones con asistente accionable, URL/headers, cuerpos completos, `curl`, transporte y comparador de errores; administración exclusiva Admin/Root | E2E de sesión humana adversarial cross-tenant y UAT de las vistas | Verificable DEV |
+| FUN-018 | 90% | 🟢 JWT humano separado de identidades máquina por productor, scopes mínimos, claves hasheadas/rotables/revocables, atribución, contexto tenant y validación previa sin emitir | OAuth2 `client_credentials`, prueba adversarial MQ/jobs completa y smoke autenticado humano/productor | Verificable CI/DEV |
 | FUN-019 | 82% | 🟢 Health, correlation ID/MDC, métricas de negocio, scrape Prometheus, dashboard, cuatro alertas, panel operativo y runbook versionados | Activar collector/exportación OpenTelemetry, alert routing y aprobar simulacros/runbooks | Verificable DEV |
 | FUN-020 | 20% | ⚪ Arquitectura de estrategias y puerta segura: únicamente PE se registra; CL/CO/MX se rechazan explícitamente y quedan sin falsa exposición | Implementación, reglas, firma, transporte, pruebas y homologación por cada país | No lista; riesgo de falso soporte cerrado |
 
@@ -314,14 +322,14 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
 | 3 | Schema/migraciones | 98% | Flyway V1–V9 automático; UTC/TIMESTAMPTZ, outbox, retry, lotes, ledger e identidades productoras verificados en PostgreSQL CI/DEV |
 | 4 | RabbitMQ conectado | 82% | Cola/consumer e ingesta externa activos; NACK/DLQ, ledger y replay operables; falta E2E de caída/reentrega |
-| 5 | Tenant de prueba seguro | 72% | Tenant DEV, usuarios Columba, roles Carabo e identidad productora heredada migrados; falta E2E autenticado humano/productor |
+| 5 | Tenant de prueba seguro | 76% | Tenant DEV, usuarios Columba, roles Carabo, identidad productora heredada y guía/validador por productor desplegados; falta E2E autenticado humano/productor |
 | 6 | Correlativos/idempotencia | 75% | Correlativo atómico probado 40/40; claves únicas y locks desplegados; falta E2E concurrente REST/MQ |
 | 7 | Factura/boleta/NC/ND válidas | 72% | Los cuatro tipos pasan XSD OASIS 2.1 y reglas base; falta matriz fiscal/homologación SUNAT |
 | 8 | Firma/certificado | 75% | XMLDSig se autoverifica, controla alias/vigencia y detecta alteración; falta PKI/homologación externa |
 | 9 | SUNAT sandbox/CDR | 50% | SOAP/CDR/errores y runner integral preparados; flujo SUNAT beta real bloqueado por credenciales/certificado |
 | 10 | XML/CDR/PDF custodiados | 82% | AES-256-GCM, checksum y rutas seguras; backup/restore DEV ejecutado con hashes e inventario preservado |
 | 11 | Seguridad cross-tenant | 85% | Fixtures adversariales y smoke HTTP real en CI cubren lista, detalle, externalId, XML, CDR y retry |
-| 12 | Suite automática | 70% | Tests backend/UI/PostgreSQL/RabbitMQ, custodia, tiempo UTC/Lima y cross-tenant pasan; falta sandbox fiscal real y fallos del broker |
+| 12 | Suite automática | 72% | Tests backend/UI/PostgreSQL/RabbitMQ, contrato productor, custodia, tiempo UTC/Lima y cross-tenant pasan; falta sandbox fiscal real y fallos del broker |
 | 13 | Observabilidad/backup/runbook | 82% | Backup/restore, métricas Prometheus, correlation ID, dashboard, alertas, consola y runbook en DEV; faltan destino externo, alert routing, tracing activo y RPO/RTO aprobados |
 | 14 | Homologación/piloto | 0% | No iniciados |
 
@@ -378,3 +386,4 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 2.0 | 2026-10-16 | Reporte vacío libera siempre el estado de carga y comunica explícitamente que no existen documentos en el periodo | UI `5bed106` compilada en CI y desplegada en DEV |
 | 2.1 | 2026-10-16 | Ledger/replay RabbitMQ por tenant, métricas de negocio, dashboard/alertas/runbook, OpenTelemetry preparado, OSE genérico con circuit breaker/simulador y bloqueo seguro de países stub | CI `38938528836` con verificaciones e imágenes verdes; `0.2.0-develop.ea2fa0008011` desplegada en DEV; quedan E2E/homologaciones externas y dispatch automático |
 | 2.2 | 2026-10-16 | Estado fiscal de solo lectura para Supervisor; Integraciones con identidades máquina por productor, scopes, atribución, rotación/revocación, confirmaciones seguras y guía embebida; separación formal de responsabilidades | CI `38948337331` con verificaciones e imágenes verdes; API `49b2b3fe0557`, UI `6b363170a73f` y Flyway V9 desplegados en DEV; faltan UAT autenticada, OAuth2 y validaciones externas |
+| 2.3 | 2026-10-16 | Asistente ejecutable por productor con URL/headers, registro seguro del secreto, cuerpos completos y `curl`; comparador previo con rutas JSON y reglas fiscales; frontera HTTP/RabbitMQ documentada | CI `38953682542` con verificaciones e imágenes verdes; API/UI `0.2.0-develop.11c73ec8a1dd` desplegadas en DEV; RabbitMQ directo permanece cerrado hasta implementar identidades AMQP y aislamiento |
