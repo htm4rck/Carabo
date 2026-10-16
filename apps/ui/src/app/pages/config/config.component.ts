@@ -24,13 +24,16 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
     <mat-card>
       <mat-card-header class="d-flex align-items-center justify-content-space-between" style="padding:20px 20px 0;">
         <h3 style="margin:0; font-size:16px;">Empresas configuradas</h3>
-        <button mat-raised-button color="primary">
-          <mat-icon>add</mat-icon> Nueva empresa
-        </button>
+        <span class="auth-context"><mat-icon>verified_user</mat-icon> Empresas habilitadas por Tordo Auth</span>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
+        @if (loading) {
+          <div class="state-panel" role="status" aria-live="polite"><mat-icon>hourglass_top</mat-icon><p>Cargando configuración…</p></div>
+        } @else if (loadError) {
+          <div class="state-panel state-error" role="alert"><mat-icon>cloud_off</mat-icon><h2>No pudimos cargar las empresas</h2><p>La configuración permanece intacta.</p><button type="button" mat-stroked-button (click)="loadTenants()"><mat-icon>refresh</mat-icon> Reintentar</button></div>
+        } @else {
         <div class="table-scroll">
-        <table mat-table [dataSource]="empresas" class="w-100">
+        <table mat-table [dataSource]="empresas" class="w-100" aria-label="Configuración de empresas">
           <ng-container matColumnDef="businessCode">
             <th mat-header-cell *matHeaderCellDef>Código</th>
             <td mat-cell *matCellDef="let e">{{ e.businessCode }}</td>
@@ -56,9 +59,9 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
           <ng-container matColumnDef="certificate">
             <th mat-header-cell *matHeaderCellDef>Certificado</th>
             <td mat-cell *matCellDef="let e">
-              <mat-icon [style.color]="e.certificateFile ? '#388e3c' : '#d32f2f'">
+              <span class="certificate-status" [class.missing]="!e.certificateFile"><mat-icon>
                 {{ e.certificateFile ? 'verified' : 'warning' }}
-              </mat-icon>
+              </mat-icon>{{ e.certificateFile ? 'Configurado' : 'Pendiente' }}</span>
               @if (e.certificateValidTo) {
                 <small class="gray-color">{{ e.certificateValidTo }}</small>
               }
@@ -87,10 +90,11 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
         </div>
 
         @if (empresas.length === 0) {
-          <div style="text-align:center; padding:40px;">
-            <mat-icon style="font-size:48px; width:48px; height:48px; color:#ccc;">business</mat-icon>
-            <p class="gray-color">No hay empresas configuradas. Agrega una para comenzar.</p>
+          <div class="state-panel">
+            <mat-icon>business</mat-icon><h2>No hay empresas disponibles</h2>
+            <p>Solicita en Tordo Auth el acceso de una empresa a Carabo.</p>
           </div>
+        }
         }
 
         @if (editingTenant && draft) {
@@ -149,7 +153,7 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
                   <input name="debitNoteSeries" [(ngModel)]="draft.debitNoteSeries" maxlength="10" required>
                 </label>
                 <label class="wide">Webhook
-                  <input name="webhookUrl" [(ngModel)]="draft.webhookUrl" type="url" maxlength="500" placeholder="https://...">
+                  <input name="webhookUrl" [(ngModel)]="draft.webhookUrl" type="url" maxlength="500" placeholder="https://ejemplo.com/webhook">
                 </label>
                 <label>Máximo de documentos diarios
                   <input name="maxDocumentsPerDay" [(ngModel)]="draft.maxDocumentsPerDay" type="number" min="1" max="100000" required>
@@ -209,6 +213,17 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
     .env-badge[data-env="PRODUCTION"] { background: #e8f5e9; color: #2e7d32; }
     .env-badge[data-env="HOMOLOGATION"] { background: #fff3e0; color: #e65100; }
     .table-scroll { overflow-x: auto; }
+    table { min-width:900px; }
+    .auth-context { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; color:#426845; background:#f0f8f1; border-radius:6px; font-size:12px; font-weight:700; }
+    .auth-context mat-icon { width:18px; height:18px; font-size:18px; }
+    .certificate-status { display:flex; align-items:center; gap:5px; color:#317039; font-size:12px; font-weight:700; }
+    .certificate-status.missing { color:#9d453d; }
+    .certificate-status mat-icon { width:19px; height:19px; font-size:19px; }
+    .state-panel { min-height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--mutedColor); }
+    .state-panel>mat-icon { width:48px; height:48px; font-size:48px; color:var(--accentColor); }
+    .state-panel h2 { margin:12px 0 4px; color:var(--forestColor); font-size:18px; }
+    .state-panel p { margin:0 0 16px; }
+    .state-error>mat-icon { color:#a14d45; }
     .row-actions { display: flex; gap: 2px; }
     .row-actions button { color: var(--accentStrong); }
     .row-actions button:hover:not(:disabled) { color: var(--forestColor); background: #edf6ee; }
@@ -222,13 +237,13 @@ import { CaraboApiService, TenantConfig } from '../../services/carabo-api.servic
     input, select { width: 100%; height: 46px; padding: 0 13px; border: 1px solid #b9cabd; border-radius: 7px; background: #fff; color: var(--forestColor); font: 400 15px Lato, sans-serif; outline: none; }
     input[type="file"] { height: auto; padding: 10px; }
     input:focus, select:focus { border-color: var(--accentStrong); box-shadow: 0 0 0 4px rgba(82,120,82,.14); }
-    input:invalid:not(:placeholder-shown) { border-color: #b55b50; }
+    input.ng-touched.ng-invalid, select.ng-touched.ng-invalid { border-color: #b55b50; box-shadow:0 0 0 3px rgba(181,91,80,.1); }
     label small { color: var(--mutedColor); font-size: 11px; font-weight: 400; line-height: 1.4; }
     .selected-file { display: flex; align-items: center; gap: 10px; margin-top: 18px; padding: 11px 13px; border-radius: 7px; background: #edf6ee; color: var(--forestColor); }
     .selected-file small { margin-left: auto; color: var(--mutedColor); }
     .panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
     .panel-actions button mat-icon { margin-right: 7px; }
-    @media(max-width: 767px) { .action-panel { padding: 18px; } .form-grid, .certificate-grid { grid-template-columns: 1fr; } .form-grid label.wide { grid-column: auto; } .panel-heading { gap: 12px; } .panel-actions { flex-wrap: wrap; } }
+    @media(max-width: 767px) { mat-card-header{align-items:flex-start!important;flex-direction:column;gap:10px}.action-panel { padding: 18px; } .form-grid, .certificate-grid { grid-template-columns: 1fr; } .form-grid label.wide { grid-column: auto; } .panel-heading { gap: 12px; } .panel-actions { flex-wrap: wrap; } }
   `]
 })
 export class ConfigComponent implements OnInit {
@@ -241,13 +256,21 @@ export class ConfigComponent implements OnInit {
   passwordReference = '';
   saving = false;
   uploading = false;
+  loading = false;
+  loadError = false;
 
   constructor(private api: CaraboApiService, private snackBar: MatSnackBar) {}
 
   ngOnInit() {
+    this.loadTenants();
+  }
+
+  loadTenants() {
+    this.loading = true;
+    this.loadError = false;
     this.api.listTenants().subscribe({
-      next: (tenants) => this.empresas = tenants,
-      error: () => this.snackBar.open('Error al cargar empresas', 'OK', { duration: 3000 })
+      next: (tenants) => { this.empresas = tenants; this.loading = false; },
+      error: () => { this.loading = false; this.loadError = true; }
     });
   }
 

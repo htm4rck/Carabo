@@ -32,6 +32,8 @@ interface EmitLine {
       <p class="gray-color">Emitir un documento electrónico manualmente</p>
     </div>
 
+    <form #emitForm="ngForm" (ngSubmit)="emit()">
+    <p class="required-note"><span aria-hidden="true">*</span> Completa los datos obligatorios antes de emitir.</p>
     <div class="form-grid">
       <mat-card>
         <mat-card-header><h3 style="margin:0; padding:16px 16px 0;">Datos del Documento</h3></mat-card-header>
@@ -39,7 +41,7 @@ interface EmitLine {
           <div class="row">
             <mat-form-field appearance="outline">
               <mat-label>Tipo de Documento</mat-label>
-              <mat-select [(ngModel)]="form.docType">
+              <mat-select name="docType" [(ngModel)]="form.docType" required>
                 <mat-option value="01">Factura</mat-option>
                 <mat-option value="03">Boleta</mat-option>
                 <mat-option value="07">Nota de Crédito</mat-option>
@@ -48,14 +50,14 @@ interface EmitLine {
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Moneda</mat-label>
-              <mat-select [(ngModel)]="form.currency">
+              <mat-select name="currency" [(ngModel)]="form.currency" required>
                 <mat-option value="PEN">PEN - Soles</mat-option>
                 <mat-option value="USD">USD - Dólares</mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Serie (opcional)</mat-label>
-              <input matInput [(ngModel)]="form.series" placeholder="F001">
+              <input matInput name="series" [(ngModel)]="form.series" placeholder="F001" maxlength="10">
             </mat-form-field>
           </div>
 
@@ -64,7 +66,7 @@ interface EmitLine {
           <div class="row">
             <mat-form-field appearance="outline">
               <mat-label>Tipo Doc.</mat-label>
-              <mat-select [(ngModel)]="form.receiver.docType">
+              <mat-select name="receiverDocType" [(ngModel)]="form.receiver.docType" required>
                 <mat-option value="6">RUC</mat-option>
                 <mat-option value="1">DNI</mat-option>
                 <mat-option value="4">CE</mat-option>
@@ -73,11 +75,11 @@ interface EmitLine {
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Número</mat-label>
-              <input matInput [(ngModel)]="form.receiver.doc">
+              <input matInput name="receiverDoc" [(ngModel)]="form.receiver.doc" inputmode="numeric" maxlength="11" required>
             </mat-form-field>
             <mat-form-field appearance="outline" style="flex:2;">
               <mat-label>Razón Social / Nombre</mat-label>
-              <input matInput [(ngModel)]="form.receiver.name">
+              <input matInput name="receiverName" [(ngModel)]="form.receiver.name" maxlength="300" required>
             </mat-form-field>
           </div>
 
@@ -87,22 +89,22 @@ interface EmitLine {
             <div class="row">
               <mat-form-field appearance="outline">
                 <mat-label>Tipo</mat-label>
-                <mat-select [(ngModel)]="form.reference.docType">
+                <mat-select name="referenceDocType" [(ngModel)]="form.reference.docType" required>
                   <mat-option value="01">Factura</mat-option>
                   <mat-option value="03">Boleta</mat-option>
                 </mat-select>
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>Serie</mat-label>
-                <input matInput [(ngModel)]="form.reference.series">
+                <input matInput name="referenceSeries" [(ngModel)]="form.reference.series" maxlength="10" required>
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>Número</mat-label>
-                <input matInput type="number" [(ngModel)]="form.reference.number">
+                <input matInput name="referenceNumber" type="number" [(ngModel)]="form.reference.number" min="1" required>
               </mat-form-field>
               <mat-form-field appearance="outline" style="flex:2;">
                 <mat-label>Motivo</mat-label>
-                <input matInput [(ngModel)]="form.reference.reason">
+                <input matInput name="referenceReason" [(ngModel)]="form.reference.reason" maxlength="500" required>
               </mat-form-field>
             </div>
           }
@@ -116,30 +118,30 @@ interface EmitLine {
             <div class="line-row">
               <mat-form-field appearance="outline" class="code-field">
                 <mat-label>Código</mat-label>
-                <input matInput [(ngModel)]="line.productCode">
+                <input matInput [name]="'productCode-' + i" [(ngModel)]="line.productCode" maxlength="50">
               </mat-form-field>
               <mat-form-field appearance="outline" class="desc-field">
                 <mat-label>Descripción</mat-label>
-                <input matInput [(ngModel)]="line.productName">
+                <input matInput [name]="'productName-' + i" [(ngModel)]="line.productName" maxlength="500" required>
               </mat-form-field>
               <mat-form-field appearance="outline" class="num-field">
                 <mat-label>Cant.</mat-label>
-                <input matInput type="number" [(ngModel)]="line.quantity">
+                <input matInput [name]="'quantity-' + i" type="number" [(ngModel)]="line.quantity" min="0.0001" step="any" required>
               </mat-form-field>
               <mat-form-field appearance="outline" class="num-field">
                 <mat-label>P. Unit.</mat-label>
-                <input matInput type="number" [(ngModel)]="line.unitPrice">
+                <input matInput [name]="'unitPrice-' + i" type="number" [(ngModel)]="line.unitPrice" min="0.01" step="0.01" required>
               </mat-form-field>
               <mat-form-field appearance="outline" class="num-field">
                 <mat-label>Dscto.</mat-label>
-                <input matInput type="number" [(ngModel)]="line.discount">
+                <input matInput [name]="'discount-' + i" type="number" [(ngModel)]="line.discount" min="0" step="0.01">
               </mat-form-field>
-              <button mat-icon-button color="warn" (click)="removeLine(i)" [disabled]="form.lines.length <= 1">
+              <button type="button" mat-icon-button color="warn" (click)="removeLine(i)" [disabled]="form.lines.length <= 1" [attr.aria-label]="'Eliminar línea ' + (i + 1)">
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
           }
-          <button mat-stroked-button (click)="addLine()"><mat-icon>add</mat-icon> Agregar línea</button>
+          <button type="button" mat-stroked-button (click)="addLine()"><mat-icon>add</mat-icon> Agregar línea</button>
 
           <mat-divider style="margin:16px 0;"></mat-divider>
           <div class="totals-preview">
@@ -151,16 +153,20 @@ interface EmitLine {
       </mat-card>
     </div>
 
-    <div class="actions-bar">
-      <button mat-raised-button color="primary" (click)="emit()" [disabled]="emitting">
-        <mat-icon>send</mat-icon> {{ emitting ? 'Emitiendo...' : 'Emitir Documento' }}
+    <div class="actions-bar" aria-live="polite">
+      <span class="action-hint">Revisa el total antes de continuar. La emisión asignará el correlativo fiscal.</span>
+      <button type="submit" mat-raised-button color="primary" [disabled]="emitForm.invalid || emitting || total <= 0">
+        <mat-icon>{{ emitting ? 'hourglass_top' : 'send' }}</mat-icon> {{ emitting ? 'Emitiendo…' : 'Emitir documento' }}
       </button>
     </div>
+    </form>
   `,
   styles: [`
     .breadcrumb-area { margin-bottom: 24px; }
     .breadcrumb-area h1 { margin: 0 0 4px; font-size: 22px; }
     .breadcrumb-area p { margin: 0; font-size: 13px; }
+    .required-note { margin:-12px 0 14px; color:var(--mutedColor); font-size:12px; }
+    .required-note span { color:#9d453d; font-weight:900; }
     .form-grid { display: flex; flex-direction: column; gap: 16px; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; }
     .row mat-form-field { flex: 1; min-width: 140px; }
@@ -171,8 +177,11 @@ interface EmitLine {
     .num-field { width: 90px; }
     .totals-preview { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .total-row { display: flex; gap: 24px; font-size: 13px; }
-    .total-final { font-size: 16px; font-weight: 700; border-top: 2px solid #1565c0; padding-top: 4px; }
-    .actions-bar { margin-top: 16px; display: flex; justify-content: flex-end; }
+    .total-final { font-size: 17px; font-weight: 800; color:var(--forestColor); border-top: 2px solid var(--accentStrong); padding-top: 7px; font-variant-numeric:tabular-nums; }
+    .actions-bar { position:sticky; bottom:0; z-index:3; margin-top:16px; padding:14px 16px; display:flex; align-items:center; justify-content:flex-end; gap:18px; border:1px solid var(--borderColor); border-radius:9px; background:rgba(255,255,255,.96); box-shadow:0 -8px 24px rgba(23,51,23,.06); backdrop-filter:blur(8px); }
+    .action-hint { color:var(--mutedColor); font-size:12px; line-height:1.45; }
+    @media(max-width:800px){.line-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:12px 0;border-bottom:1px solid var(--borderColor)}.code-field,.desc-field,.num-field{width:auto}.desc-field{grid-column:1/-1}.line-row button{justify-self:end}.actions-bar{align-items:stretch;flex-direction:column}.actions-bar button{width:100%}}
+    @media(max-width:480px){.line-row{grid-template-columns:1fr}.desc-field{grid-column:auto}.row{display:grid;grid-template-columns:1fr}.row mat-form-field{min-width:0}}
   `]
 })
 export class EmitComponent {

@@ -19,7 +19,7 @@ import { AuthService } from '../../auth/auth.service';
     >
       <div class="logo">
         <a routerLink="/" class="d-flex align-items-center" aria-label="Carabo, ir al centro fiscal">
-          <img class="brand-icon" src="assets/images/icono.png" alt="">
+          <img class="brand-icon" src="assets/images/icono.png" width="48" height="48" alt="">
           <span class="brand-copy"><b>CARABO</b><small>Facturación electrónica</small></span>
         </a>
         <button type="button" class="drawer-close" (click)="closeMobile()" aria-label="Cerrar menú principal">

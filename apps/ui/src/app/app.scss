@@ -34,6 +34,22 @@
 .navigation-scrim {
     display: none;
 }
+.page-content:focus { outline: none; }
+.skip-link {
+    position: fixed;
+    z-index: 1000;
+    top: 10px;
+    left: 12px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    background: var(--signalColor);
+    color: var(--forestColor);
+    font-weight: 900;
+    transform: translateY(-150%);
+    transition: transform .16s cubic-bezier(.22,1,.36,1);
+
+    &:focus-visible { transform: translateY(0); }
+}
 .build-footer {
     display: flex;
     align-items: center;

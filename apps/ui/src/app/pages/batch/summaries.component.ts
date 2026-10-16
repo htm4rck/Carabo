@@ -5,12 +5,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CaraboApiService } from '../../services/carabo-api.service';
+import { AuthService } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-summaries',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, MatSnackBarModule],
+  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, MatSnackBarModule, MatTooltipModule],
   template: `
     <div class="breadcrumb-area">
       <h1>Resúmenes Diarios</h1>
@@ -19,13 +21,13 @@ import { CaraboApiService } from '../../services/carabo-api.service';
 
     <mat-card>
       <mat-card-header class="d-flex align-items-center justify-content-space-between" style="padding:20px 20px 0;">
-        <h3 style="margin:0; font-size:16px;">Historial de resúmenes</h3>
-        <button mat-raised-button color="primary" (click)="generate()">
-          <mat-icon>add</mat-icon> Generar resumen
+        <div><h3 style="margin:0; font-size:16px;">Actividad de esta sesión</h3><small>Los resúmenes generados mientras esta vista permanezca abierta.</small></div>
+        <button type="button" mat-raised-button color="primary" (click)="generate()" [disabled]="generating">
+          <mat-icon>{{ generating ? 'hourglass_top' : 'add' }}</mat-icon> {{ generating ? 'Generando…' : 'Generar resumen' }}
         </button>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
-        <table mat-table [dataSource]="summaries" class="w-100">
+        <div class="table-scroll"><table mat-table [dataSource]="summaries" class="w-100" aria-label="Resúmenes generados en esta sesión">
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Fecha</th>
             <td mat-cell *matCellDef="let s">{{ s.date }}</td>
@@ -41,27 +43,27 @@ import { CaraboApiService } from '../../services/carabo-api.service';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Estado</th>
             <td mat-cell *matCellDef="let s">
-              <span class="badge" [attr.data-status]="s.status">{{ s.status }}</span>
+              <span class="badge" [attr.data-status]="s.status">{{ statusLabel(s.status) }}</span>
             </td>
           </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Acciones</th>
             <td mat-cell *matCellDef="let s">
               @if (s.ticket) {
-                <button mat-icon-button matTooltip="Consultar ticket" (click)="checkTicket(s)">
-                  <mat-icon>sync</mat-icon>
+                <button type="button" mat-icon-button matTooltip="Consultar ticket" [attr.aria-label]="'Consultar ticket ' + s.ticket" (click)="checkTicket(s)" [disabled]="checkingTicket === s.ticket">
+                  <mat-icon>{{ checkingTicket === s.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
                 </button>
               }
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
+        </table></div>
 
         @if (summaries.length === 0) {
-          <div style="text-align:center; padding:40px;">
-            <mat-icon style="font-size:48px; width:48px; height:48px; color:#ccc;">calendar_today</mat-icon>
-            <p class="gray-color">No hay resúmenes diarios generados.</p>
+          <div class="empty-state">
+            <mat-icon>calendar_today</mat-icon><h2>Aún no generaste resúmenes</h2>
+            <p>Usa “Generar resumen” para enviar las boletas pendientes de la empresa activa.</p>
           </div>
         }
       </mat-card-content>
@@ -75,32 +77,49 @@ import { CaraboApiService } from '../../services/carabo-api.service';
     .badge[data-status="ACCEPTED"] { background: #e8f5e9; color: #2e7d32; }
     .badge[data-status="REJECTED"] { background: #ffebee; color: #c62828; }
     .badge[data-status="SENT"] { background: #fff3e0; color: #e65100; }
+    mat-card-header small { display:block; margin-top:4px; color:var(--mutedColor); }
+    .table-scroll { overflow-x:auto; }
+    table { min-width:620px; }
+    .empty-state { min-height:210px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--mutedColor); }
+    .empty-state mat-icon { width:48px;height:48px;font-size:48px;color:var(--accentColor); }
+    .empty-state h2 { margin:12px 0 4px;color:var(--forestColor);font-size:18px; }
+    .empty-state p { margin:0; }
+    @media(max-width:640px){mat-card-header{align-items:flex-start!important;flex-direction:column;gap:14px}mat-card-header button{width:100%}}
   `]
 })
 export class SummariesComponent {
   displayedColumns = ['date', 'business', 'ticket', 'status', 'actions'];
   summaries: any[] = [];
+  generating = false;
+  checkingTicket: string | null = null;
 
-  constructor(private api: CaraboApiService, private snackBar: MatSnackBar) {}
+  constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
 
   generate() {
-    const bc = localStorage.getItem('carabo_selected_business') || '';
+    const bc = this.auth.session()?.tenantId ?? '';
+    if (!bc || this.generating) return;
+    this.generating = true;
     this.api.generateSummary(bc).subscribe({
       next: (res) => {
+        this.generating = false;
         this.summaries.unshift(res);
-        this.snackBar.open('Resumen generado', 'OK', { duration: 3000 });
+        this.snackBar.open('Resumen generado', 'Cerrar', { duration: 3000 });
       },
-      error: () => this.snackBar.open('Error al generar resumen', 'OK', { duration: 3000 })
+      error: () => { this.generating = false; this.snackBar.open('No se pudo generar el resumen', 'Cerrar', { duration: 4000 }); }
     });
   }
 
   checkTicket(s: any) {
+    this.checkingTicket = s.ticket;
     this.api.checkTicket(s.businessCode, s.ticket).subscribe({
       next: (res) => {
-        s.status = res.status || res.accepted ? 'ACCEPTED' : 'PENDING';
-        this.snackBar.open(`Ticket: ${res.status || 'consultado'}`, 'OK', { duration: 3000 });
+        this.checkingTicket = null;
+        s.status = res.status || (res.accepted ? 'ACCEPTED' : 'PENDING');
+        this.snackBar.open(`Ticket: ${res.status || 'consultado'}`, 'Cerrar', { duration: 3000 });
       },
-      error: () => this.snackBar.open('Error al consultar ticket', 'OK', { duration: 3000 })
+      error: () => { this.checkingTicket = null; this.snackBar.open('No se pudo consultar el ticket', 'Cerrar', { duration: 4000 }); }
     });
   }
+
+  statusLabel(status: string): string { return ({ SENT: 'Enviado', ACCEPTED: 'Aceptado', REJECTED: 'Rechazado', PENDING: 'Pendiente' } as Record<string,string>)[status] ?? status; }
 }

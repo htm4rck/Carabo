@@ -5,6 +5,7 @@
 
 html {
   height: 100%;
+  scroll-padding-top: 100px;
   @include mat.theme((
     color: (
       primary: mat.$green-palette,
@@ -58,8 +59,11 @@ body {
 }
 
 button, input, select, textarea { font-family: var(--fontFamily); }
+button, a, input, select, textarea { touch-action: manipulation; -webkit-tap-highlight-color: rgba(128,239,128,.22); }
+input, textarea { caret-color: var(--accentStrong); }
 :focus-visible { outline: 3px solid rgba(128,239,128,.65); outline-offset: 2px; }
 ::selection { color: var(--forestColor); background: var(--signalColor); }
+* { scrollbar-width: thin; scrollbar-color: var(--accentColor) var(--groundColor); }
 .mat-mdc-card { border: 1px solid var(--borderColor)!important; border-radius: 9px!important; box-shadow: 0 6px 22px rgba(23,51,23,.045)!important; }
 .mat-mdc-raised-button.mat-primary, .mat-mdc-unelevated-button.mat-primary { color: var(--forestColor)!important; background: var(--signalColor)!important; font-weight:800!important; }
 .mat-mdc-button.mat-primary { color: var(--accentStrong)!important; }
@@ -72,11 +76,18 @@ a {
   transition: var(--transition);
   color: var(--blackColor);
   text-decoration: none;
-  outline: 0 !important;
   &:hover {
     text-decoration: none;
     color: var(--heraBlueColor);
   }
+}
+
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 p {

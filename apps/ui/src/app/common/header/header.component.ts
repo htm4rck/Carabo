@@ -71,7 +71,9 @@ export class HeaderComponent {
 
   toggleNavigation(): void {
     if (this.isMobile) {
+      const willOpen = !this.mobileOpen;
       this.toggleService.toggleMobile();
+      if (willOpen) queueMicrotask(() => document.querySelector<HTMLButtonElement>('.sidebar-area .drawer-close')?.focus());
       return;
     }
     this.toggleService.toggleDesktop();

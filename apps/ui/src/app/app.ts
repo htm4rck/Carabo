@@ -30,6 +30,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.router.events.pipe(filter(event => event instanceof NavigationEnd)).subscribe(event => {
       this.isLogin = (event as NavigationEnd).urlAfterRedirects.startsWith('/login');
       this.toggleService.closeMobile();
+      queueMicrotask(() => document.getElementById('main-content')?.focus({ preventScroll: true }));
     }));
   }
 
