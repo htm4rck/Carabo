@@ -31,7 +31,7 @@ export interface IntegrationGuideData {
         <nav class="doc-nav" aria-label="Secciones de integración">
           <button type="button" [class.active]="section==='credential'" (click)="section='credential'"><mat-icon>key</mat-icon><span><strong>Credencial y URL</strong><small>Registrar el secreto</small></span></button>
           <button type="button" [class.active]="section==='transport'" (click)="section='transport'"><mat-icon>swap_horiz</mat-icon><span><strong>Canal de envío</strong><small>HTTP o RabbitMQ</small></span></button>
-          <button type="button" [class.active]="section==='payload'" (click)="section='payload'"><mat-icon>data_object</mat-icon><span><strong>Cuerpos completos</strong><small>Factura, boleta y notas</small></span></button>
+          <button type="button" [class.active]="section==='payload'" (click)="section='payload'"><mat-icon>data_object</mat-icon><span><strong>Cuerpos completos</strong><small>Comprobantes y GRE</small></span></button>
           <button type="button" [class.active]="section==='validator'" (click)="section='validator'"><mat-icon>rule</mat-icon><span><strong>Comparar documento</strong><small>Ruta, valor y corrección</small></span></button>
         </nav>
 
@@ -62,10 +62,10 @@ export interface IntegrationGuideData {
                   <button type="button" role="tab" [attr.aria-selected]="transport==='rabbit'" [class.active]="transport==='rabbit'" (click)="transport='rabbit'"><mat-icon>hub</mat-icon><span><strong>RabbitMQ directo</strong><small>Privado; no habilitado para clientes</small></span></button>
                 </div>
                 @if (transport==='http') {
-                  <div class="status-line ready"><mat-icon>check_circle</mat-icon><span><strong>Canal soportado.</strong> Carabo confirma el mensaje en RabbitMQ antes de responder <code>202</code>.</span></div>
-                  <dl class="endpoint-list"><div><dt>Publicar</dt><dd>POST <code>{{ data.apiBaseUrl }}/documents/ingest</code></dd></div><div><dt>Validar sin emitir</dt><dd>POST <code>{{ data.apiBaseUrl }}/documents/validate</code></dd></div><div><dt>Consultar</dt><dd>GET <code>{{ data.apiBaseUrl }}/documents/external/{{ externalId }}</code></dd></div></dl>
+                  <div class="status-line ready"><mat-icon>check_circle</mat-icon><span><strong>Canal soportado.</strong> {{ isDispatchGuide ? 'La GRE se procesa de forma síncrona y responde 201 con su identificador.' : 'Carabo confirma el mensaje en RabbitMQ antes de responder 202.' }}</span></div>
+                  <dl class="endpoint-list"><div><dt>Publicar comprobante</dt><dd>POST <code>{{ data.apiBaseUrl }}/documents/ingest</code> · <code>DOCUMENT_INGEST</code></dd></div><div><dt>Validar comprobante</dt><dd>POST <code>{{ data.apiBaseUrl }}/documents/validate</code> · <code>DOCUMENT_INGEST</code></dd></div><div><dt>Emitir GRE</dt><dd>POST <code>{{ data.apiBaseUrl }}/dispatch-guides/emit</code> · <code>DOCUMENT_EMIT</code></dd></div><div><dt>Validar GRE</dt><dd>POST <code>{{ data.apiBaseUrl }}/dispatch-guides/validate</code> · <code>DOCUMENT_READ</code></dd></div><div><dt>Consultar comprobante</dt><dd>GET <code>{{ data.apiBaseUrl }}/documents/external/{{ externalId }}</code> · <code>DOCUMENT_READ</code></dd></div><div><dt>Consultar GRE</dt><dd>GET <code>{{ data.apiBaseUrl }}/dispatch-guides/&#123;id&#125;</code> · <code>DOCUMENT_READ</code></dd></div></dl>
                   <app-code-block [code]="curlExample" label="Copiar cURL completo" (copyCode)="copy(curlExample,'cURL copiado')"></app-code-block>
-                  <p class="caption"><code>202</code> confirma la publicación interna; no significa que SUNAT ya aceptó el comprobante.</p>
+                  <p class="caption">{{ isDispatchGuide ? 'La respuesta 201 incluye id, estado y ticket cuando SUNAT lo entrega; consulta luego el ID hasta obtener CDR.' : '202 confirma la publicación interna; no significa que SUNAT ya aceptó el comprobante.' }}</p>
                 } @else {
                   <div class="status-line blocked"><mat-icon>lock</mat-icon><span><strong>No expuesto a productores externos.</strong> Una API key de Carabo no autentica AMQP y no debe reutilizarse como contraseña del broker.</span></div>
                   <p>El consumidor existente usa AMQP 0-9-1 dentro de la red Tordo. Para abrirlo a un productor se necesita primero una identidad RabbitMQ dedicada, TLS, vhost por entorno, permisos mínimos y límites de publicación. Hasta entonces usa HTTP, que ya entrega al mismo pipeline.</p>
@@ -76,8 +76,9 @@ export interface IntegrationGuideData {
             }
             @case ('payload') {
               <section>
-                <div class="content-heading"><div><h3>Cuerpo completo listo para copiar</h3><p>Cambia los datos de ejemplo; conserva tipos, nombres y estructura.</p></div><label>Tipo de documento<select [(ngModel)]="docType" (ngModelChange)="changeType()"><option value="01">Factura · 01</option><option value="03">Boleta · 03</option><option value="07">Nota de crédito · 07</option><option value="08">Nota de débito · 08</option></select></label></div>
-                <div class="payload-meta"><span><strong>Header idempotente</strong><code>{{ externalId }}</code></span><span><strong>Emisor</strong><small>No se envía: Carabo lo deriva de la empresa activa.</small></span><span><strong>Importes calculados</strong><small>Carabo calcula base, IGV y total desde las líneas.</small></span></div>
+                <div class="content-heading"><div><h3>Cuerpo completo listo para copiar</h3><p>Cambia los datos de ejemplo; conserva tipos, nombres y estructura.</p></div><label>Tipo de documento<select [(ngModel)]="docType" (ngModelChange)="changeType()"><option value="01">Factura · 01</option><option value="03">Boleta · 03</option><option value="07">Nota de crédito · 07</option><option value="08">Nota de débito · 08</option><option value="09">Guía de remisión remitente · 09</option></select></label></div>
+                <div class="payload-meta"><span><strong>Header idempotente</strong><code>{{ externalId }}</code></span><span><strong>Emisor</strong><small>No se envía: Carabo lo deriva de la credencial.</small></span><span><strong>{{ isDispatchGuide ? 'Scopes GRE' : 'Importes calculados' }}</strong><small>{{ isDispatchGuide ? 'DOCUMENT_EMIT para emitir; DOCUMENT_READ para validar y consultar.' : 'Carabo calcula base, IGV y total desde las líneas.' }}</small></span></div>
+                @if (isDispatchGuide) { <div class="status-line ready"><mat-icon>local_shipping</mat-icon><span><strong>Contrato GRE 2.0 implementado.</strong> El ejemplo usa transporte privado (<code>02</code>). Para transporte público (<code>01</code>), reemplaza <code>driver</code> y <code>vehiclePlate</code> por <code>carrier: &#123; ruc, name &#125;</code>. Su validez fiscal definitiva depende de la homologación SUNAT pendiente.</span></div> }
                 <app-code-block [code]="referenceText" label="Copiar JSON" (copyCode)="copy(referenceText,'JSON copiado')"></app-code-block>
                 <h4>Solicitud completa</h4>
                 <app-code-block [code]="curlExample" label="Copiar cURL" (copyCode)="copy(curlExample,'cURL copiado')"></app-code-block>
@@ -85,13 +86,13 @@ export interface IntegrationGuideData {
             }
             @case ('validator') {
               <section>
-                <div class="content-heading"><div><h3>Compara tu JSON antes de emitir</h3><p>La validación no reserva correlativo ni envía a SUNAT. Cada hallazgo indica la ruta exacta, lo recibido y cómo corregirlo.</p></div><button type="button" mat-stroked-button (click)="loadReference()"><mat-icon>restart_alt</mat-icon>Cargar ejemplo correcto</button></div>
+                <div class="content-heading"><div><h3>Compara tu JSON antes de emitir</h3><p>La validación reconoce comprobantes y GRE; no reserva correlativo ni envía a SUNAT. Cada hallazgo indica la ruta exacta, lo recibido y cómo corregirlo.</p></div><button type="button" mat-stroked-button (click)="loadReference()"><mat-icon>restart_alt</mat-icon>Cargar ejemplo correcto</button></div>
                 <label class="idempotency-field">Idempotency-Key<input [(ngModel)]="validationKey" (ngModelChange)="clearValidation()" maxlength="100"></label>
                 <div class="compare-grid">
                   <label class="json-editor">Tu documento<textarea [(ngModel)]="payloadText" (ngModelChange)="clearValidation()" spellcheck="false" aria-label="JSON a validar"></textarea></label>
                   <div class="reference-pane"><div><strong>Documento correcto · {{ documentLabel }}</strong><button type="button" mat-button (click)="copy(referenceText,'Ejemplo copiado')">Copiar</button></div><pre><code>{{ referenceText }}</code></pre></div>
                 </div>
-                <div class="validator-actions"><button type="button" mat-raised-button color="primary" (click)="validate()" [disabled]="validating"><mat-icon>{{ validating ? 'progress_activity' : 'rule' }}</mat-icon>{{ validating ? 'Comparando…' : 'Comparar documento' }}</button><span>Endpoint: <code>POST /documents/validate</code></span></div>
+                <div class="validator-actions"><button type="button" mat-raised-button color="primary" (click)="validate()" [disabled]="validating"><mat-icon>{{ validating ? 'progress_activity' : 'rule' }}</mat-icon>{{ validating ? 'Comparando…' : 'Comparar documento' }}</button><span>Endpoint: <code>POST {{ validationPath }}</code></span></div>
                 @if (parseError) { <div class="status-line blocked" role="alert"><mat-icon>error</mat-icon><span><strong>JSON inválido.</strong> {{ parseError }}</span></div> }
                 @if (report) {
                   <div class="validation-summary" [class.valid]="report.valid"><mat-icon>{{ report.valid ? 'task_alt' : 'error' }}</mat-icon><div><strong>{{ report.valid ? 'Documento estructuralmente válido' : errorCount+' errores por corregir' }}</strong><span>{{ warningCount }} advertencias · ninguna emisión fue realizada</span></div></div>
@@ -127,10 +128,13 @@ export class IntegrationGuideDialogComponent {
   get externalId(): string { return exampleExternalId(this.docType); }
   get documentLabel(): string { return DOCUMENT_TYPE_LABELS[this.docType]; }
   get referenceText(): string { return JSON.stringify(integrationExample(this.docType), null, 2); }
+  get isDispatchGuide(): boolean { return this.docType === '09'; }
+  get validationPath(): string { return this.isDispatchGuide ? '/dispatch-guides/validate' : '/documents/validate'; }
+  get emissionPath(): string { return this.isDispatchGuide ? '/dispatch-guides/emit' : '/documents/ingest'; }
   get secretExample(): string { return `# Secret store / variable del backend productor\nCARABO_API_KEY=<credencial revelada por Carabo>\nCARABO_BASE_URL=${this.data.apiBaseUrl}`; }
   get curlExample(): string {
     const body = this.referenceText.replaceAll("'", "'\\''");
-    return `curl --request POST '${this.data.apiBaseUrl}/documents/ingest' \\\n  --header 'X-Api-Key: <CARABO_API_KEY>' \\\n  --header 'Idempotency-Key: ${this.externalId}' \\\n  --header 'Content-Type: application/json' \\\n  --data '${body}'`;
+    return `curl --request POST '${this.data.apiBaseUrl}${this.emissionPath}' \\\n  --header 'X-Api-Key: <CARABO_API_KEY>' \\\n  --header 'Idempotency-Key: ${this.externalId}' \\\n  --header 'Content-Type: application/json' \\\n  --data '${body}'`;
   }
   get errorCount(): number { return this.report?.issues.filter(issue => issue.severity === 'ERROR').length || 0; }
   get warningCount(): number { return this.report?.issues.filter(issue => issue.severity === 'WARNING').length || 0; }
@@ -145,13 +149,18 @@ export class IntegrationGuideDialogComponent {
     catch (error) { this.parseError = error instanceof Error ? error.message : 'Revisa comas, llaves y comillas.'; return; }
     if (payload && typeof payload === 'object' && 'docType' in payload) {
       const detectedType = String((payload as Record<string, unknown>)['docType']);
-      if (['01', '03', '07', '08'].includes(detectedType)) this.docType = detectedType as IntegrationDocumentType;
+      if (['01', '03', '07', '08', '09'].includes(detectedType)) this.docType = detectedType as IntegrationDocumentType;
     }
+    if (payload && typeof payload === 'object' && !('docType' in payload)
+        && ('transportMode' in payload || 'origin' in payload || 'destination' in payload)) this.docType = '09';
     this.validating = true;
-    this.api.validateIntegrationPayload(payload, this.validationKey).pipe(finalize(() => this.validating = false)).subscribe({
+    const request = this.isDispatchGuide
+      ? this.api.validateDispatchGuidePayload(payload, this.validationKey)
+      : this.api.validateIntegrationPayload(payload, this.validationKey);
+    request.pipe(finalize(() => this.validating = false)).subscribe({
       next: report => this.report = report,
       error: error => {
-        const message = error?.status === 403 ? 'Tu rol o productor no tiene DOCUMENT_INGEST.' : 'No fue posible validar. Revisa la conexión y vuelve a intentar.';
+        const message = error?.status === 403 ? `La credencial no tiene ${this.isDispatchGuide ? 'DOCUMENT_READ' : 'DOCUMENT_INGEST'}.` : 'No fue posible validar. Revisa la conexión y vuelve a intentar.';
         this.snack.open(message, 'Cerrar', { duration: 5000 });
       }
     });

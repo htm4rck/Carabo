@@ -1,10 +1,13 @@
 package io.carabo.app.rest;
 
 import io.carabo.app.client.LayoutClient;
+import io.carabo.app.service.DispatchGuidePayloadValidator;
 import io.carabo.app.service.DispatchGuideService;
+import io.carabo.app.service.FiscalClock;
 import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDispatchGuideRequest;
 import io.carabo.core.entity.gre.DispatchGuide;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -29,10 +32,27 @@ public class DispatchGuideResource {
     @Inject
     TenantContext tenantContext;
 
+    @Inject
+    DispatchGuidePayloadValidator payloadValidator;
+
+    @Inject
+    FiscalClock fiscalClock;
+
+    @POST
+    @Path("/validate")
+    @Operation(summary = "Validar payload GRE", description = "Compara el JSON GRE 2.0 sin emitir ni reservar correlativo")
+    public Response validate(JsonNode payload, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        return Response.ok(payloadValidator.validate(payload, idempotencyKey, fiscalClock.today())).build();
+    }
+
     @POST
     @Path("/emit")
     @Operation(summary = "Emitir guía de remisión electrónica")
     public Response emit(EmitDispatchGuideRequest request, @HeaderParam("Idempotency-Key") String idempotencyKey) {
+        if (request == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("INVALID_REQUEST", "El cuerpo de la guía es obligatorio")).build();
+        }
         String normalizedKey = normalizeIdempotencyKey(idempotencyKey);
         if (normalizedKey != null) {
             if (normalizedKey.length() > 100) {
@@ -150,4 +170,6 @@ public class DispatchGuideResource {
         public String ticket;
         public String sunatResponse;
     }
+
+    public record ErrorResponse(String code, String message) {}
 }

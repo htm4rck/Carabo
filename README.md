@@ -150,6 +150,7 @@ Aplicación ejecutable que integra todos los módulos:
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/api/dispatch-guides/emit` | Emitir guía de remisión |
+| POST | `/api/dispatch-guides/validate` | Validar cuerpo GRE sin emitir |
 | GET | `/api/dispatch-guides/{id}` | Obtener guía por ID |
 | GET | `/api/dispatch-guides` | Listar guías |
 
@@ -211,6 +212,7 @@ Cada tenant (empresa) se configura independientemente:
 - `POST /api/documents/emit` y `POST /api/dispatch-guides/emit` aceptan el header `Idempotency-Key` (máximo 100 caracteres).
 - `POST /api/documents/ingest` exige `Idempotency-Key`, confirma la publicación en RabbitMQ y responde `202`; es la ruta recomendada para alto volumen.
 - `POST /api/documents/validate` compara el JSON sin emitir ni reservar correlativo y devuelve hallazgos por ruta, valor recibido, esperado y corrección sugerida.
+- `POST /api/dispatch-guides/validate` aplica la misma comparación estructurada al contrato GRE 2.0; productores usan `DOCUMENT_EMIT` para emitir y `DOCUMENT_READ` para validar/consultar.
 - Repetir simultáneamente una solicitud con la misma clave retorna el documento existente y no vuelve a enviarlo a SUNAT/OSE.
 - `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
 - Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.

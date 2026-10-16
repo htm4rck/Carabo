@@ -15,7 +15,7 @@ Scopes disponibles:
 |---|---|
 | `DOCUMENT_INGEST` | Publicar por `POST /documents/ingest` |
 | `DOCUMENT_READ` | Consultar estado, XML, CDR y PDF del mismo tenant |
-| `DOCUMENT_EMIT` | Emisión síncrona; reservar para compatibilidad controlada |
+| `DOCUMENT_EMIT` | Emisión síncrona de comprobantes y GRE; reservar para integraciones que lo necesiten |
 
 Un Supervisor puede consultar estado y actividad. Sólo Admin/Root puede crear, rotar, activar o revocar credenciales.
 
@@ -75,6 +75,74 @@ Content-Type: application/json
 
 La respuesta incluye `valid` y una lista `issues`; cada hallazgo contiene `path`, `severity`, valor `received`, valor `expected` y `suggestion`. La pantalla **Integraciones → Comparar documento** consume este mismo endpoint y presenta el documento del productor junto a un ejemplo correcto.
 
+## Guías de remisión electrónica (GRE 2.0)
+
+Las GRE usan un contrato síncrono separado. `DOCUMENT_EMIT` permite emitir; `DOCUMENT_READ` permite validar el cuerpo y consultar estado, XML, CDR y PDF. El emisor y la empresa se derivan de la API key:
+
+```http
+POST /carabo/api/dispatch-guides/emit
+X-Api-Key: <api-key del productor>
+Idempotency-Key: erp-09-20261016-00018452
+Content-Type: application/json
+```
+
+Ejemplo completo de guía remitente con transporte privado:
+
+```json
+{
+  "series": "T001",
+  "issueDate": "2026-10-16",
+  "startDate": "2026-10-16",
+  "receiver": {
+    "docType": "6",
+    "doc": "20131312955",
+    "name": "CLIENTE EMPRESA SAC"
+  },
+  "transportMode": "02",
+  "grossWeight": 120.5,
+  "weightUnit": "KGM",
+  "packageCount": 4,
+  "origin": {
+    "ubigeo": "150101",
+    "address": "Av. Industrial 123, Lima"
+  },
+  "destination": {
+    "ubigeo": "040101",
+    "address": "Av. Logística 456, Arequipa"
+  },
+  "driver": {
+    "docType": "1",
+    "doc": "12345678",
+    "name": "ANA TORRES",
+    "license": "Q12345678"
+  },
+  "vehiclePlate": "ABC123",
+  "transferReasonCode": "01",
+  "transferReasonDesc": "Venta",
+  "relatedDoc": {
+    "docType": "01",
+    "number": "F001-18452"
+  },
+  "items": [
+    {
+      "productCode": "PROD-001",
+      "productName": "Producto de prueba",
+      "unitCode": "NIU",
+      "quantity": 4,
+      "weight": 120.5
+    }
+  ],
+  "callbackUrl": "https://erp.example.com/webhooks/carabo",
+  "externalId": "erp-09-20261016-00018452"
+}
+```
+
+Para transporte público use `transportMode: "01"` y reemplace `driver`/`vehiclePlate` por
+`"carrier": {"ruc": "20123456789", "name": "TRANSPORTES EJEMPLO SAC"}`.
+El mismo cuerpo puede comprobarse antes de emitir mediante `POST /carabo/api/dispatch-guides/validate` con `DOCUMENT_READ`.
+La respuesta usa el mismo formato `valid/issues` del comparador de comprobantes y marca rutas como
+`$.origin.ubigeo`, `$.driver.license` o `$.items[0].quantity`.
+
 Respuesta cuando RabbitMQ confirma la publicación:
 
 ```http
@@ -119,6 +187,7 @@ No se necesita una librería propietaria: el futuro contrato directo será AMQP 
 - `Idempotency-Key` es obligatorio en ingestión asíncrona, tiene un máximo de 100 caracteres y debe ser estable por documento de origen.
 - Repetir la misma solicitud es seguro. Si el documento ya fue procesado, Carabo devuelve su estado actual sin emitir otro correlativo.
 - `202` significa que el broker confirmó el mensaje; todavía no significa que SUNAT/OSE aceptó el comprobante.
+- La GRE responde síncronamente con `201` y su identificador; se consulta con `GET /dispatch-guides/{id}`. No pasa por la cola de comprobantes.
 - `503 BROKER_UNAVAILABLE` significa que Carabo no pudo confirmar la publicación. El cliente puede reenviar exactamente la misma solicitud y clave.
 - `404` durante la consulta puede ser transitorio mientras el consumidor toma el mensaje. Respete `Retry-After` y use backoff con jitter.
 - Un `REJECTED` respaldado por CDR es terminal. `ERROR` es técnico y puede ser reintentable. `OBSERVED` conserva validez fiscal pero requiere revisión.

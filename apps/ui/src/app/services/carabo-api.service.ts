@@ -279,6 +279,12 @@ export class CaraboApiService {
     return this.http.post<IntegrationValidationReport>(`${this.baseUrl}/documents/validate`, payload, { headers });
   }
 
+  validateDispatchGuidePayload(payload: unknown, idempotencyKey: string): Observable<IntegrationValidationReport> {
+    return this.http.post<IntegrationValidationReport>(`${this.baseUrl}/dispatch-guides/validate`, payload, {
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+    });
+  }
+
   // --- Tenants ---
 
   getTenant(businessCode: string): Observable<TenantConfig> {

@@ -12,6 +12,13 @@ class IntegrationPolicyTest {
         assertTrue(IntegrationPolicy.permits("/documents/validate", "POST", scopes));
         assertTrue(IntegrationPolicy.permits("/documents/external/order-1", "GET", scopes));
         assertFalse(IntegrationPolicy.permits("/documents/emit", "POST", scopes));
+        assertFalse(IntegrationPolicy.permits("/dispatch-guides/emit", "POST", scopes));
+        assertTrue(IntegrationPolicy.permits("/dispatch-guides/validate", "POST", scopes));
+        assertTrue(IntegrationPolicy.permits("/dispatch-guides", "GET", scopes));
+        assertTrue(IntegrationPolicy.permits("/dispatch-guides/513fa2c8-9c9a-4d15-ae9c-c9ea93797733/xml", "GET", scopes));
+        assertTrue(IntegrationPolicy.permits("/dispatch-guides/513fa2c8-9c9a-4d15-ae9c-c9ea93797733/status", "POST", scopes));
+        assertTrue(IntegrationPolicy.permits("/dispatch-guides/emit", "POST", Set.of("DOCUMENT_EMIT")));
+        assertFalse(IntegrationPolicy.permits("/dispatch-guides/validate", "POST", Set.of("DOCUMENT_EMIT")));
         assertFalse(IntegrationPolicy.permits("/tenants", "GET", scopes));
         assertFalse(IntegrationPolicy.permits("/integrations", "GET", scopes));
     }
