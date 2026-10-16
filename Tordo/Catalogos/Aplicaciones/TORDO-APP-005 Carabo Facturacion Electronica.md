@@ -207,18 +207,18 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 
 ## Evaluación contra el estado construido
 
-### Evidencia verificable al 2026-10-15
+### Evidencia verificable al 2026-10-16
 
 | Evidencia | Resultado |
 |---|---|
-| GitHub Actions Carabo `38779651135` | Tests API/UI e imágenes API/UI completados con éxito fuera del host DEV |
-| Commit Carabo | `81bfaba` en `develop` |
-| Commit Tordo.Platform | `f86ac98` en `develop` |
+| GitHub Actions Carabo `38915938962` | Tests API/UI/PostgreSQL y construcción de imágenes API/UI completados; sólo falló el dispatch por ausencia de `PLATFORM_DEPLOY_TOKEN` |
+| Commit Carabo desplegado | `8aef2c3e10b2` en `develop`; versión `0.2.0-develop.8aef2c3e10b2` |
+| Despliegue | API/UI actualizadas manualmente en serie para proteger la RAM; ambos contenedores saludables |
 | API pública | `https://dev.tordo.io/carabo/api/health` → `200 OK` |
 | UI pública | `https://dev.tordo.io/carabo/ui/` → `200 OK` |
 | Contrato exploratorio | `/carabo/api/swagger/` y `/carabo/api/q/openapi` → `200` |
-| PostgreSQL/Flyway | DEV en V3; migración de correlativos e índices idempotentes aplicada y validada en PostgreSQL 16 |
-| Seguridad HTTP | Sin API key, documentos responde `401`; administración usa credencial separada |
+| PostgreSQL/Flyway | DEV en V6; correlativos, secretos, firma y timestamps UTC `TIMESTAMPTZ` aplicados y validados en PostgreSQL 16 |
+| Seguridad HTTP | Sin credencial, documentos responde `401`; CI prueba accesos cross-tenant negativos en lista, detalle, externalId, XML, CDR y retry |
 | Layout | 5 plantillas `ELECTRONIC_*` cargadas |
 | RabbitMQ | Cola `carabo.document.emit`, un consumidor activo |
 | Runtime | Quarkus 3.18.4, Java 21, perfil prod y broker conectado |
@@ -227,19 +227,19 @@ GRE y OSE pueden ejecutarse en paralelo después de estabilizar el núcleo, pero
 
 | ID | Hallazgo | Impacto | Severidad | Estado |
 |---|---|---|---|---|
-| ASB-01 | El límite REST ya deriva tenant de la API key; faltan prueba cruzada real y alcance MQ/jobs | Acceso cruzado | Crítica | Mitigación parcial |
+| ASB-01 | El límite REST deriva tenant de la credencial y los recursos filtran por contexto | Acceso cruzado | Crítica | Resuelto para REST con fixtures adversariales HTTP; mantener regresión al crear jobs nuevos |
 | ASB-02 | Las respuestas usan DTO sin secretos | Fuga de secretos | Crítica | Resuelto en DEV con prueba HTTP y test estructural |
 | ASB-03 | La numeración usaba `MAX(number)+1` | Duplicados concurrentes | Crítica | Resuelto en DEV con contador atómico V3 y prueba 40/40 |
 | ASB-04 | Existe suite mínima obligatoria; faltan dominio, integración y compliance | Evidencia insuficiente | Alta | Mitigación parcial |
-| ASB-05 | No se demostró validación XSD/reglas SUNAT | XML inválido/rechazos | Alta | Pendiente |
+| ASB-05 | Validación fiscal todavía no cubre toda la matriz SUNAT | XML inválido/rechazos | Alta | Mitigación parcial: XSD por tipo y reglas base/catálogos 07/09/10 pasan en CI |
 | ASB-06 | No se demostró ACK/NACK, DLQ ni retry del consumer | Pérdida silenciosa | Crítica | Mitigación parcial: NACK/DLQ/backpressure configurados; falta prueba con caída y reentrega real |
 | ASB-07 | Callback no persistente | Notificaciones perdidas | Alta | Pendiente |
-| ASB-08 | Migraciones del schema Carabo administradas por Flyway V1/V2 | Drift y despliegue no reproducible | Alta | Resuelto en DEV |
+| ASB-08 | Migraciones del schema Carabo administradas por Flyway V1–V6 | Drift y despliegue no reproducible | Alta | Resuelto en CI/DEV |
 | ASB-09 | Credenciales fiscales históricas continúan en BD hasta su migración a referencias `secret://` | Compromiso de tenant | Crítica | Mitigación parcial; API keys ya no se almacenan en claro |
 | ASB-10 | README ya distingue implementación de homologación/producción | Expectativa incorrecta | Alta | Resuelto |
 | ASB-11 | CL/CO/MX están registrados aunque sus estrategias son stubs | Falso soporte regional | Alta | Pendiente |
 | ASB-12 | El job de dispatch CI→Tordo.Platform falló después del build | Deploy manual | Alta | Pendiente |
-| ASB-13 | El `/etc/tordo/dev.env` efectivo debe incorporar perfil `carabo` y `CARABO_ADMIN_KEY` | Redeploy global o administración incompleta | Alta | Pendiente de sudo |
+| ASB-13 | El entorno efectivo incorpora perfil, secretos, cifrado y servicios Carabo | Redeploy global o administración incompleta | Alta | Resuelto en DEV |
 
 ## Tablero integral de avance y trazabilidad
 
@@ -260,10 +260,10 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | Dimensión | Avance | Estado | Evidencia/falta principal |
 |---|---:|---|---|
 | Alcance y arquitectura | 85% | 🟢 | Objetivo, fronteras, backlog, riesgos y puertas definidos |
-| Fundación técnica DEV | 88% | 🟢 | CI con tests API/UI/PostgreSQL, imágenes y Flyway V5; dispatch automático sigue pendiente |
+| Fundación técnica DEV | 90% | 🟢 | CI con tests API/UI/PostgreSQL, imágenes, Flyway V6 y despliegue DEV verificado; dispatch automático sigue pendiente |
 | Producto funcional integral | 57% | 🟡 | Transporte SUNAT/OSE y entrada asíncrona endurecidos; faltan reglas fiscales completas y homologación |
 | MVP Perú | 68% | 🟡 | XSD, XMLDSig y contrato de transporte verificables; confianza PKI, E2E sandbox y homologación bloquean |
-| Preparación productiva | 8% | ⚪ | Sin homologación, piloto, restore, observabilidad ni runbooks |
+| Preparación productiva | 18% | ⚪ | Restore DEV comprobado; faltan homologación, piloto, observabilidad, destino externo y runbooks aprobados |
 | Aceptación usuario/operación | 0% | ⛔ | No existe sesión UAT registrada |
 
 ### Matriz de capacidades
@@ -297,7 +297,7 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 |---:|---|---:|---|
 | 1 | Build reproducible API/UI | 100% | GitHub Actions verde |
 | 2 | Despliegue DEV | 95% | API/UI `develop` saludables; dispatch automático aún falla por token |
-| 3 | Schema/migraciones | 92% | Flyway V1–V5 automático; alias y motivo de nota verificados en PostgreSQL CI/DEV |
+| 3 | Schema/migraciones | 95% | Flyway V1–V6 automático; timestamps UTC/TIMESTAMPTZ, alias y motivo de nota verificados en PostgreSQL CI/DEV |
 | 4 | RabbitMQ conectado | 75% | Cola/consumer e ingesta externa activos; NACK/DLQ configurados, falta prueba de caída/reentrega |
 | 5 | Tenant de prueba seguro | 55% | Tenant DEV, usuarios Columba y roles Carabo sembrados; falta E2E HTTP |
 | 6 | Correlativos/idempotencia | 75% | Correlativo atómico probado 40/40; claves únicas y locks desplegados; falta E2E concurrente REST/MQ |
@@ -306,7 +306,7 @@ Ningún porcentaje sube por documentación, mocks o clases aisladas. Un endpoint
 | 9 | SUNAT sandbox/CDR | 50% | SOAP/CDR/errores y runner integral preparados; flujo SUNAT beta real bloqueado por credenciales/certificado |
 | 10 | XML/CDR/PDF custodiados | 82% | AES-256-GCM, checksum y rutas seguras; backup/restore DEV ejecutado con hashes e inventario preservado |
 | 11 | Seguridad cross-tenant | 85% | Fixtures adversariales y smoke HTTP real en CI cubren lista, detalle, externalId, XML, CDR y retry |
-| 12 | Suite automática | 68% | Tests backend/UI/PostgreSQL/RabbitMQ, custodia y cross-tenant pasan; falta sandbox fiscal real y fallos del broker |
+| 12 | Suite automática | 70% | Tests backend/UI/PostgreSQL/RabbitMQ, custodia, tiempo UTC/Lima y cross-tenant pasan; falta sandbox fiscal real y fallos del broker |
 | 13 | Observabilidad/backup/runbook | 42% | Backup/restore DEV ejecutado y documentado; faltan destino externo, métricas, alertas y RPO/RTO |
 | 14 | Homologación/piloto | 0% | No iniciados |
 
