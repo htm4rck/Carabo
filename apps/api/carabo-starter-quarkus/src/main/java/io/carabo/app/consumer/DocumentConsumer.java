@@ -4,6 +4,9 @@ import io.carabo.app.service.DocumentService;
 import io.carabo.app.service.AsyncMessageService;
 import io.carabo.app.service.OperationalMetrics;
 import io.carabo.core.dto.EmitDocumentRequest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vertx.core.json.JsonObject;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -20,10 +23,12 @@ public class DocumentConsumer {
 
     @Inject AsyncMessageService asyncMessageService;
     @Inject OperationalMetrics metrics;
+    @Inject ObjectMapper objectMapper;
 
     @Incoming("document-emit")
     @Blocking
-    public void consume(EmitDocumentRequest request) {
+    public void consume(JsonObject payload) {
+        EmitDocumentRequest request = deserialize(payload);
         var auditId = asyncMessageService.received(request);
         LOG.info("Received emit request via RabbitMQ: " + request.getDocType()
             + " " + request.getSeries() + " for " + request.getBusinessCode());
@@ -38,6 +43,14 @@ public class DocumentConsumer {
             asyncMessageService.finish(auditId, "DEAD", safeMessage(error));
             metrics.message("dead");
             throw error;
+        }
+    }
+
+    private EmitDocumentRequest deserialize(JsonObject payload) {
+        try {
+            return objectMapper.readValue(payload.encode(), EmitDocumentRequest.class);
+        } catch (JsonProcessingException error) {
+            throw new IllegalArgumentException("Invalid emit payload from RabbitMQ", error);
         }
     }
 
