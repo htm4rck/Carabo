@@ -47,9 +47,6 @@ public class DocumentService {
     TenantService tenantService;
 
     @Inject
-    CorrelativeService correlativeService;
-
-    @Inject
     IdempotencyService idempotencyService;
 
     @Inject
@@ -120,8 +117,6 @@ public class DocumentService {
                 null, doc.getSunatResponse(), doc.getExternalId());
         }
 
-        doc.setNumber(correlativeService.next(
-            request.getBusinessCode(), CorrelativeService.Kind.DOCUMENT, doc.getSeries()));
         doc.setStatus(DocumentStatus.VALIDATED);
 
         try {
@@ -186,8 +181,10 @@ public class DocumentService {
             return;
         }
         if (doc.getNumber() == null) {
-            doc.setNumber(correlativeService.next(
-                doc.getBusinessCode(), CorrelativeService.Kind.DOCUMENT, doc.getSeries()));
+            doc.setStatus(DocumentStatus.REJECTED);
+            doc.setSunatResponse("El productor no proporcionó un correlativo fiscal válido.");
+            em.merge(doc);
+            return;
         }
         doc.setRetryCount(doc.getRetryCount() + 1);
         doc.setLastAttemptAt(Instant.now());
@@ -381,6 +378,7 @@ public class DocumentService {
             series = resolveDefaultSeries(doc.getDocType(), tenant);
         }
         doc.setSeries(series);
+        doc.setNumber(req.getNumber());
 
         doc.setIssueDate(req.getIssueDate() != null ? req.getIssueDate() : fiscalClock.today());
         doc.setDueDate(req.getDueDate());

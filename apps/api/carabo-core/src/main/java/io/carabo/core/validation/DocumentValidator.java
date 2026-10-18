@@ -74,6 +74,9 @@ public class DocumentValidator {
         if (doc.getSeries() == null || doc.getSeries().isBlank()) {
             errors.add("Serie requerida");
         }
+        if (doc.getNumber() == null || doc.getNumber() < 1 || doc.getNumber() > 99_999_999) {
+            errors.add("Correlativo fiscal requerido y debe estar entre 1 y 99999999");
+        }
         if (doc.getIssueDate() == null) {
             errors.add("Fecha de emisión requerida");
         }

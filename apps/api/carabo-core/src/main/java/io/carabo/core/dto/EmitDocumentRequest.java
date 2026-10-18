@@ -9,6 +9,8 @@ public class EmitDocumentRequest {
     private String businessCode;
     private String docType;          // 01, 03, 07, 08
     private String series;
+    /** Fiscal correlativo allocated by the producer's operational system. */
+    private Integer number;
     private LocalDate issueDate;
     private LocalDate dueDate;
     private String currency;
@@ -114,6 +116,8 @@ public class EmitDocumentRequest {
     public void setDocType(String docType) { this.docType = docType; }
     public String getSeries() { return series; }
     public void setSeries(String series) { this.series = series; }
+    public Integer getNumber() { return number; }
+    public void setNumber(Integer number) { this.number = number; }
     public LocalDate getIssueDate() { return issueDate; }
     public void setIssueDate(LocalDate issueDate) { this.issueDate = issueDate; }
     public LocalDate getDueDate() { return dueDate; }
