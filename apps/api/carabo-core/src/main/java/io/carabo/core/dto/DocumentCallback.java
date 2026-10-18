@@ -12,12 +12,12 @@ public class DocumentCallback {
     private String sunatResponseCode;
     private String sunatResponseMsg;
 
-    public static DocumentCallback success(UUID documentId, String externalId, String fullNumber, String hashCode) {
+    public static DocumentCallback success(UUID documentId, String externalId, String fullNumber, String status, String hashCode) {
         var cb = new DocumentCallback();
         cb.documentId = documentId;
         cb.externalId = externalId;
         cb.fullNumber = fullNumber;
-        cb.status = "ACCEPTED";
+        cb.status = status;
         cb.hashCode = hashCode;
         return cb;
     }

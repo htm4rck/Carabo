@@ -64,7 +64,8 @@ public class NotificationService {
 
         try {
             DocumentCallback callback = isFiscalSuccess(document.getStatus())
-                ? DocumentCallback.success(document.getId(), document.getExternalId(), document.getFullNumber(), document.getHashCode())
+                ? DocumentCallback.success(document.getId(), document.getExternalId(), document.getFullNumber(),
+                    document.getStatus().name(), document.getHashCode())
                 : DocumentCallback.failure(document.getId(), document.getExternalId(), document.getStatus().name(), null, document.getSunatResponse());
             NotificationOutbox item = new NotificationOutbox();
             item.setEventKey(eventKey);
@@ -104,6 +105,9 @@ public class NotificationService {
             HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(item.getTargetUrl()))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
+                // Operation is multi-tenant and requires this header to resolve
+                // the target schema for an asynchronous emission callback.
+                .header("business-code", item.getBusinessCode())
                 .header("X-Carabo-Event-Id", item.getEventKey())
                 .header("X-Carabo-Timestamp", Long.toString(timestamp));
             if ("WEBHOOK".equals(item.getTargetType())) {
