@@ -117,6 +117,44 @@ import { finalize, take, timeout } from 'rxjs';
         </table>
         </div>
 
+        <section class="mobile-document-list" aria-label="Documentos electrónicos emitidos">
+          @for (d of documents; track d.id) {
+            <article class="document-card">
+              <div class="document-card__header">
+                <div class="document-card__identity">
+                  <span class="document-card__type">{{ d.docTypeName }}</span>
+                  <strong>{{ documentReference(d) }}</strong>
+                </div>
+                <span class="badge" [attr.data-status]="d.status">{{ statusLabel(d.status) }}</span>
+              </div>
+
+              <div class="document-card__customer">
+                <span>Cliente</span>
+                <strong>{{ d.receiverName }}</strong>
+                <small>{{ d.receiverDoc }}</small>
+              </div>
+
+              <div class="document-card__facts">
+                <div>
+                  <span>Total</span>
+                  <strong>{{ d.currency }} {{ d.total | number:'1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span>Generado</span>
+                  <strong>{{ formatGeneratedAt(d.createdAt, d.timeZone) }}</strong>
+                </div>
+              </div>
+
+              <div class="document-card__actions" aria-label="Acciones del documento">
+                <button mat-icon-button matTooltip="Ver XML" [attr.aria-label]="'Ver XML de ' + documentReference(d)" (click)="openXml(d)" [disabled]="!d.fullNumber"><mat-icon>code</mat-icon></button>
+                <button mat-icon-button matTooltip="Descargar PDF" [attr.aria-label]="'Descargar PDF de ' + documentReference(d)" (click)="downloadPdf(d)" [disabled]="!d.fullNumber"><mat-icon>picture_as_pdf</mat-icon></button>
+                <button mat-icon-button matTooltip="Descargar CDR" [attr.aria-label]="'Descargar CDR de ' + documentReference(d)" (click)="openCdr(d)" [disabled]="!d.fullNumber"><mat-icon>download</mat-icon></button>
+                <button mat-icon-button matTooltip="Reintentar" [attr.aria-label]="'Reintentar envío de ' + documentReference(d)" (click)="retry(d)" [disabled]="!canRetry(d) || retryingId === d.id"><mat-icon>{{ retryingId === d.id ? 'hourglass_top' : 'refresh' }}</mat-icon></button>
+              </div>
+            </article>
+          }
+        </section>
+
         @if (documents.length === 0) {
           <div class="state-panel">
             <mat-icon>description</mat-icon>
@@ -146,6 +184,7 @@ import { finalize, take, timeout } from 'rxjs';
     .filters { display: flex; gap: 12px; flex-wrap: wrap; }
     .filters mat-form-field { flex: 1; min-width: 160px; }
     .table-scroll { overflow-x: auto; }
+    .mobile-document-list { display: none; }
     table { min-width: 820px; }
     .state-panel { min-height: 220px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:32px; color:var(--mutedColor); }
     .state-panel>mat-icon { width:48px; height:48px; font-size:48px; color:var(--accentColor); }
@@ -161,7 +200,30 @@ import { finalize, take, timeout } from 'rxjs';
     .badge[data-status="RETRY_PENDING"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="ERROR"] { background: #fce4ec; color: #b71c1c; }
     .badge[data-status="VOIDED"] { background: #f3e5f5; color: #6a1b9a; }
-    @media(max-width:767px) { .filters { display:grid; grid-template-columns:1fr; } .filters mat-form-field { min-width:0; } mat-card-content { padding:14px!important; } }
+    @media(max-width:767px) {
+      .breadcrumb-area { margin-bottom: 16px; }
+      .filters { display:grid; grid-template-columns:1fr; gap: 4px; }
+      .filters mat-form-field { min-width:0; }
+      mat-card-content { padding:14px!important; }
+      .table-scroll { display: none; }
+      .mobile-document-list { display: grid; gap: 12px; }
+      .document-card { border: 1px solid var(--borderColor); border-radius: 9px; padding: 14px; background: var(--cardBg, #fff); }
+      .document-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .document-card__identity { display: grid; min-width: 0; gap: 3px; color: var(--forestColor); }
+      .document-card__identity strong { overflow-wrap: anywhere; font-size: 15px; }
+      .document-card__type, .document-card__customer > span, .document-card__facts span { color: var(--mutedColor); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+      .document-card__header .badge { flex: 0 0 auto; max-width: 48%; text-align: center; }
+      .document-card__customer { display: grid; gap: 2px; margin-top: 16px; }
+      .document-card__customer strong { color: var(--forestColor); font-size: 14px; }
+      .document-card__customer small { color: var(--mutedColor); }
+      .document-card__facts { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr); gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--borderColor); }
+      .document-card__facts div { display: grid; min-width: 0; gap: 4px; }
+      .document-card__facts strong { color: var(--forestColor); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+      .document-card__actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--borderColor); }
+      .document-card__actions button { width: 44px; height: 44px; padding: 10px; }
+      mat-paginator { margin-top: 12px; border-top: 1px solid var(--borderColor); }
+      .state-panel { min-height: 180px; padding: 24px 16px; }
+    }
   `]
 })
 export class DocumentsComponent implements OnInit {
