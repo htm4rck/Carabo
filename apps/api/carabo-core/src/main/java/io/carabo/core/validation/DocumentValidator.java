@@ -26,8 +26,14 @@ public class DocumentValidator {
 
     public List<String> validate(Document doc, Tenant tenant) {
         List<String> errors = new ArrayList<>();
+        errors.addAll(validateStructure(doc));
+        errors.addAll(validateFiscalReadiness(tenant));
+        return errors;
+    }
 
-        validateTenant(tenant, errors);
+    /** Contract/document validation. It must not depend on external fiscal setup. */
+    public List<String> validateStructure(Document doc) {
+        List<String> errors = new ArrayList<>();
         validateHeader(doc, errors);
         validateIssuer(doc, errors);
         validateReceiver(doc, errors);
@@ -36,6 +42,13 @@ public class DocumentValidator {
         validateReference(doc, errors);
         validateDateRange(doc, errors);
 
+        return errors;
+    }
+
+    /** Preconditions that block issuance but must not discard an accepted intent. */
+    public List<String> validateFiscalReadiness(Tenant tenant) {
+        List<String> errors = new ArrayList<>();
+        validateTenant(tenant, errors);
         return errors;
     }
 

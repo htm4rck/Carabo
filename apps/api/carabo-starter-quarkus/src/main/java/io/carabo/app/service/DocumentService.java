@@ -95,8 +95,10 @@ public class DocumentService {
 
         Document doc = buildDocument(request, tenant);
 
-        // Validate before persisting
-        var errors = validator.validate(doc, tenant);
+        // Reject only an invalid contract. Fiscal setup is evaluated after the
+        // durable intent has been accepted, so a missing certificate never
+        // makes Operation/Amazilia lose the document.
+        var errors = validator.validateStructure(doc);
         if (!errors.isEmpty()) {
             doc.setSunatResponse(String.join("; ", errors));
             return EmitDocumentResponse.of(
@@ -104,11 +106,23 @@ public class DocumentService {
                 null, doc.getSunatResponse(), doc.getExternalId());
         }
 
+        doc.setStatus(DocumentStatus.PENDING);
+        em.persist(doc);
+        em.flush();
+
+        var readinessErrors = validator.validateFiscalReadiness(tenant);
+        if (!readinessErrors.isEmpty()) {
+            doc.setStatus(DocumentStatus.BLOCKED_CONFIGURATION);
+            doc.setSunatResponse(String.join("; ", readinessErrors));
+            em.merge(doc);
+            notificationService.enqueueFor(doc, tenant);
+            return EmitDocumentResponse.of(doc.getId(), null, doc.getStatus().name(),
+                null, doc.getSunatResponse(), doc.getExternalId());
+        }
+
         doc.setNumber(correlativeService.next(
             request.getBusinessCode(), CorrelativeService.Kind.DOCUMENT, doc.getSeries()));
         doc.setStatus(DocumentStatus.VALIDATED);
-        em.persist(doc);
-        em.flush();
 
         try {
             String xml = ublBuilder.build(doc);
@@ -157,10 +171,24 @@ public class DocumentService {
             return;
         }
         if (doc.getStatus() != DocumentStatus.PENDING
+            && doc.getStatus() != DocumentStatus.BLOCKED_CONFIGURATION
             && doc.getStatus() != DocumentStatus.ERROR
             && doc.getStatus() != DocumentStatus.VALIDATED) return;
 
         Tenant tenant = tenantService.resolve(doc.getBusinessCode());
+        var readinessErrors = validator.validateFiscalReadiness(tenant);
+        if (!readinessErrors.isEmpty()) {
+            doc.setStatus(DocumentStatus.BLOCKED_CONFIGURATION);
+            doc.setSunatResponse(String.join("; ", readinessErrors));
+            doc.setNextRetryAt(null);
+            em.merge(doc);
+            notificationService.enqueueFor(doc, tenant);
+            return;
+        }
+        if (doc.getNumber() == null) {
+            doc.setNumber(correlativeService.next(
+                doc.getBusinessCode(), CorrelativeService.Kind.DOCUMENT, doc.getSeries()));
+        }
         doc.setRetryCount(doc.getRetryCount() + 1);
         doc.setLastAttemptAt(Instant.now());
         doc.setNextRetryAt(null);
@@ -249,7 +277,7 @@ public class DocumentService {
         return em.createQuery(
             "SELECT d FROM Document d WHERE d.status IN (:statuses) AND d.retryCount < :max " +
                 "AND (d.nextRetryAt IS NULL OR d.nextRetryAt <= :now) ORDER BY d.nextRetryAt")
-            .setParameter("statuses", List.of(DocumentStatus.PENDING, DocumentStatus.ERROR, DocumentStatus.VALIDATED))
+            .setParameter("statuses", List.of(DocumentStatus.PENDING, DocumentStatus.ERROR, DocumentStatus.RETRY_PENDING, DocumentStatus.VALIDATED))
             .setParameter("max", MAX_RETRIES)
             .setParameter("now", Instant.now())
             .setMaxResults(100)

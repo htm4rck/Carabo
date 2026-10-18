@@ -30,7 +30,7 @@ public class Document {
     @Column(nullable = false, length = 10)
     private String series;
 
-    @Column(nullable = false)
+    @Column
     private Integer number;
 
     @Column(name = "issue_date", nullable = false)
@@ -92,7 +92,7 @@ public class Document {
 
     // Estado
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 32)
     private DocumentStatus status = DocumentStatus.PENDING;
 
     @Enumerated(EnumType.STRING)
@@ -268,5 +268,5 @@ public class Document {
     public void setTaxes(List<DocumentTax> taxes) { this.taxes = taxes; }
     public List<DocumentSendLog> getSendLogs() { return sendLogs; }
 
-    public String getFullNumber() { return series + "-" + String.format("%08d", number); }
+    public String getFullNumber() { return number == null ? null : series + "-" + String.format("%08d", number); }
 }
