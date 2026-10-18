@@ -5,7 +5,12 @@ import { environment } from '../../environments/environment';
 
 export interface DocumentSummary {
   id: string;
-  fullNumber: string;
+  /**
+   * Carabo assigns the fiscal correlativo only when the document is ready to
+   * issue. A persisted intent blocked by fiscal configuration has no number
+   * yet.
+   */
+  fullNumber: string | null;
   docType: string;
   docTypeName: string;
   status: string;

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -42,6 +42,8 @@ import { finalize, take, timeout } from 'rxjs';
             <mat-select [(ngModel)]="filters.status" (selectionChange)="search()">
               <mat-option value="">Todos</mat-option>
               <mat-option value="PENDING">Pendiente</mat-option>
+              <mat-option value="BLOCKED_CONFIGURATION">Bloqueado por configuración</mat-option>
+              <mat-option value="RETRY_PENDING">Reintento pendiente</mat-option>
               <mat-option value="VALIDATED">Validado</mat-option>
               <mat-option value="ACCEPTED">Aceptado</mat-option>
               <mat-option value="OBSERVED">Observado</mat-option>
@@ -78,7 +80,7 @@ import { finalize, take, timeout } from 'rxjs';
           </ng-container>
           <ng-container matColumnDef="fullNumber">
             <th mat-header-cell *matHeaderCellDef>Número</th>
-            <td mat-cell *matCellDef="let d" class="fw-semibold">{{ d.fullNumber }}</td>
+            <td mat-cell *matCellDef="let d" class="fw-semibold">{{ documentReference(d) }}</td>
           </ng-container>
           <ng-container matColumnDef="receiver">
             <th mat-header-cell *matHeaderCellDef>Cliente</th>
@@ -104,10 +106,10 @@ import { finalize, take, timeout } from 'rxjs';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Acciones</th>
             <td mat-cell *matCellDef="let d">
-              <button mat-icon-button matTooltip="Ver XML" [attr.aria-label]="'Ver XML de ' + d.fullNumber" (click)="openXml(d)"><mat-icon>code</mat-icon></button>
-              <button mat-icon-button matTooltip="Descargar PDF" [attr.aria-label]="'Descargar PDF de ' + d.fullNumber" (click)="downloadPdf(d)"><mat-icon>picture_as_pdf</mat-icon></button>
-              <button mat-icon-button matTooltip="Descargar CDR" [attr.aria-label]="'Descargar CDR de ' + d.fullNumber" (click)="openCdr(d)"><mat-icon>download</mat-icon></button>
-              <button mat-icon-button matTooltip="Reintentar" [attr.aria-label]="'Reintentar envío de ' + d.fullNumber" (click)="retry(d)" [disabled]="d.status === 'ACCEPTED' || retryingId === d.id"><mat-icon>{{ retryingId === d.id ? 'hourglass_top' : 'refresh' }}</mat-icon></button>
+              <button mat-icon-button matTooltip="Ver XML" [attr.aria-label]="'Ver XML de ' + documentReference(d)" (click)="openXml(d)" [disabled]="!d.fullNumber"><mat-icon>code</mat-icon></button>
+              <button mat-icon-button matTooltip="Descargar PDF" [attr.aria-label]="'Descargar PDF de ' + documentReference(d)" (click)="downloadPdf(d)" [disabled]="!d.fullNumber"><mat-icon>picture_as_pdf</mat-icon></button>
+              <button mat-icon-button matTooltip="Descargar CDR" [attr.aria-label]="'Descargar CDR de ' + documentReference(d)" (click)="openCdr(d)" [disabled]="!d.fullNumber"><mat-icon>download</mat-icon></button>
+              <button mat-icon-button matTooltip="Reintentar" [attr.aria-label]="'Reintentar envío de ' + documentReference(d)" (click)="retry(d)" [disabled]="!canRetry(d) || retryingId === d.id"><mat-icon>{{ retryingId === d.id ? 'hourglass_top' : 'refresh' }}</mat-icon></button>
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
@@ -155,6 +157,8 @@ import { finalize, take, timeout } from 'rxjs';
     .badge[data-status="OBSERVED"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="REJECTED"] { background: #ffebee; color: #c62828; }
     .badge[data-status="PENDING"], .badge[data-status="VALIDATED"] { background: #fff3e0; color: #e65100; }
+    .badge[data-status="BLOCKED_CONFIGURATION"] { background: #fff3e0; color: #8a4b08; }
+    .badge[data-status="RETRY_PENDING"] { background: #fff8dd; color: #7a5a00; }
     .badge[data-status="ERROR"] { background: #fce4ec; color: #b71c1c; }
     .badge[data-status="VOIDED"] { background: #f3e5f5; color: #6a1b9a; }
     @media(max-width:767px) { .filters { display:grid; grid-template-columns:1fr; } .filters mat-form-field { min-width:0; } mat-card-content { padding:14px!important; } }
@@ -171,7 +175,7 @@ export class DocumentsComponent implements OnInit {
 
   filters: QueryParams = { docType: '', status: '', search: '', offset: 0, limit: 50 };
 
-  constructor(private api: CaraboApiService, private snackBar: MatSnackBar) {}
+  constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() { this.search(); }
 
@@ -200,40 +204,44 @@ export class DocumentsComponent implements OnInit {
     this.api.queryDocuments(this.filters).pipe(
       take(1),
       timeout({ first: 15000 }),
-      finalize(() => this.loading = false)
+      // The application runs without Zone.js. Explicitly trigger rendering when
+      // the HTTP observable settles; otherwise the completed data only appears
+      // after an unrelated browser event (for example, resizing the viewport).
+      finalize(() => this.updateView(() => this.loading = false))
     ).subscribe({
       next: (res) => {
-        this.loading = false;
-        this.documents = res.items ?? [];
-        this.totalDocs = res.total ?? 0;
-        if (this.documents.length === 0) {
-          this.snackBar.open(
-            this.hasActiveFilters ? 'No se encontraron documentos con esos filtros.' : 'Aún no hay documentos emitidos.',
-            'Cerrar', { duration: 4000 }
-          );
-        }
+        this.updateView(() => {
+          this.documents = res.items ?? [];
+          this.totalDocs = res.total ?? 0;
+          if (this.documents.length === 0) {
+            this.snackBar.open(
+              this.hasActiveFilters ? 'No se encontraron documentos con esos filtros.' : 'Aún no hay documentos emitidos.',
+              'Cerrar', { duration: 4000 }
+            );
+          }
+        });
       },
-      error: () => { this.loading = false; this.loadError = true; }
+      error: () => this.updateView(() => this.loadError = true)
     });
   }
 
   openXml(doc: DocumentSummary) {
     this.api.downloadDocumentXml(doc.id).subscribe({
-      next: blob => this.openBlob(blob, `${doc.fullNumber}.xml`),
+      next: blob => this.openBlob(blob, `${this.documentReference(doc)}.xml`),
       error: () => this.snackBar.open('No se pudo descargar el XML', 'Cerrar', { duration: 4000 })
     });
   }
 
   openCdr(doc: DocumentSummary) {
     this.api.downloadDocumentCdr(doc.id).subscribe({
-      next: blob => this.openBlob(blob, `CDR-${doc.fullNumber}.xml`),
+      next: blob => this.openBlob(blob, `CDR-${this.documentReference(doc)}.xml`),
       error: () => this.snackBar.open('El CDR aún no está disponible', 'Cerrar', { duration: 4000 })
     });
   }
 
   downloadPdf(doc: DocumentSummary) {
     this.api.downloadDocumentPdf(doc.id).subscribe({
-      next: blob => this.openBlob(blob, `${doc.fullNumber}.pdf`),
+      next: blob => this.openBlob(blob, `${this.documentReference(doc)}.pdf`),
       error: () => this.snackBar.open('No se pudo generar el PDF', 'Cerrar', { duration: 4000 })
     });
   }
@@ -252,7 +260,20 @@ export class DocumentsComponent implements OnInit {
   }
 
   statusLabel(status: string): string {
-    return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
+    return ({ PENDING: 'Pendiente', VALIDATED: 'Validado', BLOCKED_CONFIGURATION: 'Bloqueado por configuración', RETRY_PENDING: 'Reintento pendiente', ACCEPTED: 'Aceptado', OBSERVED: 'Observado', REJECTED: 'Rechazado', ERROR: 'Error', VOIDED: 'Anulado' } as Record<string, string>)[status] ?? status;
+  }
+
+  documentReference(doc: DocumentSummary): string {
+    return doc.fullNumber ?? doc.externalId ?? 'Sin correlativo fiscal';
+  }
+
+  canRetry(doc: DocumentSummary): boolean {
+    return doc.status === 'ERROR' || doc.status === 'REJECTED' || doc.status === 'RETRY_PENDING';
+  }
+
+  private updateView(update: () => void) {
+    update();
+    this.cdr.detectChanges();
   }
 
   private openBlob(blob: Blob, fileName: string) {
