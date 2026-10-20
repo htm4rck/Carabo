@@ -71,7 +71,8 @@ jobs:
           INSERT INTO carabo.producer_integration (business_code,code,name,api_key_hash,scopes,status)
           VALUES
             ('TENANT_A','ci-producer-a','CI Producer A',encode(sha256(convert_to('tenant-a-integration-key','UTF8')),'hex'),'DOCUMENT_INGEST,DOCUMENT_READ,DOCUMENT_EMIT','ACTIVE'),
-            ('TENANT_B','ci-producer-b','CI Producer B',encode(sha256(convert_to('tenant-b-integration-key','UTF8')),'hex'),'DOCUMENT_INGEST,DOCUMENT_READ,DOCUMENT_EMIT','ACTIVE');
+            ('TENANT_B','ci-producer-b','CI Producer B',encode(sha256(convert_to('tenant-b-integration-key','UTF8')),'hex'),'DOCUMENT_INGEST,DOCUMENT_READ,DOCUMENT_EMIT','ACTIVE'),
+            ('TENANT_A','ci-reader-a','CI Reader A',encode(sha256(convert_to('tenant-a-read-only-key','UTF8')),'hex'),'DOCUMENT_READ','ACTIVE');
           INSERT INTO carabo.document (id,business_code,doc_type,series,number,issue_date,issuer_ruc,issuer_name,receiver_doc_type,receiver_doc,receiver_name,tax_base,igv_amount,total,status,external_id)
           VALUES
             ('10000000-0000-0000-0000-000000000001','TENANT_A','INVOICE','F001',1,current_date,'20111111111','Tenant A SAC','6','20999999991','Cliente A',100,18,118,'ACCEPTED','external-a'),
@@ -96,6 +97,7 @@ jobs:
           CARABO_ADMIN_KEY: ci-admin-key
           CARABO_TENANT_A_KEY: tenant-a-integration-key
           CARABO_TENANT_B_KEY: tenant-b-integration-key
+          CARABO_TENANT_A_READ_KEY: tenant-a-read-only-key
           CARABO_DOCUMENT_A_ID: 10000000-0000-0000-0000-000000000001
           CARABO_DOCUMENT_B_ID: 20000000-0000-0000-0000-000000000002
           CARABO_EXTERNAL_A_ID: external-a

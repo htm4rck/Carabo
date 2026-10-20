@@ -4,6 +4,7 @@ set -Eeuo pipefail
 readonly BASE_URL="${CARABO_BASE_URL:-http://127.0.0.1:8998}"
 : "${CARABO_TENANT_A_KEY:?Define CARABO_TENANT_A_KEY}"
 : "${CARABO_TENANT_B_KEY:?Define CARABO_TENANT_B_KEY}"
+: "${CARABO_TENANT_A_READ_KEY:?Define CARABO_TENANT_A_READ_KEY (DOCUMENT_READ only)}"
 : "${CARABO_DOCUMENT_A_ID:?Define CARABO_DOCUMENT_A_ID}"
 : "${CARABO_DOCUMENT_B_ID:?Define CARABO_DOCUMENT_B_ID}"
 : "${CARABO_EXTERNAL_A_ID:?Define CARABO_EXTERNAL_A_ID}"
@@ -41,8 +42,14 @@ expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_D
   'XML de otro tenant no se descarga'
 expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_B_ID/cdr")" \
   'CDR de otro tenant no se descarga'
-expect_code 403 "$(request_code "$CARABO_TENANT_A_KEY" POST "/documents/$CARABO_DOCUMENT_B_ID/retry")" \
-  'credencial de productor no puede ejecutar reintentos operativos'
+expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" POST "/documents/$CARABO_DOCUMENT_B_ID/retry")" \
+  'productor con DOCUMENT_EMIT no reintenta documentos de otro tenant'
+expect_code 403 "$(request_code "$CARABO_TENANT_A_READ_KEY" POST "/documents/$CARABO_DOCUMENT_A_ID/retry")" \
+  'productor solo DOCUMENT_READ no reintenta ni su propio documento'
+expect_code 200 "$(request_code "$CARABO_TENANT_A_READ_KEY" GET "/documents/$CARABO_DOCUMENT_A_ID")" \
+  'credencial de lectura válida consulta su documento sin permiso de emisión'
+expect_code 404 "$(request_code "$CARABO_TENANT_A_KEY" POST "/documents/$CARABO_DOCUMENT_B_ID/status")" \
+  'consulta autoritativa de estado también queda aislada por tenant'
 expect_code 200 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_A_ID/xml")" \
   'tenant A descarga su XML'
 expect_code 200 "$(request_code "$CARABO_TENANT_A_KEY" GET "/documents/$CARABO_DOCUMENT_A_ID/cdr")" \

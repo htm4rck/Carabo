@@ -6,6 +6,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IntegrationPolicyTest {
     @Test
+    void fiscalRecoveryRequiresExplicitEmitScope() {
+        String document = "/documents/513fa2c8-9c9a-4d15-ae9c-c9ea93797733";
+        assertFalse(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_READ")));
+        assertFalse(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_INGEST")));
+        assertTrue(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_EMIT")));
+        assertTrue(IntegrationPolicy.permits(document + "/status", "POST", Set.of("DOCUMENT_READ")));
+        assertFalse(IntegrationPolicy.permits(document + "/status", "POST", Set.of("DOCUMENT_EMIT")));
+        assertTrue(IntegrationPolicy.permits("/documents/identity", "GET", Set.of("DOCUMENT_READ")));
+        assertFalse(IntegrationPolicy.permits("/documents/identity", "GET", Set.of("DOCUMENT_EMIT")));
+        assertFalse(IntegrationPolicy.permits("/documents/batch/void", "POST", Set.of("DOCUMENT_READ")));
+        assertTrue(IntegrationPolicy.permits("/documents/batch/void", "POST", Set.of("DOCUMENT_EMIT")));
+    }
+
+    @Test
     void producerScopesAreLeastPrivilege() {
         Set<String> scopes = Set.of("DOCUMENT_INGEST", "DOCUMENT_READ");
         assertTrue(IntegrationPolicy.permits("/documents/ingest", "POST", scopes));
