@@ -6,6 +6,12 @@ import io.carabo.core.entity.BatchOperation;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.DocumentStatus;
 import io.carabo.core.enums.DocumentType;
+import io.carabo.core.enums.SendMode;
+import io.carabo.ose.OseClient;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.persistence.LockModeType;
 import io.carabo.signer.XmlSigner;
 import io.carabo.sunat.SunatBillService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -39,6 +45,7 @@ public class BatchService {
 
     @Inject
     FiscalClock fiscalClock;
+    @Inject IdempotencyService idempotencyService;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -92,48 +99,77 @@ public class BatchService {
      */
     @Transactional
     public BatchResult sendVoidedCommunication(String businessCode, List<UUID> documentIds, String reason) {
+        return sendVoidedCommunication(businessCode, documentIds, reason, null);
+    }
+
+    @Transactional
+    public BatchResult sendVoidedCommunication(String businessCode, List<UUID> documentIds, String reason, String requestKey) {
+        if (documentIds == null || documentIds.isEmpty() || documentIds.size() > 100 || documentIds.stream().anyMatch(java.util.Objects::isNull)
+            || documentIds.stream().distinct().count() != documentIds.size() || reason == null || reason.isBlank() || reason.length() > 500)
+            throw new BadRequestException("Baja requiere IDs únicos y motivo de hasta 500 caracteres");
+        List<UUID> ids = documentIds.stream().sorted().toList();
+        String key = requestKey == null || requestKey.isBlank() ? "void-" + hash(ids.toString()) : requestKey.trim();
+        if (key.length() > 100) throw new BadRequestException("Idempotency-Key excede 100 caracteres");
+        String fingerprint = hash(ids + ":" + reason.trim());
+        idempotencyService.lock("fiscal-void", businessCode, key);
+        BatchOperation prior = em.createQuery("SELECT b FROM BatchOperation b WHERE b.businessCode=:bc AND b.requestKey=:key", BatchOperation.class)
+            .setParameter("bc", businessCode).setParameter("key", key).getResultStream().findFirst().orElse(null);
+        if (prior != null && !fingerprint.equals(prior.getRequestHash())) throw new ClientErrorException("La llave de baja ya tiene otro contenido",409);
+        if (prior != null && !"ERROR".equals(prior.getStatus())) return toResult(prior, !"REJECTED".equals(prior.getStatus()));
         Tenant tenant = tenantService.resolve(businessCode);
-
-        @SuppressWarnings("unchecked")
         List<Document> docs = em.createQuery(
-            "SELECT d FROM Document d WHERE d.id IN :ids AND d.businessCode = :bc AND d.status = :st")
-            .setParameter("ids", documentIds)
+            "SELECT d FROM Document d WHERE d.id IN :ids AND d.businessCode = :bc ORDER BY d.id", Document.class)
+            .setParameter("ids", ids)
             .setParameter("bc", businessCode)
-            .setParameter("st", DocumentStatus.ACCEPTED)
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .getResultList();
-
-        if (docs.isEmpty()) {
-            LocalDate today = fiscalClock.today();
-            return recordResult(businessCode, "RA", emptyIdentifier("RA", today), false, null,
-                "EMPTY", "No hay documentos válidos para anular", 0, today, null);
+        if (docs.size() != ids.size()) throw new NotFoundException("Todos los documentos deben existir en la empresa autenticada");
+        LocalDate referenceDate = docs.get(0).getIssueDate();
+        boolean receiptFamily = docs.get(0).getSeries().startsWith("B");
+        for (Document doc : docs) {
+            if (!(doc.getStatus() == DocumentStatus.ACCEPTED || doc.getStatus() == DocumentStatus.OBSERVED)) throw new ClientErrorException("Sólo documentos fiscalmente aceptados pueden solicitar baja",409);
+            if (!referenceDate.equals(doc.getIssueDate()) || receiptFamily != doc.getSeries().startsWith("B")) throw new BadRequestException("La baja debe agrupar la misma fecha y familia fiscal F/B");
         }
-
         LocalDate today = fiscalClock.today();
-        String identifier = tenant.getIssuerRuc() + "-RA-" + today.format(DateTimeFormatter.BASIC_ISO_DATE)
-            + "-" + nextBatchNumber(businessCode, "RA", today);
-        String xml = buildVoidedXml(tenant, docs, today, identifier, reason);
-
+        String kind = receiptFamily ? "RC" : "RA";
+        String identifier = prior != null ? prior.getIdentifier() : tenant.getIssuerRuc() + "-" + kind + "-" + today.format(DateTimeFormatter.BASIC_ISO_DATE)
+            + "-" + nextBatchNumber(businessCode, kind, today);
+        BatchOperation operation = prior != null ? prior : new BatchOperation();
+        operation.setBusinessCode(businessCode); operation.setKind(kind); operation.setIdentifier(identifier);
+        operation.setRequestKey(key); operation.setRequestHash(fingerprint); operation.setDocumentCount(docs.size());
+        operation.setDocumentIds(ids.stream().map(UUID::toString).collect(java.util.stream.Collectors.joining(",")));
+        operation.setReferenceDate(referenceDate); operation.setStatus("PROCESSING");
+        if (prior == null) em.persist(operation);
+        em.flush();
+        String xml = receiptFamily ? buildSummaryXml(tenant, docs, referenceDate, identifier).replace("<cbc:ConditionCode>1</cbc:ConditionCode>", "<cbc:ConditionCode>3</cbc:ConditionCode>")
+            : buildVoidedXml(tenant, docs, today, identifier, reason.trim());
         try {
             XmlSigner signer = createSigner(tenant);
             XmlSigner.SignResult signed = signer.sign(xml);
-
-            SunatBillService sunat = new SunatBillService(
-                sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
-            String ticket = sunat.sendSummary(identifier, signed.signedXml());
-
-            // Mark documents as VOID_REQUESTED
-            for (Document doc : docs) {
-                doc.setStatus(DocumentStatus.VOID_REQUESTED);
-                doc.setSunatTicket(ticket);
-                em.merge(doc);
+            String ticket;
+            boolean accepted = false;
+            if (tenant.getSendMode() == SendMode.OSE) {
+                var result = new OseClient(tenant.getOseBaseUrl(), secretResolver.resolve(tenant.getOseApiToken())).send(identifier, signed.signedXml());
+                ticket = result.externalId(); accepted = result.accepted();
+                operation.setStatus(result.processing() ? "SENT" : accepted ? "ACCEPTED" : result.retryable() ? "ERROR" : "REJECTED");
+                operation.setMessage(result.responseMsg()); operation.setCdrXml(result.cdrXml());
+            } else {
+                SunatBillService sunat = new SunatBillService(sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
+                ticket = sunat.sendSummary(identifier, signed.signedXml()); operation.setStatus("SENT");
+                operation.setMessage("Baja enviada; pendiente de aceptación fiscal");
             }
-
-            return recordResult(businessCode, "RA", identifier, true, ticket, "SENT",
-                "Baja enviada, ticket: " + ticket, docs.size(), today, null);
+            operation.setTicket(ticket);
+            for (Document doc : docs) {
+                if (accepted || "SENT".equals(operation.getStatus())) {
+                    doc.setStatus(accepted ? DocumentStatus.VOIDED : DocumentStatus.VOID_REQUESTED);
+                    doc.setSunatTicket(ticket); em.merge(doc);
+                }
+            }
+            return toResult(operation, !java.util.Set.of("ERROR","REJECTED").contains(operation.getStatus()));
         } catch (Exception e) {
             LOG.error("Voided communication failed for " + businessCode, e);
-            return recordResult(businessCode, "RA", identifier, false, null, "ERROR",
-                safeErrorMessage(e), docs.size(), today, null);
+            operation.setStatus("ERROR"); operation.setMessage(safeErrorMessage(e));
+            return toResult(operation,false);
         }
     }
 
@@ -143,27 +179,36 @@ public class BatchService {
     @Transactional
     public BatchResult checkTicket(String businessCode, String ticket) {
         Tenant tenant = tenantService.resolve(businessCode);
-        SunatBillService sunat = new SunatBillService(
-            sunatEndpoint(tenant), tenant.getSolUser(), secretResolver.resolve(tenant.getSolPassword()));
-        SunatBillService.SendBillResult result = sunat.getStatus(ticket);
-
-        String status = result.processing() ? "PENDING"
-            : result.accepted() ? (result.observed() ? "OBSERVED" : "ACCEPTED")
-            : result.retryable() ? "ERROR" : "REJECTED";
         BatchOperation operation = em.createQuery(
                 "SELECT b FROM BatchOperation b WHERE b.businessCode = :bc AND b.ticket = :ticket ORDER BY b.createdAt DESC",
                 BatchOperation.class)
             .setParameter("bc", businessCode).setParameter("ticket", ticket).setMaxResults(1)
             .getResultStream().findFirst().orElse(null);
         if (operation != null) {
+            if (java.util.Set.of("ACCEPTED","OBSERVED","REJECTED").contains(operation.getStatus())) return toResult(operation,!"REJECTED".equals(operation.getStatus()));
+            String status, message, cdr; boolean accepted;
+            if (tenant.getSendMode() == SendMode.OSE) {
+                var result = new OseClient(tenant.getOseBaseUrl(),secretResolver.resolve(tenant.getOseApiToken())).getStatus(ticket);
+                accepted = result.accepted(); status = result.processing()?"PENDING":accepted?(result.observed()?"OBSERVED":"ACCEPTED"):result.retryable()?"ERROR":"REJECTED";
+                message = result.responseMsg(); cdr = result.cdrXml();
+            } else {
+                var result = new SunatBillService(sunatEndpoint(tenant),tenant.getSolUser(),secretResolver.resolve(tenant.getSolPassword())).getStatus(ticket);
+                accepted = result.accepted(); status = result.processing()?"PENDING":accepted?(result.observed()?"OBSERVED":"ACCEPTED"):result.retryable()?"ERROR":"REJECTED";
+                message = result.responseMsg(); cdr = result.cdrXml();
+            }
             operation.setStatus(status);
-            operation.setMessage(result.responseMsg());
-            operation.setCdrXml(result.cdrXml());
+            operation.setMessage(message); operation.setCdrXml(cdr);
+            if (operation.getDocumentIds() != null && (accepted || "REJECTED".equals(status))) {
+                for (String id : operation.getDocumentIds().split(",")) {
+                    Document doc = em.find(Document.class,UUID.fromString(id),LockModeType.PESSIMISTIC_WRITE);
+                    if (doc != null && businessCode.equals(doc.getBusinessCode()) && doc.getStatus()==DocumentStatus.VOID_REQUESTED)
+                        doc.setStatus(accepted?DocumentStatus.VOIDED:DocumentStatus.ACCEPTED);
+                }
+            }
             em.merge(operation);
-            return toResult(operation, result.accepted());
+            return toResult(operation, accepted);
         }
-        return new BatchResult(null, null, null, result.accepted(), ticket, status, result.responseMsg(), 0,
-            null, fiscalClock.nowUtc(), fiscalClock.zoneId());
+        throw new NotFoundException("Ticket no encontrado en la empresa autenticada");
     }
 
     public List<BatchResult> listOperations(String businessCode, String kind, int limit) {
@@ -320,7 +365,7 @@ public class BatchService {
         return new BatchResult(operation.getId(), operation.getKind(), operation.getIdentifier(), success,
             operation.getTicket(), operation.getStatus(), operation.getMessage(), operation.getDocumentCount(),
             operation.getReferenceDate(), operation.getUpdatedAt() != null ? operation.getUpdatedAt() : fiscalClock.nowUtc(),
-            fiscalClock.zoneId());
+            fiscalClock.zoneId(), operation.getDocumentIds() != null);
     }
 
     private String safeErrorMessage(Exception exception) {
@@ -334,7 +379,12 @@ public class BatchService {
             .replace("\"", "&quot;").replace("'", "&apos;");
     }
 
+    private String hash(String value) {
+        try { return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8))); }
+        catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
+
     public record BatchResult(UUID id, String kind, String identifier, boolean success, String ticket, String status, String message,
                               int documentCount, LocalDate referenceDate,
-                              Instant generatedAt, String timeZone) {}
+                              Instant generatedAt, String timeZone, boolean voidCommunication) {}
 }

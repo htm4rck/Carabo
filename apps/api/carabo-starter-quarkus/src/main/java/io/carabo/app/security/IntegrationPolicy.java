@@ -8,6 +8,11 @@ final class IntegrationPolicy {
     private IntegrationPolicy() {}
 
     static boolean permits(String path, String method, Set<String> scopes) {
+        if (HttpMethod.GET.equals(method) && path.equals("/documents/identity")) return scopes.contains("DOCUMENT_READ");
+        if (HttpMethod.POST.equals(method) && path.matches("/documents/[0-9a-fA-F-]+/status")) return scopes.contains("DOCUMENT_READ");
+        if (HttpMethod.POST.equals(method) && path.equals("/documents/batch/void")) return scopes.contains("DOCUMENT_EMIT");
+        if (HttpMethod.POST.equals(method) && path.matches("/documents/[0-9a-fA-F-]+/retry")) return scopes.contains("DOCUMENT_EMIT");
+        if (HttpMethod.GET.equals(method) && (path.startsWith("/documents/batch/ticket/") || path.startsWith("/documents/batch/operations"))) return scopes.contains("DOCUMENT_READ");
         if (HttpMethod.POST.equals(method) && path.equals("/documents/ingest")) {
             return scopes.contains("DOCUMENT_INGEST");
         }

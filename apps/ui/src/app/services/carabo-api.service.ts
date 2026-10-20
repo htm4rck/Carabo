@@ -168,6 +168,7 @@ export interface DashboardStats {
 }
 
 export interface BatchResult {
+  voidCommunication?: boolean;
   id: string | null;
   kind: 'RC' | 'RA' | null;
   identifier: string | null;

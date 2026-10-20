@@ -12,6 +12,12 @@ public class BatchOperation {
     private UUID id;
     @Column(name = "business_code", nullable = false, length = 50)
     private String businessCode;
+    @Column(name = "request_key", length = 100)
+    private String requestKey;
+    @Column(name = "request_hash", length = 64)
+    private String requestHash;
+    @Column(name = "document_ids", columnDefinition = "TEXT")
+    private String documentIds;
     @Column(nullable = false, length = 5)
     private String kind;
     @Column(nullable = false, length = 100)
@@ -37,6 +43,12 @@ public class BatchOperation {
     @PreUpdate void preUpdate() { updatedAt = Instant.now(); }
 
     public UUID getId() { return id; }
+    public String getRequestKey() { return requestKey; }
+    public void setRequestKey(String value) { requestKey = value; }
+    public String getRequestHash() { return requestHash; }
+    public void setRequestHash(String value) { requestHash = value; }
+    public String getDocumentIds() { return documentIds; }
+    public void setDocumentIds(String value) { documentIds = value; }
     public String getBusinessCode() { return businessCode; }
     public void setBusinessCode(String businessCode) { this.businessCode = businessCode; }
     public String getKind() { return kind; }

@@ -249,6 +249,13 @@ public class DocumentResource {
     }
 
     @POST
+    @Path("/{id}/status")
+    public Response refreshStatus(@PathParam("id") UUID id) {
+        return documentService.refreshStatus(id,tenantContext.businessCode())
+            .map(document -> Response.ok(toSummary(document)).build()).orElse(Response.status(404).build());
+    }
+
+    @POST
     @Path("/{id}/retry")
     @Operation(summary = "Reintentar envío de documento fallido")
     public Response retry(@PathParam("id") UUID id) {
@@ -276,11 +283,16 @@ public class DocumentResource {
     @POST
     @Path("/batch/void")
     @Operation(summary = "Enviar comunicación de baja (RA)")
-    public Response voidDocuments(VoidRequest request) {
+    public Response voidDocuments(VoidRequest request, @HeaderParam("Idempotency-Key") String key) {
+        if (request == null) return Response.status(400).entity(new IntegrationError("INVALID_REQUEST", "Solicitud de baja obligatoria")).build();
         var result = batchService.sendVoidedCommunication(
-            tenantContext.businessCode(), request.documentIds, request.reason);
+            tenantContext.businessCode(), request.documentIds, request.reason, key);
         return Response.ok(result).build();
     }
+
+    @GET
+    @Path("/identity")
+    public Response identity() { return Response.ok(java.util.Map.of("businessCode", tenantContext.businessCode())).build(); }
 
     @GET
     @Path("/batch/ticket/{businessCode}/{ticket}")

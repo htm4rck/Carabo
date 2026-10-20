@@ -243,6 +243,30 @@ public class DocumentService {
     }
 
     @Transactional
+    public Optional<Document> refreshStatus(UUID id, String businessCode) {
+        Optional<Document> found = findById(id,businessCode);
+        if (found.isEmpty()) return found;
+        Document doc = found.get();
+        em.lock(doc,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (doc.getSunatTicket()==null || !(doc.getStatus()==DocumentStatus.PENDING || doc.getStatus()==DocumentStatus.SENT)) return found;
+        Tenant tenant = tenantService.resolve(businessCode);
+        SendResult result;
+        if (tenant.getSendMode()==SendMode.OSE) {
+            var remote = new OseClient(tenant.getOseBaseUrl(),secretResolver.resolve(tenant.getOseApiToken())).getStatus(doc.getSunatTicket());
+            var status = remote.processing()?DocumentStatus.PENDING:remote.accepted()?(remote.observed()?DocumentStatus.OBSERVED:DocumentStatus.ACCEPTED):remote.retryable()?DocumentStatus.ERROR:DocumentStatus.REJECTED;
+            result = new SendResult(status,remote.digestValue(),doc.getSunatTicket(),remote.responseCode(),remote.responseMsg(),remote.cdrXml(),remote.retryable());
+        } else {
+            var remote = new SunatBillService(sunatEndpoint(tenant),tenant.getSolUser(),secretResolver.resolve(tenant.getSolPassword())).getStatus(doc.getSunatTicket());
+            var status = remote.processing()?DocumentStatus.PENDING:remote.accepted()?(remote.observed()?DocumentStatus.OBSERVED:DocumentStatus.ACCEPTED):remote.retryable()?DocumentStatus.ERROR:DocumentStatus.REJECTED;
+            result = new SendResult(status,null,doc.getSunatTicket(),remote.responseCode(),remote.responseMsg(),remote.cdrXml(),remote.retryable());
+        }
+        applySendResult(doc,result);
+        if (result.cdrXml()!=null) getStorage().storeCdr(businessCode,doc.getSeries(),doc.getNumber(),result.cdrXml());
+        logSend(doc,result); notificationService.enqueueFor(doc,tenant);
+        return found;
+    }
+
+    @Transactional
     public boolean retry(UUID documentId, String businessCode) {
         if (findById(documentId, businessCode).isEmpty()) return false;
         retry(documentId);

@@ -117,6 +117,11 @@ public class NotificationService {
                     request.header("X-Carabo-Signature", "v1=" + hmacHex(timestamp + "." + item.getPayload(), secret));
                 }
             }
+            if ("CALLBACK".equals(item.getTargetType())) {
+                Tenant tenant = tenantService.resolve(item.getBusinessCode());
+                if (tenant.getWebhookSecret() != null && !tenant.getWebhookSecret().isBlank())
+                    request.header("X-Carabo-Callback-Key", secretResolver.resolve(tenant.getWebhookSecret()));
+            }
             HttpResponse<String> response = httpClient.send(
                 request.POST(HttpRequest.BodyPublishers.ofString(item.getPayload())).build(),
                 HttpResponse.BodyHandlers.ofString());

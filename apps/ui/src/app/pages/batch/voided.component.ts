@@ -19,7 +19,7 @@ import { AuthService } from '../../auth/auth.service';
   template: `
     <div class="breadcrumb-area">
       <h1>Comunicaciones de Baja</h1>
-      <p class="gray-color">Documentos anulados enviados a SUNAT</p>
+      <p class="gray-color">Solicitudes RA para facturas y RC con estado de baja para boletas. El envío aún no implica aceptación.</p>
     </div>
 
     <mat-card style="margin-bottom:16px;">
@@ -38,7 +38,7 @@ import { AuthService } from '../../auth/auth.service';
             <mat-icon>{{ sending ? 'hourglass_top' : 'block' }}</mat-icon> {{ sending ? 'Enviando…' : 'Comunicar baja' }}
           </button>
         </form>
-        <p class="risk-note"><mat-icon>info</mat-icon> Esta acción comunica la anulación a SUNAT; verifica los identificadores antes de continuar.</p>
+        <p class="risk-note"><mat-icon>info</mat-icon> Selecciona documentos aceptados de la misma fecha y familia fiscal F/B. Carabo conserva la solicitud y su ticket; sólo una aceptación confirma la baja.</p>
       </mat-card-content>
     </mat-card>
 
@@ -47,7 +47,8 @@ import { AuthService } from '../../auth/auth.service';
         <div><h3 style="margin:0; font-size:16px;">Historial de comunicaciones</h3><small>Operaciones persistidas para la empresa activa.</small></div>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
-        <div class="table-scroll"><table mat-table [dataSource]="voided" class="w-100" aria-label="Comunicaciones de baja enviadas en esta sesión">
+        <div class="table-scroll"><table mat-table [dataSource]="voided" class="w-100" aria-label="Historial de solicitudes de baja fiscal">
+          <ng-container matColumnDef="kind"><th mat-header-cell *matHeaderCellDef>Canal</th><td mat-cell *matCellDef="let v">{{ v.kind }}</td></ng-container>
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Fecha</th>
             <td mat-cell *matCellDef="let v">{{ v.referenceDate || '—' }}</td>
@@ -89,8 +90,8 @@ import { AuthService } from '../../auth/auth.service';
 
         @if (voided.length === 0) {
           <div class="empty-state">
-            <mat-icon>block</mat-icon><h2>No hay bajas en esta sesión</h2>
-            <p>Las comunicaciones que envíes aparecerán aquí para su seguimiento inmediato.</p>
+            <mat-icon>block</mat-icon><h2>No hay solicitudes registradas</h2>
+            <p>Las solicitudes y sus resultados se conservan para la empresa activa.</p>
           </div>
         }
       </mat-card-content>
@@ -120,7 +121,7 @@ import { AuthService } from '../../auth/auth.service';
   `]
 })
 export class VoidedComponent implements OnInit {
-  displayedColumns = ['date', 'documents', 'reason', 'ticket', 'status', 'actions'];
+  displayedColumns = ['date', 'kind', 'documents', 'reason', 'ticket', 'status', 'actions'];
   voided: BatchResult[] = [];
   documentIdsInput = '';
   reason = '';
@@ -130,8 +131,8 @@ export class VoidedComponent implements OnInit {
   constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
 
   ngOnInit() {
-    this.api.listBatchOperations('RA').subscribe({
-      next: operations => this.voided = operations,
+    this.api.listBatchOperations().subscribe({
+      next: operations => this.voided = operations.filter(operation => operation.voidCommunication || operation.kind === 'RA'),
       error: () => this.snackBar.open('No se pudo cargar el historial de bajas', 'Cerrar', { duration: 4000 })
     });
   }
