@@ -1,0 +1,99 @@
+<a class="login-skip" href="#main-content">Saltar al formulario de acceso</a>
+<main id="main-content" class="login-page" tabindex="-1">
+  <section class="login-story" aria-label="Carabo Facturación Electrónica">
+    <div class="brand-lockup">
+      <img
+        src="assets/images/logo.png"
+        width="1200"
+        height="400"
+        alt="Carabo, facturación electrónica"
+        fetchpriority="high"
+      />
+    </div>
+    <div class="story-copy">
+      <div class="product-name"><strong>CARABO</strong><span>Facturación electrónica</span></div>
+      <h1>Control fiscal que avanza contigo.</h1>
+      <p>
+        Cada comprobante mantiene una ruta visible desde la emisión hasta la respuesta de SUNAT.
+      </p>
+    </div>
+    <div class="fiscal-path" aria-hidden="true">
+      <div class="path-step complete"><i></i><span>Emisión</span></div>
+      <div class="path-line complete"></div>
+      <div class="path-step complete"><i></i><span>Firma</span></div>
+      <div class="path-line active"></div>
+      <div class="path-step active"><i></i><span>SUNAT</span></div>
+      <div class="path-line"></div>
+      <div class="path-step"><i></i><span>CDR</span></div>
+    </div>
+  </section>
+
+  <section class="login-panel">
+    <form (ngSubmit)="submit()" class="login-form">
+      <div class="mobile-brand">
+        <img src="assets/images/icono.png" width="52" height="52" alt="" /><span
+          ><strong>CARABO</strong><small>Facturación electrónica</small></span
+        >
+      </div>
+      <div class="mobile-story">
+        <p>Control fiscal desde la emisión hasta la respuesta de SUNAT.</p>
+        <div class="mobile-path" aria-label="Ruta fiscal: emisión, firma, SUNAT y CDR">
+          <span>Emisión</span><i></i><span>Firma</span><i></i><span>SUNAT</span><i></i
+          ><span>CDR</span>
+        </div>
+      </div>
+      <h2>Ingresa a tu operación</h2>
+      <p>Usa las mismas credenciales con las que accedes a Columba.</p>
+      <p class="access-note">
+        <i class="ri-shield-check-line"></i> Tu acceso y permisos se validan con Tordo.
+      </p>
+
+      <label for="user">Usuario o correo</label>
+      <input
+        id="user"
+        name="user"
+        type="text"
+        autocomplete="username"
+        [(ngModel)]="user"
+        required
+        autofocus
+      />
+
+      <label for="password">Contraseña</label>
+      <div class="password-field">
+        <input
+          id="password"
+          name="password"
+          [type]="showPassword ? 'text' : 'password'"
+          autocomplete="current-password"
+          [(ngModel)]="password"
+          required
+        />
+        <button
+          type="button"
+          class="reveal"
+          (click)="showPassword = !showPassword"
+          [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+        >
+          <i [class]="showPassword ? 'ri-eye-off-line' : 'ri-eye-line'"></i>
+        </button>
+      </div>
+
+      @if (error()) {
+        <div class="login-error" role="alert">
+          <i class="ri-error-warning-line"></i>{{ error() }}
+        </div>
+      }
+
+      <button
+        class="continue-button"
+        type="submit"
+        [disabled]="loading() || !user.trim() || !password"
+      >
+        <span>{{ loading() ? 'Validando acceso' : 'Continuar a Carabo' }}</span>
+        <i [class]="loading() ? 'ri-loader-4-line spin' : 'ri-arrow-right-line'"></i>
+      </button>
+      <small>La sesión y los permisos son administrados por Tordo Auth.</small>
+    </form>
+  </section>
+</main>

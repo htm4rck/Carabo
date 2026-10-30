@@ -1,0 +1,143 @@
+<div class="breadcrumb-area">
+  <h1>Resúmenes Diarios</h1>
+  <p class="gray-color">Envía a SUNAT las boletas aceptadas de la fecha de emisión seleccionada.</p>
+</div>
+
+<mat-card style="margin-bottom: 16px">
+  <mat-card-content style="padding: 20px">
+    <form class="summary-form" #summaryForm="ngForm" (ngSubmit)="generate()">
+      <mat-form-field appearance="outline">
+        <mat-label>Fecha de emisión</mat-label>
+        <input
+          matInput
+          type="date"
+          name="referenceDate"
+          [(ngModel)]="referenceDate"
+          required
+          [disabled]="generating"
+          aria-describedby="summary-date-help"
+        />
+      </mat-form-field>
+      <button
+        type="submit"
+        mat-raised-button
+        color="primary"
+        [disabled]="summaryForm.invalid || generating"
+      >
+        <mat-icon>{{ generating ? 'hourglass_top' : 'add' }}</mat-icon>
+        {{ generating ? 'Generando…' : 'Generar resumen' }}
+      </button>
+    </form>
+    <p id="summary-date-help" class="date-help">
+      Hoy se calcula en hora de Lima (America/Lima). Puedes elegir hoy o una fecha anterior. El
+      resumen RC incluye boletas; para consultar facturas, usa Reportes Tributarios.
+    </p>
+  </mat-card-content>
+</mat-card>
+
+<mat-card>
+  <mat-card-header style="padding: 20px 20px 0">
+    <div>
+      <h3 style="margin: 0; font-size: 16px">Historial de resúmenes</h3>
+      <small>Operaciones guardadas para la empresa activa.</small>
+    </div>
+  </mat-card-header>
+  <mat-card-content style="padding: 20px">
+    @if (lastResult) {
+      <section
+        class="operation-result"
+        [attr.data-status]="lastResult.status"
+        role="status"
+        aria-live="polite"
+      >
+        <mat-icon>{{ resultIcon(lastResult.status) }}</mat-icon>
+        <div>
+          <strong>{{ statusLabel(lastResult.status) }}</strong>
+          <p>{{ lastResult.message }}</p>
+          <small>
+            Fecha fiscal: {{ lastResult.referenceDate || 'No aplica' }} ·
+            {{ lastResult.documentCount }} comprobante(s) · Generado
+            {{ formatGeneratedAt(lastResult.generatedAt, lastResult.timeZone) }}
+          </small>
+        </div>
+      </section>
+    }
+    @if (operationError) {
+      <section class="operation-result" data-status="ERROR" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>No se pudo completar la operación</strong>
+          <p>{{ operationError }}</p>
+        </div>
+      </section>
+    }
+    <div class="table-scroll">
+      <table
+        mat-table
+        [dataSource]="summaries"
+        class="w-100"
+        aria-label="Historial de resúmenes diarios"
+      >
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <td mat-cell *matCellDef="let s">{{ s.referenceDate || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="business">
+          <th mat-header-cell *matHeaderCellDef>Empresa</th>
+          <td mat-cell *matCellDef="let s">{{ s.businessCode }}</td>
+        </ng-container>
+        <ng-container matColumnDef="ticket">
+          <th mat-header-cell *matHeaderCellDef>Ticket SUNAT</th>
+          <td mat-cell *matCellDef="let s">{{ s.ticket || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let s">
+            <span class="badge" [attr.data-status]="s.status">{{ statusLabel(s.status) }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Acciones</th>
+          <td mat-cell *matCellDef="let s">
+            @if (s.ticket) {
+              <button
+                type="button"
+                mat-icon-button
+                matTooltip="Consultar ticket"
+                [attr.aria-label]="'Consultar ticket ' + s.ticket"
+                (click)="checkTicket(s)"
+                [disabled]="checkingTicket === s.ticket"
+              >
+                <mat-icon>{{ checkingTicket === s.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
+              </button>
+            }
+            @if (s.id && (s.status === 'ACCEPTED' || s.status === 'OBSERVED')) {
+              <button
+                type="button"
+                mat-icon-button
+                matTooltip="Descargar CDR"
+                aria-label="Descargar CDR"
+                (click)="downloadCdr(s)"
+              >
+                <mat-icon>verified</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+
+    @if (summaries.length === 0) {
+      <div class="empty-state">
+        <mat-icon>calendar_today</mat-icon>
+        <h2>Aún no generaste resúmenes</h2>
+        <p>
+          Selecciona la fecha de emisión y usa “Generar resumen” para enviar las boletas aceptadas
+          de la empresa activa.
+        </p>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

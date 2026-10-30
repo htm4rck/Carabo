@@ -1,0 +1,6 @@
+{
+  "app": "carabo",
+  "baseHref": "/carabo/ui/",
+  "output": "dist/carabo-ui/browser",
+  "port": 5195
+}

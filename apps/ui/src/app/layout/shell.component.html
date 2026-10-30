@@ -1,0 +1,37 @@
+@if (isLogin) {
+  <router-outlet />
+} @else {
+  <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+  <app-sidebar />
+  <button
+    type="button"
+    class="navigation-scrim"
+    [class.visible]="mobileOpen"
+    (click)="closeNavigation()"
+    aria-label="Cerrar menú principal"
+    [attr.tabindex]="mobileOpen ? 0 : -1"
+    [attr.aria-hidden]="mobileOpen ? null : 'true'"
+  ></button>
+  <div
+    class="main-content d-flex flex-column"
+    [ngClass]="{ active: desktopCollapsed }"
+    [attr.inert]="mobileOpen ? '' : null"
+  >
+    <app-header />
+    <main id="main-content" class="page-content" tabindex="-1">
+      <router-outlet />
+    </main>
+    <div class="flex-grow-1"></div>
+    <footer class="build-footer" aria-label="Versiones desplegadas">
+      <span
+        ><i class="ri-layout-4-line"></i> UI {{ buildInfo.ui.version }} ·
+        {{ buildInfo.ui.buildDate }} · rev. {{ buildInfo.ui.commit }}</span
+      >
+      <span
+        ><i class="ri-server-line"></i> API {{ buildInfo.api().version }} ·
+        {{ buildInfo.api().buildDate || 'sin fecha' }} · rev.
+        {{ buildInfo.api().commit || 'sin revisión' }}</span
+      >
+    </footer>
+  </div>
+}

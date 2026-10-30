@@ -1,0 +1,61 @@
+.breadcrumb-area {
+  margin-bottom: 24px;
+}
+.breadcrumb-area h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.breadcrumb-area p,
+td small {
+  display: block;
+  color: var(--mutedColor);
+  margin: 0;
+}
+mat-card-content {
+  padding: 20px;
+}
+.table-scroll {
+  overflow: auto;
+}
+table {
+  width: 100%;
+  min-width: 850px;
+}
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #edf3ed;
+  color: #173317;
+  font-weight: 700;
+  font-size: 12px;
+}
+.badge[data-status='ACCEPTED'] {
+  background: #e8f5e9;
+  color: #236628;
+}
+.badge[data-status='ERROR'] {
+  background: #ffebee;
+  color: #a51d2d;
+}
+.actions {
+  white-space: nowrap;
+}
+.empty {
+  min-height: 220px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--mutedColor);
+}
+.empty mat-icon {
+  margin: auto;
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--accentColor);
+}
+.empty h2 {
+  color: var(--forestColor);
+  margin: 10px 0 4px;
+}

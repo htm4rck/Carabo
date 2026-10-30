@@ -1,0 +1,139 @@
+.breadcrumb-area {
+  margin-bottom: 24px;
+}
+.breadcrumb-area h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.breadcrumb-area p {
+  margin: 0;
+  font-size: 13px;
+}
+.summary-form {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.summary-form button {
+  margin-top: 8px;
+}
+.date-help {
+  margin: 0;
+  color: var(--mutedColor);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.badge[data-status='ACCEPTED'] {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.badge[data-status='OBSERVED'] {
+  background: #fff8dd;
+  color: #7a5a00;
+}
+.badge[data-status='REJECTED'] {
+  background: #ffebee;
+  color: #c62828;
+}
+.badge[data-status='SENT'] {
+  background: #fff3e0;
+  color: #e65100;
+}
+.badge[data-status='EMPTY'] {
+  background: #edf3ed;
+  color: #173317;
+}
+.badge[data-status='ERROR'] {
+  background: #ffebee;
+  color: #a51d2d;
+}
+mat-card-header small {
+  display: block;
+  margin-top: 4px;
+  color: var(--mutedColor);
+}
+.operation-result {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid #cbd8cb;
+  border-left: 4px solid #768a76;
+  border-radius: 8px;
+  background: #f7faf7;
+  color: #173317;
+}
+.operation-result[data-status='SENT'],
+.operation-result[data-status='ACCEPTED'] {
+  border-left-color: #2e7d32;
+  background: #f1f8f2;
+}
+.operation-result[data-status='ERROR'],
+.operation-result[data-status='REJECTED'] {
+  border-left-color: #b3261e;
+  background: #fff7f6;
+  color: #68120d;
+}
+.operation-result mat-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.operation-result p {
+  margin: 2px 0 5px;
+}
+.operation-result small {
+  color: inherit;
+  opacity: 0.78;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  min-width: 620px;
+}
+.empty-state {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--mutedColor);
+}
+.empty-state mat-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+  color: var(--accentColor);
+}
+.empty-state h2 {
+  margin: 12px 0 4px;
+  color: var(--forestColor);
+  font-size: 18px;
+}
+.empty-state p {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .summary-form {
+    flex-direction: column;
+    gap: 0;
+  }
+  .summary-form mat-form-field,
+  .summary-form button {
+    width: 100%;
+  }
+  .summary-form button {
+    margin: 0 0 16px;
+  }
+}

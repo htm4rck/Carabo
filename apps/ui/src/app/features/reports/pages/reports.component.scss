@@ -1,0 +1,120 @@
+.breadcrumb-area {
+  margin-bottom: 24px;
+}
+.breadcrumb-area h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.breadcrumb-area p {
+  margin: 0;
+  font-size: 13px;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filters mat-form-field {
+  min-width: 160px;
+}
+.filters button {
+  min-height: 48px;
+  margin-bottom: 20px;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--forestColor);
+  font-variant-numeric: tabular-nums;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  min-width: 650px;
+}
+.feedback {
+  min-height: 160px;
+  margin-bottom: 16px;
+  padding: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border: 1px solid var(--borderColor);
+  border-radius: 9px;
+  background: #fff;
+}
+.feedback > mat-icon {
+  width: 42px;
+  height: 42px;
+  font-size: 42px;
+  color: var(--accentColor);
+}
+.feedback h2 {
+  margin: 0 0 4px;
+  color: var(--forestColor);
+  font-size: 18px;
+}
+.feedback p {
+  margin: 0;
+  color: var(--mutedColor);
+}
+.error-feedback {
+  justify-content: flex-start;
+  border-color: #e4c2be;
+  background: #fff8f7;
+}
+.error-feedback > mat-icon {
+  color: #a14d45;
+}
+.empty-feedback {
+  justify-content: flex-start;
+  border-color: #cbd8cb;
+  background: #f7faf7;
+}
+.error-feedback button {
+  margin-left: auto;
+}
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .filters {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .filters mat-form-field {
+    min-width: 0;
+  }
+  .filters button {
+    width: 100%;
+    margin-bottom: 0;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .feedback {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .error-feedback button {
+    width: 100%;
+    margin-left: 0;
+  }
+}

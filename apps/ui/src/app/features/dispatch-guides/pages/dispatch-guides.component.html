@@ -1,0 +1,87 @@
+<div class="breadcrumb-area">
+  <h1>Guías de remisión</h1>
+  <p>Seguimiento SUNAT, XML firmado, CDR y representación impresa.</p>
+</div>
+<mat-card
+  ><mat-card-content>
+    <div class="table-scroll">
+      <table mat-table [dataSource]="guides" aria-label="Guías de remisión">
+        <ng-container matColumnDef="number"
+          ><th mat-header-cell *matHeaderCellDef>Número</th>
+          <td mat-cell *matCellDef="let g">
+            <strong>{{ g.fullNumber }}</strong
+            ><small>{{ g.issueDate }}</small>
+          </td></ng-container
+        >
+        <ng-container matColumnDef="receiver"
+          ><th mat-header-cell *matHeaderCellDef>Destinatario</th>
+          <td mat-cell *matCellDef="let g">
+            {{ g.receiverName }}<small>{{ g.receiverDoc }}</small>
+          </td></ng-container
+        >
+        <ng-container matColumnDef="route"
+          ><th mat-header-cell *matHeaderCellDef>Traslado</th>
+          <td mat-cell *matCellDef="let g">
+            {{ g.originAddress }}<small>→ {{ g.destinationAddress }}</small>
+          </td></ng-container
+        >
+        <ng-container matColumnDef="status"
+          ><th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let g">
+            <span class="badge" [attr.data-status]="g.status">{{ g.status }}</span
+            ><small>{{ g.sunatResponse || 'Sin respuesta SUNAT' }}</small>
+          </td></ng-container
+        >
+        <ng-container matColumnDef="actions"
+          ><th mat-header-cell *matHeaderCellDef>Acciones</th>
+          <td mat-cell *matCellDef="let g" class="actions">
+            @if (g.ticket) {
+              <button
+                mat-icon-button
+                type="button"
+                aria-label="Consultar ticket SUNAT"
+                (click)="refresh(g)"
+                [disabled]="busyId === g.id"
+              >
+                <mat-icon>{{ busyId === g.id ? 'hourglass_top' : 'sync' }}</mat-icon>
+              </button>
+            }
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Descargar XML"
+              (click)="download(g, 'xml')"
+            >
+              <mat-icon>code</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Descargar CDR"
+              (click)="download(g, 'cdr')"
+            >
+              <mat-icon>verified</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Descargar PDF"
+              (click)="download(g, 'pdf')"
+            >
+              <mat-icon>picture_as_pdf</mat-icon>
+            </button>
+          </td></ng-container
+        >
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    </div>
+    @if (!loading && guides.length === 0) {
+      <div class="empty">
+        <mat-icon>local_shipping</mat-icon>
+        <h2>Aún no hay guías</h2>
+        <p>Las GRE emitidas por API aparecerán aquí.</p>
+      </div>
+    }
+  </mat-card-content></mat-card
+>

@@ -1,0 +1,104 @@
+.breadcrumb-area {
+  margin-bottom: 24px;
+}
+.breadcrumb-area h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.breadcrumb-area p {
+  margin: 0;
+  font-size: 13px;
+}
+.void-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.void-form button {
+  min-height: 48px;
+  margin-bottom: 20px;
+}
+.risk-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--mutedColor);
+  font-size: 12px;
+}
+.risk-note mat-icon {
+  width: 17px;
+  height: 17px;
+  font-size: 17px;
+}
+h4 {
+  margin: 0;
+}
+.badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.badge[data-status='ACCEPTED'] {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.badge[data-status='REJECTED'] {
+  background: #ffebee;
+  color: #c62828;
+}
+.badge[data-status='SENT'] {
+  background: #fff3e0;
+  color: #e65100;
+}
+mat-card-header small {
+  display: block;
+  margin-top: 4px;
+  color: var(--mutedColor);
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  min-width: 650px;
+}
+.empty-state {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--mutedColor);
+}
+.empty-state mat-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 48px;
+  color: var(--accentColor);
+}
+.empty-state h2 {
+  margin: 12px 0 4px;
+  color: var(--forestColor);
+  font-size: 18px;
+}
+.empty-state p {
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .void-form {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .void-form mat-form-field {
+    min-width: 0;
+  }
+  .void-form button {
+    width: 100%;
+    margin-bottom: 0;
+  }
+}

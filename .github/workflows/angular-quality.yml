@@ -1,0 +1,41 @@
+name: Angular architecture and browser checks
+on:
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+  packages: read
+jobs:
+  angular:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+      - name: Configure private registry
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPMRC: ${{ secrets.NPMRC }}
+        run: |
+          if [ -n "$NPMRC" ]; then
+            printf '%s' "$NPMRC" > .npmrc
+          elif [ -n "$NPM_TOKEN" ]; then
+            printf '@tordo-io:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
+          fi
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify
+      - run: npm run e2e
+      - name: Retain failed browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-failure-${{ strategy.job-index || '0' }}
+          path: apps/ui/test-results
+          retention-days: 7

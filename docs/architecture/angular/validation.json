@@ -1,0 +1,26 @@
+{
+  "app": "Carabo",
+  "checkedAt": "2026-10-30T23:39:33.017027+00:00",
+  "angularRoot": "apps/ui",
+  "sourceAndConfigurationSha256": "3131a87aafebfec797b9d3567d19c4792824a24fd9b30a12a881dcfb80137e81",
+  "lockfileSha256": "a18a8552fa6ca357c7951efd868c9791b48a3c3d4050c73b6f747d4551958e46",
+  "unitTests": 9,
+  "architectureGateTests": 5,
+  "browserTests": 3,
+  "initialBundle": "511.83 kB",
+  "audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "productionGatewaySecurityAcceptance": false,
+  "remoteCiAcceptance": "pending remote execution",
+  "commands": [
+    "npm run verify",
+    "npm run e2e",
+    "npm audit --json"
+  ]
+}

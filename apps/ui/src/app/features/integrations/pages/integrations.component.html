@@ -1,0 +1,319 @@
+<header class="page-heading">
+  <div>
+    <h1>Integraciones</h1>
+    <p>Identidades independientes para ERP, ecommerce, POS y otras aplicaciones productoras.</p>
+  </div>
+  @if (auth.canAdminister()) {
+    <button
+      type="button"
+      mat-raised-button
+      color="primary"
+      (click)="creating = !creating"
+      [disabled]="!!credential"
+      [title]="
+        credential ? 'Confirma que guardaste la credencial pendiente antes de continuar' : ''
+      "
+    >
+      <mat-icon>{{ creating ? 'close' : 'add' }}</mat-icon
+      >{{ creating ? 'Cerrar formulario' : 'Nuevo productor' }}
+    </button>
+  }
+</header>
+
+<section class="trust-strip" aria-label="Modelo de seguridad">
+  <mat-icon>key</mat-icon>
+  <p>
+    <strong>Credenciales de máquina, no usuarios.</strong> Cada productor usa su propia API key y
+    puede revocarse sin afectar a las personas ni a otras aplicaciones.
+  </p>
+  <span
+    >{{ activeCount }} activas · {{ degradedCount }} requieren atención ·
+    {{ revokedCount }} revocadas</span
+  >
+</section>
+
+@if (credential) {
+  <section class="credential-panel" aria-live="polite">
+    <div>
+      <mat-icon>vpn_key</mat-icon
+      ><span
+        ><strong>Guarda ahora la credencial de {{ credential.producer.name }}</strong
+        >Se muestra una sola vez. Consérvala en el secret store del productor.</span
+      >
+    </div>
+    <code>{{ credential.apiKey }}</code>
+    <button type="button" mat-stroked-button (click)="copyCredential()">
+      <mat-icon>content_copy</mat-icon>Copiar credencial
+    </button>
+    <label class="stored-confirmation"
+      ><input type="checkbox" [(ngModel)]="credentialStored" />Confirmo que la guardé</label
+    >
+    <button
+      type="button"
+      mat-raised-button
+      color="primary"
+      [disabled]="!credentialStored"
+      (click)="dismissCredential()"
+    >
+      Ya la guardé
+    </button>
+  </section>
+}
+
+@if (creating && auth.canAdminister()) {
+  <section class="editor-panel">
+    <div class="section-heading">
+      <div>
+        <h2>Registrar aplicación productora</h2>
+        <p>La identidad pertenece al sistema, no a una cuenta humana.</p>
+      </div>
+    </div>
+    <form (ngSubmit)="create()" #producerForm="ngForm">
+      <label
+        >Nombre visible<input
+          name="name"
+          [(ngModel)]="draft.name"
+          required
+          maxlength="150"
+          placeholder="ERP principal"
+      /></label>
+      <label
+        >Código técnico<input
+          name="code"
+          [(ngModel)]="draft.code"
+          required
+          minlength="3"
+          maxlength="50"
+          pattern="[a-z0-9][a-z0-9_-]{2,49}"
+          placeholder="erp-principal"
+        /><small>Minúsculas, números, guion o guion bajo.</small></label
+      >
+      <label class="wide"
+        >Propósito<textarea
+          name="description"
+          [(ngModel)]="draft.description"
+          maxlength="500"
+          rows="2"
+          placeholder="Emite facturas aprobadas desde el ERP comercial"
+        ></textarea>
+      </label>
+      <fieldset class="wide">
+        <legend>Permisos</legend>
+        <label class="scope"
+          ><input type="checkbox" name="ingest" [(ngModel)]="scopeSelection.DOCUMENT_INGEST" /><span
+            ><strong>Enviar documentos</strong><small>POST /documents/ingest</small></span
+          ></label
+        >
+        <label class="scope"
+          ><input type="checkbox" name="read" [(ngModel)]="scopeSelection.DOCUMENT_READ" /><span
+            ><strong>Consultar resultados</strong><small>Estado, XML, CDR y PDF</small></span
+          ></label
+        >
+        <label class="scope"
+          ><input type="checkbox" name="emit" [(ngModel)]="scopeSelection.DOCUMENT_EMIT" /><span
+            ><strong>Emisión síncrona y GRE</strong
+            ><small>POST /documents/emit y /dispatch-guides/emit</small></span
+          ></label
+        >
+      </fieldset>
+      @if (credential) {
+        <p class="credential-block wide" role="status">
+          <mat-icon>info</mat-icon>Guarda y confirma la credencial pendiente antes de crear otro
+          productor.
+        </p>
+      }
+      <div class="form-actions wide">
+        <button type="button" mat-button (click)="creating = false">Cancelar</button
+        ><button
+          type="submit"
+          mat-raised-button
+          color="primary"
+          [disabled]="producerForm.invalid || saving || !!credential || selectedScopes.length === 0"
+        >
+          <mat-icon>{{ saving ? 'hourglass_top' : 'key' }}</mat-icon
+          >{{ saving ? 'Creando…' : 'Crear y revelar credencial' }}
+        </button>
+      </div>
+    </form>
+  </section>
+}
+
+<section class="producers-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Aplicaciones productoras</h2>
+      <p>Actividad, atribución y credenciales de la empresa activa.</p>
+    </div>
+    <button
+      type="button"
+      mat-icon-button
+      aria-label="Actualizar integraciones"
+      (click)="load()"
+      [disabled]="loading"
+    >
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+  @if (error) {
+    <div class="inline-state error" role="alert">
+      <mat-icon>cloud_off</mat-icon><span>{{ error }}</span
+      ><button mat-button (click)="load()">Reintentar</button>
+    </div>
+  } @else if (loading && producers.length === 0) {
+    <div class="inline-state">
+      <mat-icon class="spin">progress_activity</mat-icon><span>Cargando productores…</span>
+    </div>
+  } @else if (producers.length === 0) {
+    <div class="empty-state">
+      <mat-icon>hub</mat-icon>
+      <h3>Aún no hay productores registrados</h3>
+      <p>
+        {{
+          auth.canAdminister()
+            ? 'Crea una identidad por aplicación para evitar compartir credenciales.'
+            : 'Solicita a un Admin o Root que registre una identidad para cada aplicación productora.'
+        }}
+      </p>
+      @if (auth.canAdminister()) {
+        <button type="button" mat-raised-button color="primary" (click)="creating = true">
+          <mat-icon>add</mat-icon>Crear productor
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="producer-list">
+      @for (producer of producers; track producer.id) {
+        <article class="producer-row" [attr.data-health]="producer.health">
+          <div class="identity">
+            <span class="health-dot" aria-hidden="true"></span>
+            <div>
+              <h3>{{ producer.name }}</h3>
+              <p>{{ producer.description || producer.code }}</p>
+            </div>
+          </div>
+          <div class="health">
+            <span>{{ healthLabel(producer.health) }}</span
+            ><small>{{
+              producer.lastUsedAt
+                ? 'Último acceso ' + (producer.lastUsedAt | date: 'short')
+                : 'Todavía sin conexiones'
+            }}</small>
+            @if (producer.health === 'DEGRADED') {
+              <small class="failure-detail"
+                >Último fallo {{ producer.lastFailureAt | date: 'short'
+                }}{{ producer.lastHttpStatus ? ' · HTTP ' + producer.lastHttpStatus : '' }}. Revisa
+                los eventos y la credencial del productor.</small
+              >
+            }
+          </div>
+          <div class="activity">
+            <strong>{{ producer.totalDocuments }}</strong
+            ><span>documentos</span
+            ><small
+              >{{ producer.totalRequests }} solicitudes ·
+              {{ producer.failureRequests }} fallidas</small
+            >
+          </div>
+          <div class="scope-list">
+            @for (scope of producer.scopes; track scope) {
+              <span>{{ scopeLabel(scope) }}</span>
+            }
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              mat-icon-button
+              [attr.aria-label]="'Ver integración de ' + producer.name"
+              title="Ver integración"
+              (click)="openGuide(producer)"
+            >
+              <mat-icon>integration_instructions</mat-icon>
+            </button>
+            @if (auth.canAdminister()) {
+              <button
+                type="button"
+                mat-icon-button
+                [attr.aria-label]="'Rotar credencial de ' + producer.name"
+                title="Rotar credencial"
+                (click)="rotate(producer)"
+                [disabled]="!!credential || busyId === producer.id"
+              >
+                <mat-icon>autorenew</mat-icon>
+              </button>
+              <button
+                type="button"
+                mat-icon-button
+                [attr.aria-label]="
+                  (producer.status === 'ACTIVE' ? 'Revocar ' : 'Activar ') + producer.name
+                "
+                [title]="producer.status === 'ACTIVE' ? 'Revocar' : 'Activar'"
+                (click)="toggle(producer)"
+                [disabled]="!!credential || busyId === producer.id"
+              >
+                <mat-icon>{{ producer.status === 'ACTIVE' ? 'block' : 'play_circle' }}</mat-icon>
+              </button>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<section class="guide-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Centro de integración</h2>
+      <p>
+        Obtén la URL exacta, registra la credencial y copia contratos completos para comprobantes y
+        guías de remisión.
+      </p>
+    </div>
+    <button type="button" mat-raised-button color="primary" (click)="openGuide(null)">
+      <mat-icon>integration_instructions</mat-icon>Abrir asistente completo
+    </button>
+  </div>
+  <div class="route-flows">
+    <div class="flow" aria-label="Flujo asíncrono de comprobantes">
+      <span class="flow-kind">Comprobantes · 202</span><span>Productor</span
+      ><mat-icon>arrow_forward</mat-icon><span>Ingesta</span><mat-icon>arrow_forward</mat-icon
+      ><span>RabbitMQ</span><mat-icon>arrow_forward</mat-icon><span>SUNAT / OSE</span>
+    </div>
+    <div class="flow gre-flow" aria-label="Flujo síncrono de guía de remisión">
+      <span class="flow-kind">GRE · 201</span><span>Productor</span
+      ><mat-icon>arrow_forward</mat-icon><span>REST GRE</span><mat-icon>arrow_forward</mat-icon
+      ><span>SUNAT</span><mat-icon>arrow_forward</mat-icon><span>Ticket / CDR</span>
+    </div>
+  </div>
+  <div class="channel-board">
+    <div>
+      <mat-icon>https</mat-icon
+      ><span
+        ><strong>HTTP API · disponible</strong
+        ><small
+          >Comprobantes asíncronos con <code>202</code>; GRE síncrona con <code>201</code>. Ambos
+          usan <code>X-Api-Key</code> e idempotencia.</small
+        ></span
+      >
+    </div>
+    <div>
+      <mat-icon>lock</mat-icon
+      ><span
+        ><strong>RabbitMQ directo · privado</strong
+        ><small
+          >No usa API key. Requiere identidad AMQP, TLS, vhost y ACL dedicados antes de
+          exponerse.</small
+        ></span
+      >
+    </div>
+    <div>
+      <mat-icon>rule</mat-icon
+      ><span
+        ><strong>Comparador · sin emisión</strong
+        ><small
+          >Marca la ruta JSON, el valor recibido, el esperado y una corrección concreta.</small
+        ></span
+      >
+    </div>
+  </div>
+</section>

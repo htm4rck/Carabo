@@ -1,0 +1,138 @@
+<div class="breadcrumb-area">
+  <h1>Reportes Tributarios</h1>
+  <p class="gray-color">Registro de ventas y resumen por periodo</p>
+</div>
+
+<mat-card style="margin-bottom: 16px">
+  <mat-card-content style="padding: 16px">
+    <form class="filters" #reportForm="ngForm" (ngSubmit)="generate()">
+      <mat-form-field appearance="outline">
+        <mat-label>Desde</mat-label>
+        <input matInput type="date" name="from" [(ngModel)]="from" required />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Hasta</mat-label>
+        <input matInput type="date" name="to" [(ngModel)]="to" [min]="from" required />
+      </mat-form-field>
+      <button
+        type="submit"
+        mat-raised-button
+        color="primary"
+        [disabled]="reportForm.invalid || loading"
+      >
+        <mat-icon>{{ loading ? 'hourglass_top' : 'assessment' }}</mat-icon>
+        {{ loading ? 'Generando…' : 'Generar reporte' }}
+      </button>
+      <button
+        type="button"
+        mat-stroked-button
+        [disabled]="reportForm.invalid || loading"
+        (click)="downloadExcel()"
+      >
+        <mat-icon>download</mat-icon> Descargar Excel
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+@if (errorMessage) {
+  <section class="feedback error-feedback" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <div>
+      <h2>No pudimos generar el reporte</h2>
+      <p>{{ errorMessage }}</p>
+    </div>
+    <button type="button" mat-stroked-button (click)="generate()">Reintentar</button>
+  </section>
+} @else if (!report && !loading) {
+  <section class="feedback initial-state">
+    <mat-icon>query_stats</mat-icon>
+    <div>
+      <h2>Consulta un periodo tributario</h2>
+      <p>Selecciona las fechas para ver ventas, base imponible e IGV.</p>
+    </div>
+  </section>
+}
+
+@if (report && !loading) {
+  @if (report.totalDocuments === 0) {
+    <section class="feedback empty-feedback" role="status" aria-live="polite">
+      <mat-icon>event_busy</mat-icon>
+      <div>
+        <h2>No hay documentos en este periodo</h2>
+        <p>No encontramos ventas entre el {{ from }} y el {{ to }} para la empresa activa.</p>
+      </div>
+    </section>
+  }
+  <div class="stats-grid">
+    <mat-card>
+      <mat-card-content>
+        <div class="stat">
+          <span class="stat-value">{{ report.totalDocuments }}</span
+          ><span class="gray-color">Documentos</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <div class="stat">
+          <span class="stat-value">{{ report.totalTaxBase | number: '1.2-2' }}</span
+          ><span class="gray-color">Base Imponible</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <div class="stat">
+          <span class="stat-value">{{ report.totalIgv | number: '1.2-2' }}</span
+          ><span class="gray-color">IGV Total</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        <div class="stat">
+          <span class="stat-value">{{ report.totalAmount | number: '1.2-2' }}</span
+          ><span class="gray-color">Monto Total</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-card>
+    <mat-card-content style="padding: 20px">
+      <h3 style="margin: 0 0 12px">Desglose por Tipo de Documento</h3>
+      <div class="table-scroll">
+        <table
+          mat-table
+          [dataSource]="report.byType"
+          class="w-100"
+          aria-label="Desglose del reporte por tipo de documento"
+        >
+          <ng-container matColumnDef="docType">
+            <th mat-header-cell *matHeaderCellDef>Tipo</th>
+            <td mat-cell *matCellDef="let r">{{ r.docType }}</td>
+          </ng-container>
+          <ng-container matColumnDef="count">
+            <th mat-header-cell *matHeaderCellDef>Cantidad</th>
+            <td mat-cell *matCellDef="let r">{{ r.count }}</td>
+          </ng-container>
+          <ng-container matColumnDef="taxBase">
+            <th mat-header-cell *matHeaderCellDef>Base Imponible</th>
+            <td mat-cell *matCellDef="let r">{{ r.taxBase | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="igvAmount">
+            <th mat-header-cell *matHeaderCellDef>IGV</th>
+            <td mat-cell *matCellDef="let r">{{ r.igvAmount | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="total">
+            <th mat-header-cell *matHeaderCellDef>Total</th>
+            <td mat-cell *matCellDef="let r">{{ r.total | number: '1.2-2' }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="reportColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: reportColumns"></tr>
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+}

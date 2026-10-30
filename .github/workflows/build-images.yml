@@ -115,21 +115,8 @@ jobs:
           ./scripts/verify-tenant-isolation.sh
 
   verify-ui:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/ui
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: apps/ui/package-lock.json
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Compile production UI
-        run: npm run build:prod
+    uses: ./.github/workflows/angular-quality.yml
+    secrets: inherit
 
   verify-database:
     runs-on: ubuntu-latest

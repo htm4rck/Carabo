@@ -1,0 +1,141 @@
+<div class="dashboard-head">
+  <div>
+    <h1>{{ greeting }}, revisa tu operación fiscal</h1>
+    <p>Empresa {{ auth.session()?.tenantId }} · estado de la operación disponible</p>
+  </div>
+  <a routerLink="/emit" class="next-action"
+    ><span>Emitir comprobante</span><i class="ri-arrow-right-line"></i
+  ></a>
+</div>
+
+@if (loading()) {
+  <section class="loading-panel" aria-live="polite">
+    <div class="loading-line"></div>
+    <div class="loading-line short"></div>
+    <span>Sincronizando el estado fiscal</span>
+  </section>
+} @else if (loadError()) {
+  <section class="attention-panel">
+    <i class="ri-wifi-off-line"></i>
+    <div>
+      <b>No pudimos actualizar la operación</b
+      ><span>Conservamos la navegación disponible. Revisa la conexión con la API.</span>
+    </div>
+    <button type="button" (click)="loadStats()">Reintentar</button>
+  </section>
+} @else {
+  <section class="signal-board" aria-label="Ruta documental reciente">
+    <div class="signal-summary">
+      <h2>Ruta documental</h2>
+      <strong>{{ totalDocuments | number }}</strong>
+      <small>documentos registrados</small>
+    </div>
+    <div class="fiscal-flow">
+      <div class="flow-step complete">
+        <i class="ri-file-add-line"></i><b>{{ sampleCount }}</b
+        ><span>Revisados</span>
+      </div>
+      <div class="flow-link complete"></div>
+      <div class="flow-step" [class.complete]="signedCount > 0">
+        <i class="ri-quill-pen-line"></i><b>{{ signedCount }}</b
+        ><span>Firmados</span>
+      </div>
+      <div class="flow-link" [class.complete]="acceptedCount > 0"></div>
+      <div class="flow-step" [class.complete]="acceptedCount > 0">
+        <i class="ri-government-line"></i><b>{{ acceptedCount }}</b
+        ><span>Aceptados</span>
+      </div>
+      <div class="flow-link" [class.attention]="attentionCount > 0"></div>
+      <div class="flow-step" [class.attention]="attentionCount > 0">
+        <i class="ri-radar-line"></i><b>{{ attentionCount }}</b
+        ><span>Por atender</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="metric-grid">
+    <a routerLink="/documents" class="metric-card"
+      ><span>Aceptados en muestra</span><strong>{{ acceptedCount }}</strong
+      ><small>de {{ sampleCount }} documentos recientes</small></a
+    >
+    <a routerLink="/documents" class="metric-card"
+      ><span>En proceso</span><strong>{{ pendingCount }}</strong
+      ><small>requieren esperar respuesta</small></a
+    >
+    <a routerLink="/documents" class="metric-card" [class.needs-action]="attentionCount > 0"
+      ><span>Requieren acción</span><strong>{{ attentionCount }}</strong
+      ><small>{{
+        attentionCount ? 'abre el detalle para resolver' : 'sin incidencias en la muestra'
+      }}</small></a
+    >
+    <a routerLink="/reports" class="metric-card"
+      ><span>Tipos documentales</span><strong>{{ activeTypeCount }}</strong
+      ><small>con actividad reciente</small></a
+    >
+  </div>
+
+  <div class="work-grid">
+    <section class="recent-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Documentos recientes</h2>
+          <p>Últimos movimientos disponibles</p>
+        </div>
+        <a routerLink="/documents">Ver todos <i class="ri-arrow-right-line"></i></a>
+      </div>
+      @if (recentDocs.length === 0) {
+        <div class="empty-state">
+          <i class="ri-file-list-3-line"></i><b>Aún no hay documentos</b
+          ><span>La siguiente acción es emitir el primer comprobante.</span
+          ><a routerLink="/emit">Comenzar emisión</a>
+        </div>
+      } @else {
+        <div class="document-table">
+          <div class="document-row table-head">
+            <span>Documento</span><span>Adquirente</span><span>Estado</span><span>Total</span>
+          </div>
+          @for (doc of recentDocs.slice(0, 6); track doc.id) {
+            <a class="document-row" [routerLink]="['/documents']">
+              <span class="doc-id"
+                ><b>{{ doc.fullNumber }}</b
+                ><small>{{ doc.docTypeName }}</small></span
+              >
+              <span class="receiver">{{ doc.receiverName || 'Sin razón social' }}</span>
+              <span
+                ><i class="status-dot" [attr.data-status]="doc.status"></i
+                >{{ statusLabel(doc.status) }}</span
+              >
+              <strong>{{ doc.currency }} {{ doc.total | number: '1.2-2' }}</strong>
+            </a>
+          }
+        </div>
+      }
+    </section>
+
+    <aside class="next-panel">
+      <span class="panel-icon"><i class="ri-route-line"></i></span>
+      <h2>Siguiente acción</h2>
+      @if (attentionCount > 0) {
+        <b
+          >Resolver {{ attentionCount }}
+          {{ attentionCount === 1 ? 'incidencia' : 'incidencias' }}</b
+        >
+        <p>Revisa primero documentos rechazados o con error antes de continuar emitiendo.</p>
+        <a routerLink="/documents">Revisar incidencias <i class="ri-arrow-right-line"></i></a>
+      } @else {
+        <b>Operación lista para emitir</b>
+        <p>
+          No hay incidencias visibles en la muestra reciente. Puedes continuar con un nuevo
+          comprobante.
+        </p>
+        <a routerLink="/emit">Emitir comprobante <i class="ri-arrow-right-line"></i></a>
+      }
+      <div class="role-note">
+        <i class="ri-shield-user-line"></i
+        ><span
+          >Acceso actual<b>{{ roleLabel }}</b></span
+        >
+      </div>
+    </aside>
+  </div>
+}

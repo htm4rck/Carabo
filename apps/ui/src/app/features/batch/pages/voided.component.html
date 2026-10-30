@@ -1,0 +1,119 @@
+<div class="breadcrumb-area">
+  <h1>Comunicaciones de Baja</h1>
+  <p class="gray-color">
+    Solicitudes RA para facturas y RC con estado de baja para boletas. El envío aún no implica
+    aceptación.
+  </p>
+</div>
+
+<mat-card style="margin-bottom: 16px">
+  <mat-card-content style="padding: 16px">
+    <h4 style="margin: 0 0 8px; font-size: 13px; color: #666">Anular documentos</h4>
+    <form class="void-form" #voidForm="ngForm" (ngSubmit)="sendVoid()">
+      <mat-form-field appearance="outline" style="flex: 2">
+        <mat-label>IDs de documentos (separados por coma)</mat-label>
+        <input
+          matInput
+          name="documentIds"
+          [(ngModel)]="documentIdsInput"
+          placeholder="uuid1, uuid2"
+          required
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1">
+        <mat-label>Motivo</mat-label>
+        <input matInput name="reason" [(ngModel)]="reason" minlength="3" maxlength="500" required />
+      </mat-form-field>
+      <button type="submit" mat-raised-button color="warn" [disabled]="voidForm.invalid || sending">
+        <mat-icon>{{ sending ? 'hourglass_top' : 'block' }}</mat-icon>
+        {{ sending ? 'Enviando…' : 'Comunicar baja' }}
+      </button>
+    </form>
+    <p class="risk-note">
+      <mat-icon>info</mat-icon> Selecciona documentos aceptados de la misma fecha y familia fiscal
+      F/B. Carabo conserva la solicitud y su ticket; sólo una aceptación confirma la baja.
+    </p>
+  </mat-card-content>
+</mat-card>
+
+<mat-card>
+  <mat-card-header style="padding: 20px 20px 0">
+    <div>
+      <h3 style="margin: 0; font-size: 16px">Historial de comunicaciones</h3>
+      <small>Operaciones persistidas para la empresa activa.</small>
+    </div>
+  </mat-card-header>
+  <mat-card-content style="padding: 20px">
+    <div class="table-scroll">
+      <table
+        mat-table
+        [dataSource]="voided"
+        class="w-100"
+        aria-label="Historial de solicitudes de baja fiscal"
+      >
+        <ng-container matColumnDef="kind"
+          ><th mat-header-cell *matHeaderCellDef>Canal</th>
+          <td mat-cell *matCellDef="let v">{{ v.kind }}</td></ng-container
+        >
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Fecha</th>
+          <td mat-cell *matCellDef="let v">{{ v.referenceDate || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="documents">
+          <th mat-header-cell *matHeaderCellDef>Documentos</th>
+          <td mat-cell *matCellDef="let v">{{ v.documentCount }}</td>
+        </ng-container>
+        <ng-container matColumnDef="reason">
+          <th mat-header-cell *matHeaderCellDef>Resultado</th>
+          <td mat-cell *matCellDef="let v">{{ v.message }}</td>
+        </ng-container>
+        <ng-container matColumnDef="ticket">
+          <th mat-header-cell *matHeaderCellDef>Ticket</th>
+          <td mat-cell *matCellDef="let v">{{ v.ticket || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let v">
+            <span class="badge" [attr.data-status]="v.status">{{ statusLabel(v.status) }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Acciones</th>
+          <td mat-cell *matCellDef="let v">
+            @if (v.ticket) {
+              <button
+                type="button"
+                mat-icon-button
+                [disabled]="checkingTicket === v.ticket"
+                (click)="checkTicket(v)"
+                aria-label="Consultar ticket SUNAT"
+              >
+                <mat-icon>{{ checkingTicket === v.ticket ? 'hourglass_top' : 'sync' }}</mat-icon>
+              </button>
+            }
+            @if (v.id && (v.status === 'ACCEPTED' || v.status === 'OBSERVED')) {
+              <button
+                type="button"
+                mat-icon-button
+                aria-label="Descargar CDR"
+                (click)="downloadCdr(v)"
+              >
+                <mat-icon>verified</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+
+    @if (voided.length === 0) {
+      <div class="empty-state">
+        <mat-icon>block</mat-icon>
+        <h2>No hay solicitudes registradas</h2>
+        <p>Las solicitudes y sus resultados se conservan para la empresa activa.</p>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

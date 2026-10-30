@@ -1,0 +1,492 @@
+<div class="breadcrumb-area">
+  <h1>Configuración de Empresas</h1>
+  <p class="gray-color">Gestión de facturación electrónica por empresa</p>
+</div>
+
+<mat-card>
+  <mat-card-header
+    class="d-flex align-items-center justify-content-space-between"
+    style="padding: 20px 20px 0"
+  >
+    <h3 style="margin: 0; font-size: 16px">Empresas configuradas</h3>
+    <span class="auth-context"
+      ><mat-icon>verified_user</mat-icon> Empresas habilitadas por Tordo Auth</span
+    >
+  </mat-card-header>
+  <mat-card-content style="padding: 20px">
+    @if (loading) {
+      <div class="state-panel" role="status" aria-live="polite">
+        <mat-icon>hourglass_top</mat-icon>
+        <p>Cargando configuración…</p>
+      </div>
+    } @else if (loadError) {
+      <div class="state-panel state-error" role="alert">
+        <mat-icon>cloud_off</mat-icon>
+        <h2>No pudimos cargar las empresas</h2>
+        <p>La configuración permanece intacta.</p>
+        <button type="button" mat-stroked-button (click)="loadTenants()">
+          <mat-icon>refresh</mat-icon> Reintentar
+        </button>
+      </div>
+    } @else {
+      <div class="table-scroll">
+        <table
+          mat-table
+          [dataSource]="empresas"
+          class="w-100"
+          aria-label="Configuración de empresas"
+        >
+          <ng-container matColumnDef="businessCode">
+            <th mat-header-cell *matHeaderCellDef>Código</th>
+            <td mat-cell *matCellDef="let e">{{ e.businessCode }}</td>
+          </ng-container>
+          <ng-container matColumnDef="businessName">
+            <th mat-header-cell *matHeaderCellDef>Empresa</th>
+            <td mat-cell *matCellDef="let e">{{ e.businessName || e.issuerName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="sendMode">
+            <th mat-header-cell *matHeaderCellDef>Modo</th>
+            <td mat-cell *matCellDef="let e">
+              <mat-chip-set>
+                <mat-chip [highlighted]="e.sendMode === 'OSE'">{{ e.sendMode }}</mat-chip>
+              </mat-chip-set>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="environment">
+            <th mat-header-cell *matHeaderCellDef>Ambiente</th>
+            <td mat-cell *matCellDef="let e">
+              <span class="env-badge" [attr.data-env]="e.environment">{{ e.environment }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="certificate">
+            <th mat-header-cell *matHeaderCellDef>Certificado</th>
+            <td mat-cell *matCellDef="let e">
+              <span class="certificate-status" [class.missing]="!e.certificateFile"
+                ><mat-icon> {{ e.certificateFile ? 'verified' : 'warning' }} </mat-icon
+                >{{ e.certificateFile ? 'Configurado' : 'Pendiente' }}</span
+              >
+              @if (e.certificateValidTo) {
+                <small class="gray-color">{{ e.certificateValidTo }}</small>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Estado</th>
+            <td mat-cell *matCellDef="let e">
+              <span class="badge" [class.active]="e.active">{{
+                e.active ? 'Activo' : 'Inactivo'
+              }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="readiness">
+            <th mat-header-cell *matHeaderCellDef>Preparación SUNAT</th>
+            <td mat-cell *matCellDef="let e">
+              @if (readinessLoading[e.businessCode]) {
+                <span class="readiness-state pending"><mat-icon>sync</mat-icon>Comprobando…</span>
+              } @else if (readiness[e.businessCode]; as state) {
+                <button
+                  type="button"
+                  class="readiness-trigger"
+                  [class.ready]="state.ready"
+                  (click)="showReadiness(e)"
+                  [attr.aria-label]="readinessLabel(state)"
+                >
+                  <mat-icon>{{ state.ready ? 'task_alt' : 'error_outline' }}</mat-icon>
+                  <span
+                    ><strong>{{
+                      state.ready ? 'Listo para E2E' : state.blockers + ' pendientes'
+                    }}</strong
+                    ><small>Ver preflight fiscal</small></span
+                  >
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="readiness-trigger unavailable"
+                  (click)="loadReadiness(e)"
+                >
+                  <mat-icon>refresh</mat-icon
+                  ><span><strong>No disponible</strong><small>Volver a comprobar</small></span>
+                </button>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Acciones</th>
+            <td mat-cell *matCellDef="let e">
+              <div class="row-actions">
+                <button
+                  mat-icon-button
+                  matTooltip="Configurar empresa"
+                  [attr.aria-label]="'Configurar ' + (e.businessName || e.businessCode)"
+                  [disabled]="isBusy(e.id)"
+                  (click)="editTenant(e)"
+                >
+                  <mat-icon>settings</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  matTooltip="Subir certificado"
+                  [attr.aria-label]="'Subir certificado de ' + (e.businessName || e.businessCode)"
+                  [disabled]="isBusy(e.id)"
+                  (click)="prepareCertificate(e)"
+                >
+                  <mat-icon>upload_file</mat-icon>
+                </button>
+              </div>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+
+      @if (empresas.length === 0) {
+        <div class="state-panel">
+          <mat-icon>business</mat-icon>
+          <h2>No hay empresas disponibles</h2>
+          <p>Solicita en Tordo Auth el acceso de una empresa a Carabo.</p>
+        </div>
+      }
+    }
+
+    @if (readinessTenant && selectedReadiness) {
+      <section class="action-panel readiness-panel" aria-labelledby="readiness-title">
+        <div class="panel-heading">
+          <div>
+            <h2 id="readiness-title">
+              Preflight fiscal de {{ readinessTenant.businessName || readinessTenant.businessCode }}
+            </h2>
+            <p>
+              {{
+                selectedReadiness.ready
+                  ? 'Carabo tiene lo necesario para ejecutar una emisión real.'
+                  : 'Resuelve los requisitos obligatorios antes de enviar el primer comprobante.'
+              }}
+            </p>
+          </div>
+          <button
+            type="button"
+            mat-icon-button
+            aria-label="Cerrar preflight"
+            (click)="closeReadiness()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="readiness-summary" [class.ready]="selectedReadiness.ready" role="status">
+          <mat-icon>{{ selectedReadiness.ready ? 'verified' : 'rule' }}</mat-icon>
+          <div>
+            <strong>{{
+              selectedReadiness.ready
+                ? 'Ruta fiscal preparada'
+                : selectedReadiness.blockers + ' requisitos obligatorios pendientes'
+            }}</strong>
+            <span>{{ selectedReadiness.environment }} · {{ selectedReadiness.sendMode }}</span>
+          </div>
+        </div>
+        <ul class="readiness-list">
+          @for (check of selectedReadiness.checks; track check.code) {
+            <li [class.complete]="check.ready" [class.optional]="!check.required">
+              <mat-icon>{{
+                check.ready ? 'check_circle' : check.required ? 'radio_button_unchecked' : 'info'
+              }}</mat-icon>
+              <div>
+                <strong>{{ check.label }}</strong
+                ><span>{{ check.detail }}</span>
+              </div>
+              @if (!check.required) {
+                <small>Opcional</small>
+              }
+            </li>
+          }
+        </ul>
+        <div class="panel-actions">
+          <button type="button" mat-stroked-button (click)="loadReadiness(readinessTenant)">
+            <mat-icon>refresh</mat-icon>Comprobar de nuevo
+          </button>
+          @if (!selectedReadiness.ready) {
+            <button type="button" mat-raised-button color="primary" (click)="editFromReadiness()">
+              <mat-icon>settings</mat-icon>Completar configuración
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    @if (editingTenant && draft) {
+      <section class="action-panel" aria-labelledby="tenant-editor-title">
+        <div class="panel-heading">
+          <div>
+            <h2 id="tenant-editor-title">
+              Configurar {{ editingTenant.businessName || editingTenant.businessCode }}
+            </h2>
+            <p>Actualiza la identidad fiscal, el canal de envío y las series documentales.</p>
+          </div>
+          <button
+            type="button"
+            mat-icon-button
+            aria-label="Cerrar configuración"
+            (click)="closePanels()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <form #tenantForm="ngForm" (ngSubmit)="saveTenant()">
+          <div class="form-grid">
+            <label
+              >Razón social
+              <input
+                name="businessName"
+                [(ngModel)]="draft.businessName"
+                maxlength="300"
+                required
+              />
+            </label>
+            <label
+              >RUC del emisor
+              <input
+                name="issuerRuc"
+                [(ngModel)]="draft.issuerRuc"
+                inputmode="numeric"
+                pattern="[0-9]{11}"
+                maxlength="11"
+                required
+              />
+              <small>Debe contener exactamente 11 dígitos.</small>
+            </label>
+            <label
+              >Nombre fiscal
+              <input name="issuerName" [(ngModel)]="draft.issuerName" maxlength="300" required />
+            </label>
+            <label
+              >Nombre comercial
+              <input name="issuerTrade" [(ngModel)]="draft.issuerTrade" maxlength="300" />
+            </label>
+            <label class="wide"
+              >Dirección fiscal
+              <input name="issuerAddress" [(ngModel)]="draft.issuerAddress" maxlength="500" />
+            </label>
+            <label
+              >Ubigeo
+              <input
+                name="issuerUbigeo"
+                [(ngModel)]="draft.issuerUbigeo"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                maxlength="6"
+              />
+            </label>
+            <label
+              >Canal de envío
+              <select name="sendMode" [(ngModel)]="draft.sendMode" required>
+                <option value="SUNAT_DIRECT">SUNAT directo</option>
+                <option value="OSE">OSE</option>
+              </select>
+            </label>
+            <label
+              >Ambiente
+              <select name="environment" [(ngModel)]="draft.environment" required>
+                <option value="BETA">Beta</option>
+                <option value="HOMOLOGATION">Homologación</option>
+                <option value="PRODUCTION">Producción</option>
+              </select>
+            </label>
+            @if (draft.sendMode === 'SUNAT_DIRECT') {
+              <label
+                >Usuario SOL
+                <input
+                  name="solUser"
+                  [(ngModel)]="draft.solUser"
+                  maxlength="100"
+                  autocomplete="off"
+                  placeholder="RUC + usuario SOL"
+                />
+                <small
+                  >Se guarda para autenticación SUNAT y nunca se devuelve en las consultas.</small
+                >
+              </label>
+              <label
+                >Referencia de contraseña SOL
+                <input
+                  name="solPassword"
+                  [(ngModel)]="draft.solPassword"
+                  maxlength="100"
+                  autocomplete="off"
+                  placeholder="secret://empresa-sol-password"
+                  pattern="secret://.+"
+                />
+                <small
+                  >Déjalo vacío para conservar el valor actual; nunca escribas la contraseña
+                  directamente.</small
+                >
+              </label>
+            }
+            @if (draft.sendMode === 'OSE') {
+              <label class="wide"
+                >URL HTTPS del adaptador OSE
+                <input
+                  name="oseBaseUrl"
+                  [(ngModel)]="draft.oseBaseUrl"
+                  type="url"
+                  maxlength="500"
+                  required
+                  placeholder="https://ose-proveedor.example/api"
+                />
+                <small>Debe implementar el contrato Carabo OSE Gateway v1.</small>
+              </label>
+              <label class="wide"
+                >Referencia del token OSE
+                <input
+                  name="oseApiToken"
+                  [(ngModel)]="draft.oseApiToken"
+                  maxlength="100"
+                  autocomplete="off"
+                  placeholder="secret://empresa-ose-token"
+                  pattern="secret://.+"
+                />
+                <small>Déjalo vacío solo si no estás cambiando el token ya configurado.</small>
+              </label>
+            }
+            <label
+              >Serie de facturas
+              <input
+                name="invoiceSeries"
+                [(ngModel)]="draft.invoiceSeries"
+                maxlength="10"
+                required
+              />
+            </label>
+            <label
+              >Serie de boletas
+              <input
+                name="receiptSeries"
+                [(ngModel)]="draft.receiptSeries"
+                maxlength="10"
+                required
+              />
+            </label>
+            <label
+              >Serie de notas de crédito
+              <input
+                name="creditNoteSeries"
+                [(ngModel)]="draft.creditNoteSeries"
+                maxlength="10"
+                required
+              />
+            </label>
+            <label
+              >Serie de notas de débito
+              <input
+                name="debitNoteSeries"
+                [(ngModel)]="draft.debitNoteSeries"
+                maxlength="10"
+                required
+              />
+            </label>
+            <label class="wide"
+              >Webhook
+              <input
+                name="webhookUrl"
+                [(ngModel)]="draft.webhookUrl"
+                type="url"
+                maxlength="500"
+                placeholder="https://ejemplo.com/webhook"
+              />
+            </label>
+            <label
+              >Máximo de documentos diarios
+              <input
+                name="maxDocumentsPerDay"
+                [(ngModel)]="draft.maxDocumentsPerDay"
+                type="number"
+                min="1"
+                max="100000"
+                required
+              />
+            </label>
+          </div>
+          <div class="panel-actions">
+            <button type="button" mat-button (click)="closePanels()" [disabled]="saving">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              mat-raised-button
+              color="primary"
+              [disabled]="tenantForm.invalid || saving"
+            >
+              <mat-icon>{{ saving ? 'hourglass_top' : 'save' }}</mat-icon
+              >{{ saving ? 'Guardando…' : 'Guardar configuración' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    }
+
+    @if (certificateTenant) {
+      <section class="action-panel certificate-panel" aria-labelledby="certificate-title">
+        <div class="panel-heading">
+          <div>
+            <h2 id="certificate-title">
+              Certificado de {{ certificateTenant.businessName || certificateTenant.businessCode }}
+            </h2>
+            <p>El archivo se valida antes de reemplazar el certificado actual.</p>
+          </div>
+          <button
+            type="button"
+            mat-icon-button
+            aria-label="Cerrar carga de certificado"
+            (click)="closePanels()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <div class="certificate-grid">
+          <label
+            >Archivo PKCS#12
+            <input
+              type="file"
+              accept=".p12,.pfx,application/x-pkcs12"
+              (change)="selectCertificate($event)"
+            />
+            <small>Formato .p12 o .pfx; máximo 5 MB.</small>
+          </label>
+          <label
+            >Referencia de contraseña
+            <input
+              [(ngModel)]="passwordReference"
+              name="passwordReference"
+              placeholder="secret://empresa-cert-password"
+            />
+            <small
+              >La contraseña debe existir previamente en el secret store; nunca se guarda en esta
+              pantalla.</small
+            >
+          </label>
+        </div>
+        @if (selectedCertificate) {
+          <div class="selected-file">
+            <mat-icon>description</mat-icon><span>{{ selectedCertificate.name }}</span
+            ><small>{{ formatBytes(selectedCertificate.size) }}</small>
+          </div>
+        }
+        <div class="panel-actions">
+          <button type="button" mat-button (click)="closePanels()" [disabled]="uploading">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            mat-raised-button
+            color="primary"
+            (click)="uploadCertificate()"
+            [disabled]="!canUploadCertificate() || uploading"
+          >
+            <mat-icon>{{ uploading ? 'hourglass_top' : 'verified_user' }}</mat-icon
+            >{{ uploading ? 'Validando…' : 'Validar y guardar' }}
+          </button>
+        </div>
+      </section>
+    }
+  </mat-card-content>
+</mat-card>

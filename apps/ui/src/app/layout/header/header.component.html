@@ -1,0 +1,69 @@
+<header
+  class="header-area bg-white border-bottom-radius box-shadow"
+  [ngClass]="{ active: desktopCollapsed }"
+>
+  <div class="d-md-flex align-items-center justify-content-space-between">
+    <div class="header-left-side d-flex align-items-center">
+      <button
+        type="button"
+        class="burger-menu"
+        (click)="toggleNavigation()"
+        [ngClass]="{ active: isMobile ? mobileOpen : desktopCollapsed }"
+        [attr.aria-expanded]="isMobile ? mobileOpen : !desktopCollapsed"
+        aria-controls="carabo-navigation"
+        [attr.aria-label]="navigationLabel"
+      >
+        <span class="top-bar"></span>
+        <span class="middle-bar"></span>
+        <span class="bottom-bar"></span>
+      </button>
+      <div class="context-title">
+        <span>Operación fiscal</span><small>{{ activeRole }}</small>
+      </div>
+    </div>
+    <ul class="header-right-side d-flex align-items-center mt-0 mb-0">
+      <li class="version-cluster" aria-label="Versiones desplegadas">
+        <span title="UI · fecha de construcción · revisión"
+          >UI {{ buildInfo.ui.version }} · {{ buildInfo.ui.buildDate }} ·
+          {{ shortCommit(buildInfo.ui.commit) }}</span
+        >
+        <span title="API · fecha de construcción · revisión"
+          >API {{ buildInfo.api().version }} · {{ buildInfo.api().buildDate || 'sin fecha' }} ·
+          {{ shortCommit(buildInfo.api().commit) }}</span
+        >
+      </li>
+      <li class="business-switcher">
+        <i class="ri-building-4-line"></i>
+        <select
+          aria-label="Empresa activa"
+          [disabled]="!auth.businessesLoaded()"
+          [ngModel]="auth.session()?.tenantId"
+          (ngModelChange)="changeBusiness($event)"
+        >
+          @for (business of auth.session()?.businesses ?? []; track business.businessCode) {
+            <option [value]="business.businessCode">{{ business.businessName }}</option>
+          }
+        </select>
+        @if (businessError()) {
+          <span role="alert">{{ businessError() }}</span>
+          <button type="button" (click)="refreshBusinesses()">Reintentar</button>
+        }
+      </li>
+      <li class="user-menu">
+        <span class="user-avatar">{{ initials }}</span>
+        <span class="user-copy d-none d-md-block"
+          ><b>{{ displayName }}</b
+          ><small>{{ auth.session()?.user?.email }}</small></span
+        >
+        <button
+          type="button"
+          (click)="auth.logout()"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+        >
+          <i class="ri-logout-box-r-line"></i>
+        </button>
+      </li>
+    </ul>
+  </div>
+</header>

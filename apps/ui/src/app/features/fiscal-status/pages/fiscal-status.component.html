@@ -1,0 +1,162 @@
+<header class="page-heading">
+  <div>
+    <h1>Estado fiscal</h1>
+    <p>Diagnóstico seguro de la empresa activa, sin revelar certificados ni credenciales.</p>
+  </div>
+  <button type="button" mat-stroked-button (click)="load()" [disabled]="loading">
+    <mat-icon>{{ loading ? 'sync' : 'refresh' }}</mat-icon
+    >{{ loading ? 'Comprobando…' : 'Comprobar ahora' }}
+  </button>
+</header>
+
+@if (error) {
+  <section class="state-panel error" role="alert">
+    <mat-icon>cloud_off</mat-icon>
+    <div>
+      <h2>No pudimos comprobar el estado fiscal</h2>
+      <p>{{ error }}</p>
+    </div>
+    <button mat-stroked-button (click)="load()">Reintentar</button>
+  </section>
+} @else if (loading && !status) {
+  <section class="state-panel" aria-live="polite">
+    <mat-icon class="spin">progress_activity</mat-icon>
+    <div>
+      <h2>Verificando la ruta fiscal</h2>
+      <p>Comprobamos identidad, credenciales, certificado y canal de envío.</p>
+    </div>
+  </section>
+} @else if (status) {
+  <section class="route-board" [attr.data-state]="status.ready ? 'ready' : 'attention'">
+    <div class="route-copy">
+      <mat-icon>{{ status.ready ? 'verified' : 'rule' }}</mat-icon>
+      <div>
+        <h2>
+          {{
+            status.ready
+              ? 'Ruta fiscal preparada'
+              : status.blockers + ' requisitos requieren atención'
+          }}
+        </h2>
+        <p>
+          {{ status.businessName || status.businessCode }} · {{ status.environment }} ·
+          {{ status.sendMode }}
+        </p>
+      </div>
+    </div>
+    <div class="route-nodes" aria-label="Ruta de preparación fiscal">
+      @for (step of routeSteps; track step.label; let last = $last) {
+        <div class="route-step" [class.complete]="checkReady(step.codes)">
+          <span
+            ><mat-icon>{{ checkReady(step.codes) ? 'check' : 'more_horiz' }}</mat-icon></span
+          ><strong>{{ step.label }}</strong>
+        </div>
+        @if (!last) {
+          <i aria-hidden="true" [class.complete]="checkReady(step.codes)"></i>
+        }
+      }
+    </div>
+  </section>
+
+  <div class="work-grid">
+    <section class="certificate-panel" [attr.data-state]="status.certificate.state">
+      <div class="section-heading">
+        <div>
+          <h2>Certificado de firma</h2>
+          <p>Material local disponible para firmar documentos.</p>
+        </div>
+        <span class="status-label"
+          ><mat-icon>{{ certificateIcon }}</mat-icon
+          >{{ certificateLabel }}</span
+        >
+      </div>
+      <div class="certificate-focus">
+        <div class="days">
+          <strong>{{
+            status.certificate.daysRemaining === null ? '—' : status.certificate.daysRemaining
+          }}</strong
+          ><span>días de vigencia</span>
+        </div>
+        <dl>
+          <div>
+            <dt>Válido desde</dt>
+            <dd>{{ status.certificate.validFrom || 'No registrado' }}</dd>
+          </div>
+          <div>
+            <dt>Válido hasta</dt>
+            <dd>{{ status.certificate.validTo || 'No registrado' }}</dd>
+          </div>
+          <div>
+            <dt>Alias de firma</dt>
+            <dd>{{ status.certificate.alias || 'No registrado' }}</dd>
+          </div>
+          <div>
+            <dt>Custodia</dt>
+            <dd>{{ status.certificate.stored ? 'Archivo montado' : 'Archivo no disponible' }}</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="scope-note">
+        <mat-icon>info</mat-icon>
+        <p><strong>Verificación local.</strong> {{ status.certificate.limitation }}</p>
+      </div>
+      @if (auth.canAdminister()) {
+        <a mat-stroked-button routerLink="/config"
+          ><mat-icon>settings</mat-icon>Administrar certificado</a
+        >
+      }
+    </section>
+
+    <aside class="evidence-panel">
+      <h2>Evidencia reciente</h2>
+      <div>
+        <mat-icon>draw</mat-icon
+        ><span
+          ><strong>Última firma generada</strong
+          >{{
+            status.lastSignedAt ? (status.lastSignedAt | date: 'medium') : 'Sin evidencia todavía'
+          }}</span
+        >
+      </div>
+      <div>
+        <mat-icon>task_alt</mat-icon
+        ><span
+          ><strong>Última aceptación fiscal</strong
+          >{{
+            status.lastAcceptedAt
+              ? (status.lastAcceptedAt | date: 'medium')
+              : 'Sin aceptación registrada'
+          }}</span
+        >
+      </div>
+      <div>
+        <mat-icon>schedule</mat-icon
+        ><span><strong>Última comprobación</strong>{{ status.checkedAt | date: 'medium' }}</span>
+      </div>
+    </aside>
+  </div>
+
+  <section class="checklist-panel">
+    <div class="section-heading">
+      <div>
+        <h2>Lista de preparación</h2>
+        <p>Cada requisito indica la acción concreta para recuperar la operación.</p>
+      </div>
+      <span>{{ readyChecks }}/{{ status.checks.length }} comprobaciones</span>
+    </div>
+    <ul>
+      @for (check of status.checks; track check.code) {
+        <li [class.ready]="check.ready" [class.optional]="!check.required">
+          <mat-icon>{{
+            check.ready ? 'check_circle' : check.required ? 'error_outline' : 'info'
+          }}</mat-icon>
+          <div>
+            <strong>{{ check.label }}</strong>
+            <p>{{ check.detail }}</p>
+          </div>
+          <span>{{ check.required ? 'Obligatorio' : 'Opcional' }}</span>
+        </li>
+      }
+    </ul>
+  </section>
+}

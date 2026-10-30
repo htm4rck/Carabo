@@ -1,0 +1,33 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.code-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  height: 35px;
+  background: #244624;
+  border-radius: 7px 7px 0 0;
+}
+.code-toolbar button {
+  color: #dff0df;
+  font-size: 11px;
+}
+pre {
+  max-height: 390px;
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  background: #173317;
+  color: #edf7ed;
+  border-radius: 0 0 7px 7px;
+  font:
+    12px/1.55 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  white-space: pre;
+}
+code {
+  font: inherit;
+}
