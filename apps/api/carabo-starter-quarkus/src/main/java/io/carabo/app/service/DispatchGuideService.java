@@ -72,6 +72,7 @@ public class DispatchGuideService {
         idempotencyService.lock("DISPATCH_GUIDE", request.getBusinessCode(), request.getExternalId());
         DispatchGuide existing = findByExternalId(request.getBusinessCode(), request.getExternalId());
         if (existing != null) return existing;
+        if (!greCredentialsConfigured()) throw new jakarta.ws.rs.BadRequestException("Configura las credenciales OAuth de GRE antes de emitir una guía");
 
         DispatchGuide gre = new DispatchGuide();
         gre.setBusinessCode(request.getBusinessCode());
@@ -272,9 +273,18 @@ public class DispatchGuideService {
 
     private SunatGreClient greClient(Tenant tenant) {
         boolean isBeta = "BETA".equals(tenant.getEnvironment());
-        String solUser = tenant.getIssuerRuc() + tenant.getSolUser();
+        String solUser = greSolUser(tenant.getIssuerRuc(), tenant.getSolUser());
         return new SunatGreClient(greClientId.orElse(""), greClientSecret.orElse(""), solUser,
             secretResolver.resolve(tenant.getSolPassword()), isBeta);
+    }
+
+    public boolean greCredentialsConfigured() {
+        return greClientId.filter(value -> !value.isBlank() && !"not-configured".equals(value)).isPresent()
+            && greClientSecret.filter(value -> !value.isBlank() && !"not-configured".equals(value)).isPresent();
+    }
+
+    static String greSolUser(String ruc, String user) {
+        return user.startsWith(ruc) ? user : ruc + user;
     }
 
     private DocumentStorage getStorage() {

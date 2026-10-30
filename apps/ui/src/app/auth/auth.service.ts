@@ -2,7 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, map, of, switchMap, tap, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 const TOKEN_KEY = 'carabo.accessToken';
@@ -10,6 +10,7 @@ const SESSION_KEY = 'carabo.session';
 
 export interface AuthUser { userCode: string; firstName: string; lastName: string; email: string; }
 export interface UserBusiness { businessCode: string; businessName: string; defaultRoleCode: string; isActive: boolean; }
+interface AvailableBusiness extends UserBusiness { roles: string[]; }
 interface ApplicationRole { businessCode: string; roleCode: string; }
 interface PermissionNode { elementCode: string; children?: PermissionNode[]; }
 interface AuthApplication { app: string; roles: ApplicationRole[]; permissions?: PermissionNode[]; }
@@ -45,6 +46,7 @@ export class AuthService {
   readonly accessToken = signal<string | null>(this.read(TOKEN_KEY));
   readonly session = signal<AuthSession | null>(this.readSession());
   readonly sessionExpired = signal(false);
+  readonly businessesLoaded = signal(false);
 
   constructor() { this.scheduleExpiry(this.accessToken()); }
 
@@ -52,7 +54,42 @@ export class AuthService {
     return this.http.post<LoginResponse>(
       `${environment.authUrl}/auth/login`, { user: user.trim(), password },
       { headers: new HttpHeaders({ signature: environment.authSignature }) },
-    ).pipe(tap(response => this.applySession(response)));
+    ).pipe(switchMap(response => {
+      if (!response.success) throw new Error('No se pudo iniciar sesión.');
+      return this.loadBusinesses(response.data.auth.token).pipe(
+        tap(businesses => this.applySession(response, businesses)),
+        map(() => response),
+      );
+    }));
+  }
+
+  /** Refresh saved sessions too: cached login roles are not the company catalog. */
+  refreshBusinesses(): Observable<boolean> {
+    const token = this.accessToken();
+    if (!token || !this.session()) return of(false);
+    this.businessesLoaded.set(false);
+    return this.loadBusinesses(token).pipe(map(businesses => {
+      const current = this.session();
+      if (!current || this.accessToken() !== token) return false;
+      const updated = this.businessContext(businesses, current.tenantId);
+      this.persistSession({ ...current, ...updated });
+      this.businessesLoaded.set(true);
+      return updated.tenantId !== current.tenantId;
+    }));
+  }
+
+  private loadBusinesses(token: string): Observable<AvailableBusiness[]> {
+    return this.http.get<AvailableBusiness[]>(`${environment.apiUrl}/access/businesses`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    }).pipe(timeout(15000));
+  }
+
+  private businessContext(available: AvailableBusiness[], previousTenant?: string) {
+    const businesses = available.filter(business => business.isActive);
+    if (!businesses.length) throw new Error('Tu usuario no tiene una empresa habilitada para Carabo.');
+    const businessRoles = Object.fromEntries(businesses.map(business => [business.businessCode, business.roles]));
+    const tenantId = businesses.some(business => business.businessCode === previousTenant) ? previousTenant! : businesses[0].businessCode;
+    return { businesses, businessRoles, tenantId, roles: businessRoles[tenantId] };
   }
 
   selectBusiness(businessCode: string): boolean {
@@ -65,7 +102,7 @@ export class AuthService {
   logout(): void {
     this.clearExpiryTimer();
     if (this.isBrowser) { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(SESSION_KEY); }
-    this.accessToken.set(null); this.session.set(null); this.sessionExpired.set(false);
+    this.accessToken.set(null); this.session.set(null); this.sessionExpired.set(false); this.businessesLoaded.set(false);
     void this.router.navigateByUrl('/login');
   }
 
@@ -90,39 +127,19 @@ export class AuthService {
   canSupervise(): boolean { return this.hasAnyRole('SUPERVISOR_Carabo', 'ADMIN_Carabo', 'ROOT_PLATFORM'); }
   hasPermission(elementCode: string): boolean { return this.isRoot() || (this.session()?.permissions.includes(elementCode) ?? false); }
 
-  private applySession(response: LoginResponse): void {
+  private applySession(response: LoginResponse, available: AvailableBusiness[]): void {
     if (!response.success || !this.isBrowser) return;
     const carabo = (response.data.applications ?? []).find(app => app.app.toLowerCase() === 'carabo');
-    const businessRoles = (carabo?.roles ?? []).reduce<Record<string, string[]>>((result, role) => {
-      if (role.businessCode) result[role.businessCode] = [...new Set([...(result[role.businessCode] ?? []), role.roleCode])];
-      return result;
-    }, {});
-    const isRoot = response.data.licenseType === 'root';
-    const caraboBusinessCodes = new Set(Object.keys(businessRoles));
-    const businesses = response.data.businesses
-      .filter(business => business.isActive && Boolean(businessRoles[business.businessCode]?.length)
-        && (!isRoot || caraboBusinessCodes.has(business.businessCode)))
-      .map(business => ({
-        businessCode: business.businessCode,
-        businessName: business.business?.businessName || business.businessCode,
-        defaultRoleCode: business.defaultRoleCode,
-        isActive: business.isActive,
-      }));
-    if (businesses.length === 0) throw new Error('Tu usuario no tiene una empresa habilitada para Carabo.');
-    const previousTenant = this.session()?.tenantId;
-    const tenantId = businesses.some(business => business.businessCode === previousTenant) ? previousTenant! : businesses[0].businessCode;
     const session: AuthSession = {
       user: response.data.user,
-      tenantId,
-      roles: isRoot ? ['ROOT_PLATFORM'] : [...(businessRoles[tenantId] ?? [])],
+      ...this.businessContext(available, this.session()?.tenantId),
       permissions: this.flattenPermissions(carabo?.permissions ?? []),
       licenseType: response.data.licenseType ?? 'applicative',
-      businesses,
-      businessRoles,
     };
     localStorage.setItem(TOKEN_KEY, response.data.auth.token);
     this.accessToken.set(response.data.auth.token); this.sessionExpired.set(false);
     this.persistSession(session); this.scheduleExpiry(response.data.auth.token);
+    this.businessesLoaded.set(true);
   }
 
   private rolesForBusiness(session: AuthSession, businessCode: string): string[] {

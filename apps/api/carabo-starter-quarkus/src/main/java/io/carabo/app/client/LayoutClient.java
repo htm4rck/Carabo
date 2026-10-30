@@ -38,8 +38,12 @@ public class LayoutClient {
      * pageFormat: A4 for invoices/NC/ND, TICKET_80MM for boletas
      */
     public byte[] generatePdf(Document doc, String pageFormat) {
+        return generatePdf(doc, pageFormat, null);
+    }
+
+    public byte[] generatePdf(Document doc, String pageFormat, String authorization) {
         return generatePdf(resolveTemplateType(doc),
-            pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc));
+            pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc), doc.getBusinessCode(), authorization);
     }
 
     public byte[] generatePdf(DispatchGuide guide, String pageFormat) {
@@ -74,6 +78,10 @@ public class LayoutClient {
     }
 
     private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data) {
+        return generatePdf(templateType, pageFormat, data, null, null);
+    }
+
+    private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data, String businessCode, String authorization) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("templateType", templateType);
@@ -82,20 +90,23 @@ public class LayoutClient {
 
             String json = objectMapper.writeValueAsString(payload);
 
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(layoutBaseUrl + "/pdf/generate"))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json))
-                .build();
+                .timeout(java.time.Duration.ofSeconds(25));
+            if (businessCode != null) builder.header("business-code", businessCode);
+            if (authorization != null && authorization.startsWith("Bearer ")) builder.header("Authorization", authorization);
+            HttpRequest request = builder.POST(HttpRequest.BodyPublishers.ofString(json)).build();
 
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
-            if (response.statusCode() == 200) {
+            if (response.statusCode() >= 200 && response.statusCode() < 300 && response.body().length >= 5 &&
+                new String(response.body(), 0, 5, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF-")) {
                 return response.body();
             }
 
-            LOG.errorf("Layout PDF generation failed: status=%d body=%s",
-                response.statusCode(), new String(response.body()));
+            LOG.errorf("Layout PDF generation failed: status=%d contentType=%s",
+                response.statusCode(), response.headers().firstValue("content-type").orElse("unknown"));
             return null;
         } catch (Exception e) {
             LOG.error("Failed to call layout service for PDF generation", e);
@@ -188,6 +199,7 @@ public class LayoutClient {
             doc.getHashCode() != null ? doc.getHashCode() : ""
         );
         data.put("qrContent", qr);
+        data.put("qrDataUrl", qrDataUrl(qr));
         data.put("hashCode", doc.getHashCode());
 
         // Reference (NC/ND)
@@ -200,5 +212,23 @@ public class LayoutClient {
         }
 
         return data;
+    }
+
+    private String qrDataUrl(String content) {
+        try {
+            var matrix = new com.google.zxing.qrcode.QRCodeWriter().encode(content,
+                com.google.zxing.BarcodeFormat.QR_CODE, 180, 180);
+            StringBuilder svg = new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 180 180\"><rect width=\"180\" height=\"180\" fill=\"white\"/><path d=\"");
+            for (int y = 0; y < matrix.getHeight(); y++) {
+                for (int x = 0; x < matrix.getWidth(); x++) {
+                    if (matrix.get(x,y)) svg.append("M").append(x).append(" ").append(y).append("h1v1h-1z");
+                }
+            }
+            svg.append("\" fill=\"black\"/></svg>");
+            return "data:image/svg+xml;base64," + java.util.Base64.getEncoder().encodeToString(
+                svg.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (com.google.zxing.WriterException error) {
+            throw new IllegalArgumentException("No se pudo generar el QR del comprobante", error);
+        }
     }
 }

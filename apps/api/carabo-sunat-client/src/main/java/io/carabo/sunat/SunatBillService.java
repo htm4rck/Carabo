@@ -212,7 +212,8 @@ public class SunatBillService {
     private static String unzipFirst(byte[] zipBytes) throws IOException {
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
             ZipEntry entry = zip.getNextEntry();
-            if (entry == null || entry.isDirectory()) throw new IOException("CDR ZIP is empty");
+            while (entry != null && entry.isDirectory()) entry = zip.getNextEntry();
+            if (entry == null) throw new IOException("CDR ZIP is empty");
             byte[] content = zip.readNBytes(10 * 1024 * 1024 + 1);
             if (content.length > 10 * 1024 * 1024) throw new IOException("CDR ZIP exceeds 10 MB");
             return new String(content, StandardCharsets.UTF_8);

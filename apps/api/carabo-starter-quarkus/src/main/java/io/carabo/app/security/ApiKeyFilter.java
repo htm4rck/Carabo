@@ -43,6 +43,10 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             authenticateHuman(ctx, path);
             return;
         }
+        if ("/access/businesses".equals(path)) {
+            reject(ctx, 401, "A human bearer token is required for business discovery");
+            return;
+        }
 
         if (path.startsWith("/tenants")) {
             authenticateLegacyAdministrator(ctx);
@@ -56,6 +60,10 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             reject(ctx, 401, "Invalid or expired bearer token");
             return;
         }
+
+        // Discovery is scoped to the authenticated subject, before an active
+        // business can be selected. All other operations still require it.
+        if ("/access/businesses".equals(path) && "GET".equals(ctx.getMethod())) return;
 
         String businessCode = ctx.getHeaderString(BUSINESS_HEADER);
         if (businessCode == null || businessCode.isBlank()) {

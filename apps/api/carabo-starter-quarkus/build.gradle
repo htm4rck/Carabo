@@ -21,6 +21,7 @@ dependencies {
   implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
   implementation 'io.quarkus:quarkus-opentelemetry'
   implementation 'org.apache.poi:poi-ooxml:5.2.5'
+  implementation 'com.google.zxing:core:3.5.3'
 
   testImplementation 'io.quarkus:quarkus-junit5'
   testImplementation 'io.rest-assured:rest-assured'

@@ -38,6 +38,15 @@ public class DispatchGuideResource {
     @Inject
     FiscalClock fiscalClock;
 
+    @GET
+    @Path("/readiness")
+    public Response readiness() {
+        boolean ready = service.greCredentialsConfigured();
+        return Response.ok(java.util.Map.of("ready", ready, "businessCode", tenantContext.businessCode(),
+            "message", ready ? "Credenciales OAuth de GRE configuradas; valida emisor y documento antes de emitir"
+                : "Configura SUNAT_GRE_CLIENT_ID y SUNAT_GRE_CLIENT_SECRET en el servicio fiscal")).build();
+    }
+
     @POST
     @Path("/validate")
     @Operation(summary = "Validar payload GRE", description = "Compara el JSON GRE 2.0 sin emitir ni reservar correlativo")

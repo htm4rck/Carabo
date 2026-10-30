@@ -7,6 +7,7 @@ import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.DocumentStatus;
 import io.carabo.core.enums.DocumentType;
 import io.carabo.core.enums.SendMode;
+import io.carabo.core.validation.PeruTaxRules;
 import io.carabo.ose.OseClient;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
@@ -73,8 +74,9 @@ public class BatchService {
                 "EMPTY", "No hay boletas para resumir en " + date, 0, date, null);
         }
 
-        String identifier = tenant.getIssuerRuc() + "-RC-" + date.format(DateTimeFormatter.BASIC_ISO_DATE)
-            + "-" + nextBatchNumber(businessCode, "RC", fiscalClock.today());
+        LocalDate issueDate = fiscalClock.today();
+        String identifier = tenant.getIssuerRuc() + "-RC-" + issueDate.format(DateTimeFormatter.BASIC_ISO_DATE)
+            + "-" + nextBatchNumber(businessCode, "RC", issueDate);
         String xml = buildSummaryXml(tenant, boletas, date, identifier);
 
         try {
@@ -232,7 +234,7 @@ public class BatchService {
 
     // --- XML builders for batch documents ---
 
-    private String buildSummaryXml(Tenant tenant, List<Document> boletas, LocalDate date, String identifier) {
+    String buildSummaryXml(Tenant tenant, List<Document> boletas, LocalDate date, String identifier) {
         StringBuilder xml = new StringBuilder();
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         xml.append("<SummaryDocuments xmlns=\"urn:sunat:names:specification:ubl:peru:schema:xsd:SummaryDocuments-1\"\n");
@@ -242,7 +244,8 @@ public class BatchService {
         xml.append("  <ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent></ext:ExtensionContent></ext:UBLExtension></ext:UBLExtensions>\n");
         xml.append("  <cbc:UBLVersionID>2.0</cbc:UBLVersionID>\n");
         xml.append("  <cbc:CustomizationID>1.1</cbc:CustomizationID>\n");
-        xml.append("  <cbc:ID>").append(identifier).append("</cbc:ID>\n");
+        // The transport filename includes the issuer RUC; the UBL batch ID does not.
+        xml.append("  <cbc:ID>").append(identifier.substring(tenant.getIssuerRuc().length() + 1)).append("</cbc:ID>\n");
         xml.append("  <cbc:ReferenceDate>").append(date).append("</cbc:ReferenceDate>\n");
         xml.append("  <cbc:IssueDate>").append(fiscalClock.today()).append("</cbc:IssueDate>\n");
         xml.append("  <cac:Signature><cbc:ID>IDSign").append(tenant.getIssuerRuc()).append("</cbc:ID>");
@@ -262,10 +265,11 @@ public class BatchService {
             xml.append("<cbc:AdditionalAccountID>").append(doc.getReceiverDocType()).append("</cbc:AdditionalAccountID></cac:AccountingCustomerParty>\n");
             xml.append("    <cac:Status><cbc:ConditionCode>1</cbc:ConditionCode></cac:Status>\n");
             xml.append("    <sac:TotalAmount currencyID=\"").append(doc.getCurrency()).append("\">").append(doc.getTotal()).append("</sac:TotalAmount>\n");
-            xml.append("    <sac:BillingPayment><cbc:PaidAmount currencyID=\"").append(doc.getCurrency()).append("\">").append(doc.getTotal()).append("</cbc:PaidAmount><cbc:InstructionID>01</cbc:InstructionID></sac:BillingPayment>\n");
+            xml.append("    <sac:BillingPayment><cbc:PaidAmount currencyID=\"").append(doc.getCurrency()).append("\">").append(doc.getTaxBase()).append("</cbc:PaidAmount><cbc:InstructionID>01</cbc:InstructionID></sac:BillingPayment>\n");
             xml.append("    <cac:TaxTotal><cbc:TaxAmount currencyID=\"").append(doc.getCurrency()).append("\">").append(doc.getIgvAmount()).append("</cbc:TaxAmount>");
             xml.append("<cac:TaxSubtotal><cbc:TaxAmount currencyID=\"").append(doc.getCurrency()).append("\">").append(doc.getIgvAmount()).append("</cbc:TaxAmount>");
-            xml.append("<cac:TaxCategory><cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>\n");
+            xml.append("<cac:TaxCategory><cbc:Percent>").append(PeruTaxRules.profileByTaxCode("1000").rate()).append("</cbc:Percent>");
+            xml.append("<cac:TaxScheme><cbc:ID>1000</cbc:ID><cbc:Name>IGV</cbc:Name><cbc:TaxTypeCode>VAT</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>\n");
             xml.append("  </sac:SummaryDocumentsLine>\n");
         }
 
@@ -273,7 +277,7 @@ public class BatchService {
         return xml.toString();
     }
 
-    private String buildVoidedXml(Tenant tenant, List<Document> docs, LocalDate date, String identifier, String reason) {
+    String buildVoidedXml(Tenant tenant, List<Document> docs, LocalDate date, String identifier, String reason) {
         StringBuilder xml = new StringBuilder();
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         xml.append("<VoidedDocuments xmlns=\"urn:sunat:names:specification:ubl:peru:schema:xsd:VoidedDocuments-1\"\n");
@@ -284,7 +288,7 @@ public class BatchService {
         xml.append("  <ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent></ext:ExtensionContent></ext:UBLExtension></ext:UBLExtensions>\n");
         xml.append("  <cbc:UBLVersionID>2.0</cbc:UBLVersionID>\n");
         xml.append("  <cbc:CustomizationID>1.0</cbc:CustomizationID>\n");
-        xml.append("  <cbc:ID>").append(identifier).append("</cbc:ID>\n");
+        xml.append("  <cbc:ID>").append(identifier.substring(tenant.getIssuerRuc().length() + 1)).append("</cbc:ID>\n");
         xml.append("  <cbc:ReferenceDate>").append(docs.get(0).getIssueDate()).append("</cbc:ReferenceDate>\n");
         xml.append("  <cbc:IssueDate>").append(date).append("</cbc:IssueDate>\n");
         xml.append("  <cac:Signature><cbc:ID>IDSign").append(tenant.getIssuerRuc()).append("</cbc:ID>");

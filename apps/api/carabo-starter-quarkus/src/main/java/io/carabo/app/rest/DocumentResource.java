@@ -238,9 +238,11 @@ public class DocumentResource {
     @Path("/{id}/pdf")
     @Produces("application/pdf")
     @Operation(summary = "Generar PDF representación impresa", description = "Genera PDF A4 o ticket via tordo.layout")
-    public Response getPdf(@PathParam("id") UUID id, @Parameter(description = "A4 o TICKET_80MM") @QueryParam("format") String format) {
+    public Response getPdf(@PathParam("id") UUID id, @Parameter(description = "A4 o TICKET_80MM") @QueryParam("format") String format,
+                           @HeaderParam("Authorization") String authorization,
+                           @HeaderParam("X-Layout-Authorization") String delegatedAuthorization) {
         return documentService.findById(id, tenantContext.businessCode()).map(doc -> {
-            byte[] pdf = layoutClient.generatePdf(doc, format);
+            byte[] pdf = layoutClient.generatePdf(doc, format, authorization != null ? authorization : delegatedAuthorization);
             if (pdf == null) return Response.status(502).entity("PDF generation failed").build();
             return Response.ok(pdf)
                 .header("Content-Disposition", "inline; filename=\"" + doc.getFullNumber() + ".pdf\"")

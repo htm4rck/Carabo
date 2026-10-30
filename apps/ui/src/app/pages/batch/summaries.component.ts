@@ -1,11 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { finalize } from 'rxjs';
 import { BatchResult, CaraboApiService } from '../../services/carabo-api.service';
 import { AuthService } from '../../auth/auth.service';
@@ -17,19 +20,31 @@ interface SummaryView extends BatchResult {
 @Component({
   selector: 'app-summaries',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, MatSnackBarModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, MatSnackBarModule, MatTooltipModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="breadcrumb-area">
       <h1>Resúmenes Diarios</h1>
-      <p class="gray-color">Resúmenes diarios de boletas enviados a SUNAT</p>
+      <p class="gray-color">Envía a SUNAT las boletas aceptadas de la fecha de emisión seleccionada.</p>
     </div>
 
+    <mat-card style="margin-bottom:16px;">
+      <mat-card-content style="padding:20px;">
+        <form class="summary-form" #summaryForm="ngForm" (ngSubmit)="generate()">
+          <mat-form-field appearance="outline">
+            <mat-label>Fecha de emisión</mat-label>
+            <input matInput type="date" name="referenceDate" [(ngModel)]="referenceDate" required [disabled]="generating" aria-describedby="summary-date-help">
+          </mat-form-field>
+          <button type="submit" mat-raised-button color="primary" [disabled]="summaryForm.invalid || generating">
+            <mat-icon>{{ generating ? 'hourglass_top' : 'add' }}</mat-icon> {{ generating ? 'Generando…' : 'Generar resumen' }}
+          </button>
+        </form>
+        <p id="summary-date-help" class="date-help">Hoy se calcula en hora de Lima (America/Lima). Puedes elegir hoy o una fecha anterior. El resumen RC incluye boletas; para consultar facturas, usa Reportes Tributarios.</p>
+      </mat-card-content>
+    </mat-card>
+
     <mat-card>
-      <mat-card-header class="d-flex align-items-center justify-content-space-between" style="padding:20px 20px 0;">
-        <div><h3 style="margin:0; font-size:16px;">Actividad de esta sesión</h3><small>Los resúmenes generados mientras esta vista permanezca abierta.</small></div>
-        <button type="button" mat-raised-button color="primary" (click)="generate()" [disabled]="generating">
-          <mat-icon>{{ generating ? 'hourglass_top' : 'add' }}</mat-icon> {{ generating ? 'Generando…' : 'Generar resumen' }}
-        </button>
+      <mat-card-header style="padding:20px 20px 0;">
+        <div><h3 style="margin:0; font-size:16px;">Historial de resúmenes</h3><small>Operaciones guardadas para la empresa activa.</small></div>
       </mat-card-header>
       <mat-card-content style="padding:20px;">
         @if (lastResult) {
@@ -52,7 +67,7 @@ interface SummaryView extends BatchResult {
             <div><strong>No se pudo completar la operación</strong><p>{{ operationError }}</p></div>
           </section>
         }
-        <div class="table-scroll"><table mat-table [dataSource]="summaries" class="w-100" aria-label="Resúmenes generados en esta sesión">
+        <div class="table-scroll"><table mat-table [dataSource]="summaries" class="w-100" aria-label="Historial de resúmenes diarios">
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Fecha</th>
             <td mat-cell *matCellDef="let s">{{ s.referenceDate || '—' }}</td>
@@ -91,7 +106,7 @@ interface SummaryView extends BatchResult {
         @if (summaries.length === 0) {
           <div class="empty-state">
             <mat-icon>calendar_today</mat-icon><h2>Aún no generaste resúmenes</h2>
-            <p>Usa “Generar resumen” para enviar las boletas pendientes de la empresa activa.</p>
+            <p>Selecciona la fecha de emisión y usa “Generar resumen” para enviar las boletas aceptadas de la empresa activa.</p>
           </div>
         }
       </mat-card-content>
@@ -101,6 +116,9 @@ interface SummaryView extends BatchResult {
     .breadcrumb-area { margin-bottom: 24px; }
     .breadcrumb-area h1 { margin: 0 0 4px; font-size: 22px; }
     .breadcrumb-area p { margin: 0; font-size: 13px; }
+    .summary-form { display:flex; align-items:flex-start; flex-wrap:wrap; gap:16px; }
+    .summary-form button { margin-top:8px; }
+    .date-help { margin:0; color:var(--mutedColor); font-size:13px; line-height:1.5; }
     .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; background: #e3f2fd; color: #1565c0; }
     .badge[data-status="ACCEPTED"] { background: #e8f5e9; color: #2e7d32; }
     .badge[data-status="OBSERVED"] { background: #fff8dd; color: #7a5a00; }
@@ -121,10 +139,11 @@ interface SummaryView extends BatchResult {
     .empty-state mat-icon { width:48px;height:48px;font-size:48px;color:var(--accentColor); }
     .empty-state h2 { margin:12px 0 4px;color:var(--forestColor);font-size:18px; }
     .empty-state p { margin:0; }
-    @media(max-width:640px){mat-card-header{align-items:flex-start!important;flex-direction:column;gap:14px}mat-card-header button{width:100%}}
+    @media(max-width:640px){.summary-form{flex-direction:column;gap:0}.summary-form mat-form-field,.summary-form button{width:100%}.summary-form button{margin:0 0 16px}}
   `]
 })
 export class SummariesComponent implements OnInit {
+  referenceDate = this.todayInLima();
   displayedColumns = ['date', 'business', 'ticket', 'status', 'actions'];
   summaries: SummaryView[] = [];
   generating = false;
@@ -132,10 +151,20 @@ export class SummariesComponent implements OnInit {
   lastResult: SummaryView | null = null;
   operationError = '';
 
-  constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService) {}
+  constructor(private api: CaraboApiService, private snackBar: MatSnackBar, private auth: AuthService, private cdr: ChangeDetectorRef) {}
+
+  private todayInLima(): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${value['year']}-${value['month']}-${value['day']}`;
+  }
 
   ngOnInit() {
-    this.api.listBatchOperations('RC').subscribe({
+    this.api.listBatchOperations('RC').pipe(
+      finalize(() => this.cdr.markForCheck())
+    ).subscribe({
       next: operations => this.summaries = operations.map(item => ({
         ...item, businessCode: this.auth.session()?.tenantId ?? ''
       })),
@@ -149,16 +178,23 @@ export class SummariesComponent implements OnInit {
       if (!bc) this.operationError = 'Selecciona una empresa antes de generar el resumen.';
       return;
     }
+    if (!this.referenceDate) {
+      this.operationError = 'Selecciona la fecha de emisión de las boletas.';
+      return;
+    }
     this.generating = true;
     this.lastResult = null;
     this.operationError = '';
-    this.api.generateSummary(bc).pipe(
-      finalize(() => this.generating = false)
+    this.api.generateSummary(bc, this.referenceDate).pipe(
+      finalize(() => {
+        this.generating = false;
+        this.cdr.markForCheck();
+      })
     ).subscribe({
       next: (res) => {
         const result = { ...res, businessCode: bc };
         this.lastResult = result;
-        this.summaries.unshift(result);
+        this.summaries = [result, ...this.summaries];
         this.snackBar.open(res.message, 'Cerrar', { duration: res.status === 'EMPTY' ? 5000 : 3000 });
       },
       error: (error) => {
@@ -173,7 +209,10 @@ export class SummariesComponent implements OnInit {
     if (!s.ticket) return;
     this.operationError = '';
     this.api.checkTicket(s.businessCode, s.ticket).pipe(
-      finalize(() => this.checkingTicket = null)
+      finalize(() => {
+        this.checkingTicket = null;
+        this.cdr.markForCheck();
+      })
     ).subscribe({
       next: (res) => {
         s.status = res.status || (res.success ? 'ACCEPTED' : 'PENDING');

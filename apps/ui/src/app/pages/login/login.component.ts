@@ -96,6 +96,6 @@ export class LoginComponent {
   private accessError(error: any): string {
     if (error?.status === 0) return 'Tordo Auth no responde. Revisa tu conexión y vuelve a intentarlo.';
     if (error?.status === 401) return 'Usuario o contraseña incorrectos. Verifica tus datos de Columba e intenta nuevamente.';
-    return error?.error?.message || 'No pudimos completar el acceso. Inténtalo nuevamente o solicita a un administrador que revise tu rol Carabo.';
+    return error?.error?.message || (error instanceof Error ? error.message : '') || 'No pudimos completar el acceso. Inténtalo nuevamente o solicita a un administrador que revise tu rol Carabo.';
   }
 }

@@ -8,7 +8,8 @@ export const apiKeyInterceptor: HttpInterceptorFn = (request, next) => {
   if (/\/auth\/login(?:[/?#]|$)/.test(request.url)) return next(request);
   const token = auth.accessToken();
   const businessCode = auth.session()?.tenantId;
-  if (token) request = request.clone({ setHeaders: {
+  const discovery = /\/access\/businesses(?:[/?#]|$)/.test(request.url);
+  if (token && !discovery) request = request.clone({ setHeaders: {
     Authorization: `Bearer ${token}`,
     ...(businessCode ? { 'business-code': businessCode } : {}),
   }});

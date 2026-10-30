@@ -1,4 +1,5 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ToggleService } from './toggle.service';
 import { NgClass } from '@angular/common';
 import { AuthService } from '../../auth/auth.service';
@@ -34,11 +35,15 @@ import { BuildInfoService } from '../../services/build-info.service';
           </li>
           <li class="business-switcher">
             <i class="ri-building-4-line"></i>
-            <select aria-label="Empresa activa" [value]="auth.session()?.tenantId" (change)="changeBusiness($event)">
+            <select aria-label="Empresa activa" [disabled]="!auth.businessesLoaded()" [value]="auth.session()?.tenantId" (change)="changeBusiness($event)">
               @for (business of auth.session()?.businesses ?? []; track business.businessCode) {
                 <option [value]="business.businessCode">{{ business.businessName }}</option>
               }
             </select>
+            @if (businessError()) {
+              <span role="alert">{{ businessError() }}</span>
+              <button type="button" (click)="refreshBusinesses()">Reintentar</button>
+            }
           </li>
           <li class="user-menu">
             <span class="user-avatar">{{ initials }}</span>
@@ -51,7 +56,9 @@ import { BuildInfoService } from '../../services/build-info.service';
   `,
   styleUrls: ['./header.component.scss']
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  readonly businessError = signal('');
   desktopCollapsed = false;
   mobileOpen = false;
   isMobile = window.innerWidth < 1200;
@@ -60,6 +67,16 @@ export class HeaderComponent {
   constructor(private toggleService: ToggleService, public auth: AuthService, public buildInfo: BuildInfoService) {
     this.toggleService.desktopCollapsed$.subscribe(value => this.desktopCollapsed = value);
     this.toggleService.mobileOpen$.subscribe(value => this.mobileOpen = value);
+  }
+
+  ngOnInit(): void { this.refreshBusinesses(); }
+
+  refreshBusinesses(): void {
+    this.businessError.set('');
+    this.auth.refreshBusinesses().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: changed => { if (changed) window.location.reload(); },
+      error: () => this.businessError.set('No pudimos actualizar las empresas disponibles.'),
+    });
   }
 
   @HostListener('window:resize')

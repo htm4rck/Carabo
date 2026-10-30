@@ -28,7 +28,7 @@ public class DocumentSendLog {
     @Column(length = 100)
     private String ticket;
 
-    @Column(name = "response_code", length = 10)
+    @Column(name = "response_code", length = 128)
     private String responseCode;
 
     @Column(name = "response_msg", columnDefinition = "TEXT")

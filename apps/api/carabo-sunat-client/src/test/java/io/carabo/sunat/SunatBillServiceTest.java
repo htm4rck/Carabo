@@ -34,6 +34,23 @@ class SunatBillServiceTest {
     void stopServer() { server.stop(0); }
 
     @Test
+    void parsesSunatCdrWhenZipStartsWithADirectory() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry("dummy/"));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("R-test.xml"));
+            zip.write(cdr("0", "Aceptado", null).getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        String encoded = Base64.getEncoder().encodeToString(output.toByteArray());
+        next.set(new Response(200, "<Envelope><applicationResponse>" + encoded + "</applicationResponse></Envelope>"));
+        var result = client.sendBill("invoice", "<Invoice/>");
+        assertTrue(result.accepted());
+        assertEquals("0", result.responseCode());
+    }
+
+    @Test
     void parsesAcceptedCdrAndNamespacePrefixes() throws Exception {
         next.set(new Response(200, soap("applicationResponse", cdr("0", "Aceptado", null))));
 
