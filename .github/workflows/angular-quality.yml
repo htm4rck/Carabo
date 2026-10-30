@@ -22,11 +22,14 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPMRC: ${{ secrets.NPMRC }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$NPMRC" ]; then
             printf '%s' "$NPMRC" > .npmrc
           elif [ -n "$NPM_TOKEN" ]; then
             printf '@tordo-io:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$NPM_TOKEN" > .npmrc
+          else
+            printf '@tordo-io:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$GITHUB_TOKEN" > .npmrc
           fi
       - run: npm ci
       - run: npx playwright install --with-deps chromium
