@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
 async function isolate(page: Page) {
   await page.route('**/*', (route) => {
     const url = new URL(route.request().url());
@@ -126,6 +127,50 @@ test('returns to authentication when the current API session is rejected', async
   state.expire();
   await page.goto(prefix + 'documents');
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test('signs in when a previous Tordo cookie session requires its CSRF proof', async ({
+  page,
+  context,
+}) => {
+  await carabo(page);
+  const session = 'synthetic-existing-tordo-session';
+  const proof = createHash('sha256')
+    .update('tordo-csrf:' + session)
+    .digest('base64url');
+  await context.addCookies([
+    {
+      name: '__Host-tordo-session',
+      value: session,
+      domain: '127.0.0.1',
+      path: '/',
+      secure: true,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+    {
+      name: '__Host-tordo-xsrf',
+      value: proof,
+      domain: '127.0.0.1',
+      path: '/',
+      secure: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  let verified = false;
+  await page.route('**/auth/login', async (route) => {
+    const headers = await route.request().allHeaders();
+    verified =
+      headers['x-tordo-csrf'] === proof &&
+      headers['cookie']?.includes('__Host-tordo-session=' + session) === true;
+    return route.fulfill(
+      verified
+        ? { json: profile() }
+        : { status: 403, json: { success: false, errorCode: 'CSRF_DENIED' } },
+    );
+  });
+  await signIn(page);
+  expect(verified).toBe(true);
 });
 
 for (const width of [1440, 390]) {
