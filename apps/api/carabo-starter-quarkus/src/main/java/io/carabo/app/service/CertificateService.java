@@ -32,8 +32,12 @@ public class CertificateService {
 
     public CertificateMetadata validateAndStore(UUID tenantId, String originalFileName, Path upload,
                                                 long size, String passwordReference) {
+        validateRequest(originalFileName,upload,size,passwordReference);
+        return validateAndStoreWithPassword(tenantId,originalFileName,upload,size,passwordReference,secretResolver.resolve(passwordReference));
+    }
+
+    public CertificateMetadata validateAndStoreWithPassword(UUID tenantId,String originalFileName,Path upload,long size,String passwordReference,String password) {
         validateRequest(originalFileName, upload, size, passwordReference);
-        String password = secretResolver.resolve(passwordReference);
         SigningMaterial signingMaterial = readSigningCertificate(upload, password);
         X509Certificate certificate = signingMaterial.certificate();
 
@@ -44,7 +48,7 @@ public class CertificateService {
         }
 
         Path root = Path.of(certsBasePath).toAbsolutePath().normalize();
-        String storedFileName = tenantId + ".p12";
+        String storedFileName = tenantId + "-" + UUID.randomUUID() + ".p12";
         Path target = root.resolve(storedFileName).normalize();
         if (!target.startsWith(root)) throw new IllegalArgumentException("Ruta de certificado inválida");
 
@@ -68,6 +72,12 @@ public class CertificateService {
         LocalDate validFrom = certificate.getNotBefore().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate validTo = certificate.getNotAfter().toInstant().atZone(ZoneOffset.UTC).toLocalDate();
         return new CertificateMetadata(storedFileName, passwordReference, signingMaterial.alias(), validFrom, validTo);
+    }
+
+    public void verifyPassword(String fileName, String password) {
+        Path root=Path.of(certsBasePath).toAbsolutePath().normalize(),file=root.resolve(fileName).normalize();
+        if(!file.startsWith(root))throw new IllegalArgumentException("Certificado inválido");
+        readSigningCertificate(file,password);
     }
 
     private void validateRequest(String originalFileName, Path upload, long size, String passwordReference) {

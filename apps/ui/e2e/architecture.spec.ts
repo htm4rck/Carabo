@@ -127,3 +127,120 @@ test('returns to authentication when the current API session is rejected', async
   await page.goto(prefix + 'documents');
   await expect(page).toHaveURL(/\/login$/);
 });
+
+for (const width of [1440, 390]) {
+  test(`requires fiscal acceptance for printable guide PDFs at width ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await carabo(page);
+    const states = ['BLOCKED_CONFIGURATION', 'SENT', 'REJECTED', 'ACCEPTED'];
+    await page.route('**/carabo/api/dispatch-guides*', (route) =>
+      route.fulfill({
+        json: states.map((status, index) => ({
+          id: 'guide-' + index,
+          fullNumber: index === 0 ? null : 'T001-' + index,
+          status,
+          issueDate: '2026-10-31',
+          receiverName: 'Receptor de prueba',
+          receiverDoc: '87654321',
+          originAddress: 'Origen',
+          destinationAddress: 'Destino',
+          transportAuthorized: index === 3,
+          sunatResponse: index === 2 ? '2335: Documento rechazado' : 'Estado fiscal ' + status,
+          hashCode: index === 0 ? null : 'digest',
+          ticket: index > 0 ? 'ticket' : null,
+        })),
+      }),
+    );
+    await signIn(page);
+    await page.goto(prefix + 'dispatch-guides');
+    const buttons = page.getByRole('button', { name: 'Descargar PDF de traslado', exact: true });
+    await expect(buttons).toHaveCount(4);
+    for (let index = 0; index < 3; index++) await expect(buttons.nth(index)).toBeDisabled();
+    await expect(buttons.nth(3)).toBeEnabled();
+    await expect(page.getByText('No habilita el traslado', { exact: true })).toHaveCount(3);
+    await expect(page.getByText('2335: Documento rechazado', { exact: true })).toBeVisible();
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`shows persisted GRE errors and the scheduled retry without creating another guide at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await carabo(page);
+    let retries = 0,
+      emissions = 0;
+    const row = {
+      id: 'gre-existing',
+      fullNumber: 'T001-1',
+      status: 'RETRY_PENDING',
+      receiverName: 'Fixture',
+      receiverDoc: '12345678',
+      issueDate: '2026-10-31',
+      originAddress: 'Origen',
+      destinationAddress: 'Destino',
+      sunatResponse: 'Resultado guardado de prueba',
+      transportAuthorized: false,
+      updatedAt: '2026-10-31T18:09:45Z',
+      nextRetryAt: '2026-10-31T18:17:45Z',
+      retryCount: 4,
+      maxRetryCount: 8,
+      automaticRetry: true,
+      canRetry: true,
+      retryAction: 'SEND',
+    };
+    await page.route('**/carabo/api/dispatch-guides**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/retry')) {
+        retries++;
+        return route.fulfill({ status: 202, json: row });
+      }
+      if (path.endsWith('/emit')) {
+        emissions++;
+        return route.fulfill({ status: 500, json: {} });
+      }
+      return route.fulfill({
+        json: [
+          row,
+          {
+            ...row,
+            id: 'gre-beta',
+            canRetry: false,
+            automaticRetry: false,
+            status: 'BLOCKED_CONFIGURATION',
+            retryBlocker:
+              'El ambiente BETA no tiene un canal de recepción GRE 2.0 de pruebas en SUNAT',
+          },
+          {
+            ...row,
+            id: 'gre-uncertain',
+            canRetry: false,
+            automaticRetry: false,
+            status: 'SIGNED',
+            retryBlocker: 'Requiere conciliación antes de reenviar',
+          },
+        ],
+      });
+    });
+    await signIn(page);
+    await page.goto(prefix + 'dispatch-guides');
+    await expect(page.getByText('Resultado guardado de prueba', { exact: true })).toHaveCount(3);
+    await expect(
+      page.getByText('Próximo intento: 31/10/2026 13:17:45 · Lima', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        'El ambiente BETA no tiene un canal de recepción GRE 2.0 de pruebas en SUNAT',
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Solicitar reintento', exact: true }),
+    ).toHaveCount(1);
+    await page.getByRole('button', { name: 'Solicitar reintento', exact: true }).click();
+    await expect.poll(() => retries).toBe(1);
+    expect(emissions).toBe(0);
+  });
+}

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -71,7 +72,7 @@ class UblSchemaValidationTest {
             default -> throw new IllegalArgumentException();
         });
         doc.setNumber(1);
-        doc.setIssueDate(LocalDate.of(2026, 10, 16));
+        doc.setIssueDate(LocalDate.now(ZoneId.of("America/Lima")));
         doc.setCurrency("PEN");
         doc.setIssuerRuc("20999999990");
         doc.setIssuerName("Carabo Test S.A.C.");

@@ -5,6 +5,8 @@ import io.carabo.app.service.CertificateService;
 import io.carabo.app.service.FiscalReadinessService;
 import io.carabo.app.service.ProducerIntegrationService;
 import io.carabo.app.security.ApiKeyService;
+import io.carabo.app.security.ManagedCredentialStore;
+import io.carabo.app.security.TenantContext;
 import io.carabo.core.entity.Tenant;
 import io.carabo.core.enums.SendMode;
 import io.carabo.core.country.CountryStrategyFactory;
@@ -31,6 +33,9 @@ public class TenantResource {
     @Inject
     EntityManager em;
 
+    @Inject ManagedCredentialStore credentialStore;
+    @Inject TenantContext tenantContext;
+
     @Inject
     TenantService tenantService;
 
@@ -54,6 +59,7 @@ public class TenantResource {
         if (validationError != null) return Response.status(400).entity(new ErrorResponse(validationError)).build();
         Tenant tenant = new Tenant();
         tenant.setBusinessCode(req.businessCode);
+        if (!tenantContext.canManage(tenant)) return Response.status(404).build();
         tenant.setBusinessName(req.businessName);
         tenant.setIssuerRuc(req.issuerRuc);
         tenant.setIssuerName(req.issuerName);
@@ -64,6 +70,8 @@ public class TenantResource {
         tenant.setSunatEndpoint(req.sunatEndpoint);
         tenant.setSolUser(req.solUser);
         tenant.setSolPassword(req.solPassword);
+        tenant.setGreClientId(req.greClientId);
+        tenant.setGreClientSecret(req.greClientSecret);
         tenant.setOseBaseUrl(req.oseBaseUrl);
         tenant.setOseApiToken(req.oseApiToken);
         tenant.setCertificateFile(req.certificateFile);
@@ -91,6 +99,7 @@ public class TenantResource {
     @Operation(summary = "Obtener tenant por businessCode")
     public Response getByBusinessCode(@PathParam("businessCode") String businessCode) {
         return tenantService.findByBusinessCode(businessCode)
+            .filter(tenantContext::canManage)
             .map(t -> Response.ok(toResponse(t)).build())
             .orElse(Response.status(404).build());
     }
@@ -100,6 +109,7 @@ public class TenantResource {
     @Operation(summary = "Preflight fiscal del tenant", description = "Comprueba la preparación para SUNAT sin exponer secretos")
     public Response readiness(@PathParam("businessCode") String businessCode) {
         return tenantService.findByBusinessCode(businessCode)
+            .filter(tenantContext::canManage)
             .map(tenant -> Response.ok(fiscalReadinessService.assess(tenant)).build())
             .orElse(Response.status(404).build());
     }
@@ -107,8 +117,10 @@ public class TenantResource {
     @GET
     @Operation(summary = "Listar todos los tenants")
     public Response listAll() {
-        var tenants = em.createQuery("SELECT t FROM Tenant t ORDER BY t.businessCode", Tenant.class)
-            .getResultList();
+        var tenants = tenantContext.isPlatformAdministrator()
+            ? em.createQuery("SELECT t FROM Tenant t ORDER BY t.businessCode", Tenant.class).getResultList()
+            : em.createQuery("SELECT t FROM Tenant t WHERE t.businessCode=:businessCode ORDER BY t.businessCode", Tenant.class)
+                .setParameter("businessCode",tenantContext.businessCode()).getResultList();
         return Response.ok(tenants.stream().map(this::toResponse).toList()).build();
     }
 
@@ -117,8 +129,8 @@ public class TenantResource {
     @Transactional
     @Operation(summary = "Actualizar tenant")
     public Response update(@PathParam("id") UUID id, UpdateTenantRequest req) {
-        Tenant tenant = em.find(Tenant.class, id);
-        if (tenant == null) return Response.status(404).build();
+        Tenant tenant = em.find(Tenant.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (tenant == null || !tenantContext.canManage(tenant)) return Response.status(404).build();
 
         String validationError = validateUpdate(req);
         if (validationError != null) return Response.status(400).entity(new ErrorResponse(validationError)).build();
@@ -138,6 +150,8 @@ public class TenantResource {
         if (req.sunatEndpoint != null) tenant.setSunatEndpoint(req.sunatEndpoint);
         if (req.solUser != null) tenant.setSolUser(req.solUser);
         if (req.solPassword != null) tenant.setSolPassword(req.solPassword);
+        if (req.greClientId != null) tenant.setGreClientId(req.greClientId);
+        if (req.greClientSecret != null) tenant.setGreClientSecret(req.greClientSecret);
         if (req.oseBaseUrl != null) tenant.setOseBaseUrl(req.oseBaseUrl);
         if (req.oseApiToken != null) tenant.setOseApiToken(req.oseApiToken);
         if (req.certificateFile != null) tenant.setCertificateFile(req.certificateFile);
@@ -161,8 +175,8 @@ public class TenantResource {
     @Transactional
     @Operation(summary = "Desactivar tenant")
     public Response deactivate(@PathParam("id") UUID id) {
-        Tenant tenant = em.find(Tenant.class, id);
-        if (tenant == null) return Response.status(404).build();
+        Tenant tenant = em.find(Tenant.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (tenant == null || !tenantContext.canManage(tenant)) return Response.status(404).build();
         tenant.setActive(false);
         em.merge(tenant);
         tenantService.evict(tenant.getBusinessCode());
@@ -174,8 +188,8 @@ public class TenantResource {
     @Transactional
     @Operation(summary = "Rotar API key", description = "Revoca inmediatamente la clave anterior y retorna la nueva una sola vez")
     public Response regenerateApiKey(@PathParam("id") UUID id) {
-        Tenant tenant = em.find(Tenant.class, id);
-        if (tenant == null) return Response.status(404).build();
+        Tenant tenant = em.find(Tenant.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (tenant == null || !tenantContext.canManage(tenant)) return Response.status(404).build();
 
         String apiKey = apiKeyService.generate();
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
@@ -190,18 +204,30 @@ public class TenantResource {
     @Path("/{id}/certificate")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Transactional
-    @Operation(summary = "Subir certificado", description = "Valida y guarda un PKCS#12 usando una contraseña del secret store")
+    @Operation(summary = "Subir certificado", description = "Valida un PKCS#12 y guarda su contraseña cifrada; admite referencias existentes")
     public Response uploadCertificate(@PathParam("id") UUID id,
                                       @RestForm("certificate") FileUpload certificate,
-                                      @RestForm("passwordReference") String passwordReference) {
-        Tenant tenant = em.find(Tenant.class, id);
+                                      @RestForm("passwordReference") String passwordReference,
+                                      @RestForm("password") String password) {
+        Tenant tenant = em.find(Tenant.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (tenant == null) return Response.status(404).build();
+        if (!tenantContext.canManage(tenant)) return Response.status(404).build();
         try {
-            var metadata = certificateService.validateAndStore(id,
-                certificate != null ? certificate.fileName() : null,
-                certificate != null ? certificate.uploadedFile() : null,
-                certificate != null ? certificate.size() : 0,
-                passwordReference);
+            ManagedCredentialStore.Prepared prepared = null;
+            String reference = passwordReference != null && !passwordReference.isBlank() ? passwordReference : tenant.getCertificatePassword();
+            if (password != null && !password.isEmpty()) {
+                io.carabo.app.service.TenantCredentialsService.validate(java.util.Map.of("certificatePassword",password));
+                prepared=credentialStore.prepare(id,"certificatePassword",password);
+                reference=prepared.reference();
+            } else if(reference != null && reference.startsWith(ManagedCredentialStore.PREFIX) && !credentialStore.belongsTo(reference,id,"certificatePassword")) {
+                throw new IllegalArgumentException("La contraseña no pertenece a esta empresa");
+            }
+            var metadata = prepared == null ? certificateService.validateAndStore(id,
+                certificate != null ? certificate.fileName() : null,certificate != null ? certificate.uploadedFile() : null,
+                certificate != null ? certificate.size() : 0,reference) : certificateService.validateAndStoreWithPassword(id,
+                certificate != null ? certificate.fileName() : null,certificate != null ? certificate.uploadedFile() : null,
+                certificate != null ? certificate.size() : 0,reference,password);
+            if(prepared != null) credentialStore.persist(prepared,tenantContext.userCode()!=null?tenantContext.userCode():"platform-administrator");
             tenant.setCertificateFile(metadata.fileName());
             tenant.setCertificatePassword(metadata.passwordReference());
             tenant.setCertificateAlias(metadata.alias());
@@ -233,8 +259,15 @@ public class TenantResource {
         if (req.maxDocumentsPerDay != null && (req.maxDocumentsPerDay < 1 || req.maxDocumentsPerDay > 100000)) {
             return "El máximo diario debe estar entre 1 y 100000";
         }
+        for (String reference : java.util.Arrays.asList(req.solPassword,req.greClientSecret,req.certificatePassword,req.oseApiToken)) {
+            if (reference != null && reference.startsWith(ManagedCredentialStore.PREFIX)) return "Usa la carga segura de credenciales para cambiar estas claves";
+        }
         if (req.solPassword != null && !req.solPassword.startsWith("secret://")) {
             return "La contraseña SOL debe usar una referencia secret://";
+        }
+        if (req.greClientId != null && (req.greClientId.isBlank() || req.greClientId.length() > 200)) return "El ID de cliente GRE no es válido";
+        if (req.greClientSecret != null && (!req.greClientSecret.startsWith("secret://") || req.greClientSecret.length() > 200)) {
+            return "La clave GRE debe usar una referencia secret://";
         }
         if (req.certificatePassword != null && !req.certificatePassword.startsWith("secret://")) {
             return "La contraseña del certificado debe usar una referencia secret://";
@@ -257,6 +290,8 @@ public class TenantResource {
         update.environment = req.environment;
         update.maxDocumentsPerDay = req.maxDocumentsPerDay;
         update.solPassword = req.solPassword;
+        update.greClientId = req.greClientId;
+        update.greClientSecret = req.greClientSecret;
         update.certificatePassword = req.certificatePassword;
         update.oseApiToken = req.oseApiToken;
         update.oseBaseUrl = req.oseBaseUrl;
@@ -294,6 +329,8 @@ public class TenantResource {
         public String sunatEndpoint;
         public String solUser;
         public String solPassword;
+        public String greClientId;
+        public String greClientSecret;
         public String oseBaseUrl;
         public String oseApiToken;
         public String certificateFile;
@@ -323,6 +360,8 @@ public class TenantResource {
         response.issuerUbigeo = tenant.getIssuerUbigeo();
         response.sendMode = tenant.getSendMode() != null ? tenant.getSendMode().name() : null;
         response.sunatEndpoint = tenant.getSunatEndpoint();
+        response.greCredentialsConfigured = tenant.getGreClientId() != null && !tenant.getGreClientId().isBlank()
+            && tenant.getGreClientSecret() != null && !tenant.getGreClientSecret().isBlank();
         response.oseBaseUrl = tenant.getOseBaseUrl();
         response.certificateFile = tenant.getCertificateFile();
         response.certificateValidFrom = tenant.getCertificateValidFrom();
@@ -345,6 +384,7 @@ public class TenantResource {
 
     /** Public administration view. Credentials and password fields are omitted. */
     public static class TenantResponse {
+        public boolean greCredentialsConfigured;
         public UUID id;
         public String businessCode;
         public String businessName;

@@ -38,6 +38,7 @@ Ejemplo completo de factura gravada (la fecha debe corresponder al calendario fi
 {
   "docType": "01",
   "series": "F001",
+  "number": 18452,
   "issueDate": "2026-10-16",
   "currency": "PEN",
   "externalId": "erp-01-20261016-00018452",
@@ -75,9 +76,68 @@ Content-Type: application/json
 
 La respuesta incluye `valid` y una lista `issues`; cada hallazgo contiene `path`, `severity`, valor `received`, valor `expected` y `suggestion`. La pantalla **Integraciones → Comparar documento** consume este mismo endpoint y presenta el documento del productor junto a un ejemplo correcto.
 
+## Series y correlativos: Tordo, SAP y otros ERP
+
+Revisión de código y documentación de referencia: **31 de octubre de 2026**. La regla de integración es que cada serie fiscal tenga un único sistema que asigne sus correlativos. Un reintento conserva el documento y su numeración.
+
+### Comportamiento implementado
+
+| Documento | Configuración y asignación | Papel de Carabo |
+|---|---|---|
+| Factura y boleta | Aquila administra `business.document_series`; Business/Operation asigna la serie y el número | Recibe `series` y `number`, valida, firma, envía y conserva el resultado |
+| Nota de crédito/débito | El productor debe enviar serie y correlativo; la corrección fiscal de Tordo también usa Business/Operation | Conserva la identidad enviada y valida su relación con el comprobante original |
+| GRE remitente | El productor envía la serie; actualmente Carabo asigna el correlativo mediante `CorrelativeService` | Conserva la solicitud sin número hasta preparar el envío y mantiene un contador propio por empresa y serie |
+
+`DocumentService.buildDocument` prioriza la serie recibida y conserva `request.number`. `DocumentValidator` rechaza un correlativo ausente o fuera de 1–99999999. Carabo **no genera otro correlativo de factura, boleta o nota**. El contador histórico de tipo `DOCUMENT` en la tabla de secuencias no significa que este flujo lo utilice.
+
+Los cuatro campos de series en Configuración son **valores predeterminados de compatibilidad**: sólo se usan cuando el productor omite `series`. No contienen rangos, sucursal, caja ni siguiente número. Con Tordo, el productor envía siempre ambos datos y prevalece la configuración de Aquila. El preflight actual todavía exige valores de respaldo de factura y boleta, aunque el productor envíe su propia serie; esa exigencia de interfaz no convierte a Carabo en el maestro de numeración.
+
+### Justificación y comparación con otros sistemas
+
+SAP Business One administra numeración por tipo documental y configura series digitales para documentos electrónicos. SAP S/4HANA dispone además de configuración de numeración oficial para Perú, que debe distinguirse del identificador interno del documento. Su documentación demuestra que integrar un facturador no obliga a cederle la numeración fiscal. La localización y el mapeo concreto deben verificarse en cada instalación SAP; `DocEntry` o `DocNum` no deben convertirse automáticamente en el número fiscal.
+
+Como ejemplo de API fiscal, el contrato público de APIs Peru recibe `document_type_code`, `series`, `number` y una referencia externa tanto para comprobantes como para guías. Es un ejemplo verificable de conservación de numeración del productor, no una afirmación de que todos los proveedores operen igual.
+
+La conclusión arquitectónica para Carabo es mantener la numeración del ERP cuando ya existe. Un contador fiscal propio se justifica cuando el ERP **delega expresamente** a Carabo la asignación de una serie exclusiva. Hace falta acordar qué sistema numera, desde qué correlativo continúa y cómo devuelve la identidad al ERP. Duplicar contadores de una misma serie en Aquila/SAP y Carabo produciría riesgo de colisiones.
+
+Fuentes primarias:
+
+- [SAP Business One: numeración de documentos](https://learning.sap.com/courses/implementing-sap-business-one-es/implementacion-de-la-numeracion-de-documentos-y-datos-maestros).
+- [SAP Business One: configuración de series digitales, p. 5](https://help.sap.com/doc/d807de8d28ec4b6f864f77524a56abe8/10.0/en-US/How_to_Work_with_Electronic_Documents_in_SAP_Business_One.pdf).
+- [SAP S/4HANA: numeración oficial en Perú](https://help.sap.com/docs/SAP_S4HANA_CLOUD/7231e70d51c24a889e97176023e37a22/3c2ca6269eea4a9c942f9cef8a6a2103.html).
+- [APIs Peru: contratos de emisión](https://api.apisperu.pro/docs).
+
+### Integración SAP propuesta y límites actuales
+
+Para un comprobante fiscal ya numerado por SAP, el adaptador debe enviar esa serie y ese número, un `sourceDocId` que identifique inequívocamente el documento SAP y un `externalId` estable. Por ejemplo, los campos de identidad de una solicitud podrían ser:
+
+```json
+{
+  "docType": "01",
+  "series": "F023",
+  "number": 456,
+  "sourceDocId": "sap:PE01:invoice:5482",
+  "externalId": "sap:PE01:invoice:5482:original"
+}
+```
+
+Este fragmento ilustra el mapeo; no reemplaza el contrato completo con receptor, fecha y líneas. La factura fiscal `F023-00000456` debe mantenerse en ERP, XML, representación y estado de Carabo. Las claves internas SAP permanecen como referencias de origen. Una repetición técnica conserva estas mismas identidades; una corrección fiscal requiere su documento correspondiente.
+
+**Pendientes de implementación, no funcionalidades disponibles:**
+
+1. Expresar la autoridad de numeración por empresa, productor y tipo documental: ERP o Carabo delegado. El nombre `numberingAuthority` es una propuesta, no un campo admitido actualmente por la API.
+2. En integración con ERP, exigir también `series` explícita y retirar el respaldo silencioso. La pantalla debería identificar la procedencia Aquila/SAP y mover los respaldos a configuración avanzada.
+3. Aceptar una GRE ya numerada por SAP exige ampliar `EmitDispatchGuideRequest`: actualmente no tiene `number`. Agregar ese atributo al JSON no implementa la conservación del número externo. No conectar una serie GRE que SAP ya numere al contador interno de Carabo.
+4. Verificar una clave fiscal por RUC emisor, tipo documental, serie y correlativo, con separación de ambientes. Hoy la restricción del CPE es `(business_code,series,number)` y el almacenamiento usa empresa/serie/número. Por tanto, no se debe asumir que ya se admite reutilizar la misma serie y número entre tipos distintos; hacen falta cambios compatibles en restricciones y rutas documentales antes de ofrecerlo a un ERP.
+5. Un valor único de respaldo para notas de crédito/débito no representa las dos familias F/B. Para notas de boleta, el productor debe enviar la serie B adecuada; `FC01`/`FD01` no sustituyen esa decisión.
+
+SUNAT diferencia las familias F/B y las notas asociadas a factura o boleta. La regulación de 2026 mantiene esa distinción para las notas de crédito. La selección de series debe respetarla; estos ejemplos no constituyen una autorización de serie para un emisor específico. [SUNAT: operatividad](https://orientacion.sunat.gob.pe/3529-operatividad), [anexo de notas de crédito 2026](https://www.sunat.gob.pe/legislacion/superin/2026/anexo-000048-2026.pdf).
+
+Validaciones necesarias antes de declarar compatible un adaptador SAP: conservación exacta de serie/número; rechazo de numeración incompleta; reintentos sin nuevo documento; concurrencia sin duplicación; notas de ambas familias; migración desde el último número emitido; aislamiento de empresa y ambiente; y restitución del resultado fiscal al documento SAP correcto. Esta revisión documenta el contrato; no acredita un conector SAP homologado.
+
 ## Guías de remisión electrónica (GRE 2.0)
 
-Las GRE usan un contrato síncrono separado. `DOCUMENT_EMIT` permite emitir; `DOCUMENT_READ` permite validar el cuerpo y consultar estado, XML, CDR y PDF. El emisor y la empresa se derivan de la API key:
+Las GRE usan un contrato separado que guarda una solicitud durable y procesa el envío en segundo plano. `DOCUMENT_EMIT` permite emitir; `DOCUMENT_READ` permite validar el cuerpo y consultar estado, XML, CDR y PDF. El emisor y la empresa se derivan de la API key:
 
 ```http
 POST /carabo/api/dispatch-guides/emit
@@ -187,7 +247,7 @@ No se necesita una librería propietaria: el futuro contrato directo será AMQP 
 - `Idempotency-Key` es obligatorio en ingestión asíncrona, tiene un máximo de 100 caracteres y debe ser estable por documento de origen.
 - Repetir la misma solicitud es seguro. Si el documento ya fue procesado, Carabo devuelve su estado actual sin emitir otro correlativo.
 - `202` significa que el broker confirmó el mensaje; todavía no significa que SUNAT/OSE aceptó el comprobante.
-- La GRE responde síncronamente con `201` y su identificador; se consulta con `GET /dispatch-guides/{id}`. No pasa por la cola de comprobantes.
+- La GRE responde con `201` y el identificador de la solicitud persistida; se consulta con `GET /dispatch-guides/{id}`. Esa respuesta no implica que tenga número o CDR aceptada. No pasa por la cola de comprobantes.
 - `503 BROKER_UNAVAILABLE` significa que Carabo no pudo confirmar la publicación. El cliente puede reenviar exactamente la misma solicitud y clave.
 - `404` durante la consulta puede ser transitorio mientras el consumidor toma el mensaje. Respete `Retry-After` y use backoff con jitter.
 - Un `REJECTED` respaldado por CDR es terminal. `ERROR` es técnico y puede ser reintentable. `OBSERVED` conserva validez fiscal pero requiere revisión.

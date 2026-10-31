@@ -46,10 +46,15 @@ public class LayoutClient {
             pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc), doc.getBusinessCode(), authorization);
     }
 
-    public byte[] generatePdf(DispatchGuide guide, String pageFormat) {
+    public byte[] generatePdf(DispatchGuide guide, String pageFormat) { return generatePdf(guide,pageFormat,null); }
+
+    public byte[] generatePdf(DispatchGuide guide, String pageFormat, String authorization) {
         Map<String, Object> data = new HashMap<>();
         data.put("fullNumber", guide.getFullNumber());
         data.put("docType", "09");
+        data.put("status", guide.getStatus().name());
+        data.put("environment", guide.getEnvironment());
+        data.put("sunatResponseCode", guide.getSunatResponseCode());
         data.put("docTypeName", "Guía de remisión electrónica");
         data.put("issueDate", guide.getIssueDate() != null ? guide.getIssueDate().toString() : "");
         data.put("startDate", guide.getStartDate() != null ? guide.getStartDate().toString() : "");
@@ -74,7 +79,7 @@ public class LayoutClient {
             "productName", safe(item.getProductName()), "unitCode", safe(item.getUnitCode()),
             "quantity", item.getQuantity(), "weight", item.getWeight() != null ? item.getWeight() : ""
         )).toList());
-        return generatePdf("ELECTRONIC_DISPATCH_GUIDE", pageFormat != null ? pageFormat : "A4", data);
+        return generatePdf("ELECTRONIC_DISPATCH_GUIDE", pageFormat != null ? pageFormat : "A4", data, guide.getBusinessCode(), authorization);
     }
 
     private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data) {

@@ -17,6 +17,8 @@ class TenantResponseTest {
             .collect(Collectors.toSet());
 
         assertFalse(fields.contains("apiKey"));
+        assertFalse(fields.contains("greClientId"));
+        assertFalse(fields.contains("greClientSecret"));
         assertFalse(fields.contains("solUser"));
         assertFalse(fields.contains("solPassword"));
         assertFalse(fields.contains("oseApiToken"));

@@ -23,6 +23,8 @@ public class TenantService {
     @Inject
     ApiKeyService apiKeyService;
 
+    @Inject jakarta.transaction.TransactionSynchronizationRegistry transactions;
+
     private final Map<String, Tenant> cache = new ConcurrentHashMap<>();
 
     public Tenant resolve(String businessCode) {
@@ -75,5 +77,15 @@ public class TenantService {
     public void evict(String businessCode) {
         cache.remove(businessCode);
         apiKeyCache.values().removeIf(t -> t.getBusinessCode().equals(businessCode));
+        // A lookup during an uncommitted update can repopulate the previous value.
+        if (transactions != null && transactions.getTransactionStatus() == jakarta.transaction.Status.STATUS_ACTIVE) {
+            transactions.registerInterposedSynchronization(new jakarta.transaction.Synchronization() {
+                public void beforeCompletion() {}
+                public void afterCompletion(int status) {
+                    cache.remove(businessCode);
+                    apiKeyCache.values().removeIf(t -> t.getBusinessCode().equals(businessCode));
+                }
+            });
+        }
     }
 }

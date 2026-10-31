@@ -3,6 +3,7 @@ package io.carabo.app.scheduler;
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentService;
 import io.carabo.app.service.DispatchGuideService;
+import io.carabo.app.service.DispatchGuideProcessor;
 import io.carabo.app.service.FiscalClock;
 import io.carabo.app.service.NotificationService;
 import io.carabo.core.entity.Document;
@@ -45,7 +46,17 @@ public class DocumentScheduler {
         if (processed > 0) LOG.infof("Processed %d durable notifications", processed);
     }
 
-    @Scheduled(every = "5m", identity = "dispatch-guide-ticket-poll")
+    @Inject DispatchGuideProcessor dispatchGuideProcessor;
+
+    @Scheduled(every = "15s", identity = "dispatch-guide-submit", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    void submitDispatchGuides() {
+        for (var guide : dispatchGuideService.findSubmissionsDue(20)) {
+            try { dispatchGuideProcessor.process(guide.getId(), guide.getBusinessCode()); }
+            catch (Exception error) { LOG.errorf("GRE processing interrupted for %s: %s", guide.getId(), error.getClass().getSimpleName()); }
+        }
+    }
+
+    @Scheduled(every = "30s", identity = "dispatch-guide-ticket-poll", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void checkDispatchGuideTickets() {
         var guides = dispatchGuideService.findTicketsDue(50);
         for (var guide : guides) {

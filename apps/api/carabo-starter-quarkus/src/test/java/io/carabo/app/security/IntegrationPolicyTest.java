@@ -36,4 +36,10 @@ class IntegrationPolicyTest {
         assertFalse(IntegrationPolicy.permits("/tenants", "GET", scopes));
         assertFalse(IntegrationPolicy.permits("/integrations", "GET", scopes));
     }
+    @org.junit.jupiter.api.Test void greRetryRequiresEmitScope() {
+        String path="/dispatch-guides/11111111-1111-1111-1111-111111111111/retry";
+        assertFalse(IntegrationPolicy.permits(path,"POST",Set.of("DOCUMENT_READ")));
+        assertTrue(IntegrationPolicy.permits(path,"POST",Set.of("DOCUMENT_EMIT")));
+    }
+
 }

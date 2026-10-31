@@ -11,6 +11,9 @@ export interface TenantConfig {
   sunatEndpoint: string;
   solUser?: string;
   solPassword?: string;
+  greClientId?: string;
+  greClientSecret?: string;
+  greCredentialsConfigured?: boolean;
   oseBaseUrl: string;
   oseApiToken?: string;
   certificateFile: string;
@@ -42,4 +45,17 @@ export interface FiscalReadiness {
   ready: boolean;
   blockers: number;
   checks: FiscalReadinessCheck[];
+}
+
+export type CredentialField =
+  | 'solUser'
+  | 'solPassword'
+  | 'greClientId'
+  | 'greClientSecret'
+  | 'certificatePassword'
+  | 'oseApiToken';
+export type CredentialValues = Record<CredentialField, string>;
+export interface CredentialStatus {
+  storageReady: boolean;
+  fields: Record<CredentialField, { configured: boolean; usable: boolean }>;
 }

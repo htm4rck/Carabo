@@ -130,6 +130,12 @@ Aplicación ejecutable que integra todos los módulos:
 - Swagger UI en `/swagger`
 - Health check en `/health`
 
+## Configuración fiscal y responsabilidad de numeración
+
+El [procedimiento para completar la empresa](docs/runbooks/carabo-operations.md#completar-configuración-de-una-empresa) distingue identidad fiscal, credenciales SOL/GRE, referencias del almacén de secretos, certificado, ambiente y validaciones pendientes del canal GRE Beta.
+
+Las series visibles en Configuración son respaldos de compatibilidad, no un maestro paralelo de rangos y correlativos. En los comprobantes integrados, **Aquila/Business/Operation o el ERP productor asignan serie y número; Carabo los conserva**. GRE todavía utiliza un contador propio y requiere un contrato adicional para admitir numeración fiscal asignada por SAP. La justificación, comparación con SAP y APIs fiscales, y límites actuales están en [Series y correlativos](docs/external-integration.md#series-y-correlativos-tordo-sap-y-otros-erp).
+
 ## API Endpoints
 
 ### Documentos
@@ -149,10 +155,16 @@ Aplicación ejecutable que integra todos los módulos:
 ### Guías de Remisión (GRE 2.0)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/api/dispatch-guides/emit` | Emitir guía de remisión |
+| POST | `/api/dispatch-guides/emit` | Guardar solicitud GRE durable; envío y consulta en segundo plano |
 | POST | `/api/dispatch-guides/validate` | Validar cuerpo GRE sin emitir |
 | GET | `/api/dispatch-guides/{id}` | Obtener guía por ID |
 | GET | `/api/dispatch-guides` | Listar guías |
+
+Las credenciales GRE se administran por emisor (`greClientId` y `greClientSecret`, este último como referencia `secret://`), igual que los demás secretos fiscales. Las respuestas administrativas omiten ambos valores. Las variables de entorno GRE se mantienen únicamente como compatibilidad para instalaciones anteriores sin configuración propia del tenant.
+
+Una solicitud sin credenciales queda `BLOCKED_CONFIGURATION`, sin consumir correlativo. El procesador reserva el número y guarda una reclamación duradera antes de enviar. Un envío de resultado incierto requiere conciliación y nunca se reenvía automáticamente. Los tickets se consultan hasta recibir CDR; los fallos de transporte tienen reintentos acotados y no son rechazos fiscales. Un rechazo con CDR queda terminal y conserva código, motivo y archivo.
+
+El PDF para traslado exige `ACCEPTED` u `OBSERVED`, CDR almacenada y ambiente de producción conservado en la guía. Guardar, firmar o recibir ticket no habilita el traslado; BETA tampoco. La contingencia requiere el procedimiento autorizado de SUNAT y no se habilita colocando una leyenda sobre una GRE pendiente. Referencias: [operación GRE](https://cpe.sunat.gob.pe/node/116) y [contingencia GRE, pregunta 8](https://cpe.sunat.gob.pe/node/122).
 
 ### Tenants
 | Método | Ruta | Descripción |
@@ -301,7 +313,7 @@ docker compose up -d
 
 ## Migraciones
 
-Flyway ejecuta automáticamente las migraciones V1–V5 del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
+Flyway ejecuta automáticamente las migraciones V1–V13 del schema `carabo` al iniciar la API. En instalaciones existentes crea un baseline en V2. `002-seed-layout-templates.sql` se mantiene separado porque modifica el schema de Tordo/Layout y debe aplicarse desde el despliegue de plataforma.
 
 ## Integración con el Ecosistema Tordo
 

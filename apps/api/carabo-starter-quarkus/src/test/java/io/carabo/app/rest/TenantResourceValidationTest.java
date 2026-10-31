@@ -36,7 +36,13 @@ class TenantResourceValidationTest {
         assertEquals("La contraseña SOL debe usar una referencia secret://",
             TenantResource.validateUpdate(plaintextSol));
 
+        var gre = new TenantResource.UpdateTenantRequest();
+        gre.greClientSecret = "plaintext";
+        assertEquals("La clave GRE debe usar una referencia secret://", TenantResource.validateUpdate(gre));
+
         var references = new TenantResource.UpdateTenantRequest();
+        references.greClientId = "test-client";
+        references.greClientSecret = "secret://tenant-gre-secret";
         references.solPassword = "secret://tenant-sol-password";
         references.certificatePassword = "secret://tenant-certificate-password";
         references.oseApiToken = "secret://tenant-ose-token";

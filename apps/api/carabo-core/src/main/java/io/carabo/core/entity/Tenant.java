@@ -50,6 +50,12 @@ public class Tenant {
     @Column(name = "sol_password", length = 100)
     private String solPassword;
 
+    @Column(name = "gre_client_id", length = 200)
+    private String greClientId;
+
+    @Column(name = "gre_client_secret", length = 200)
+    private String greClientSecret;
+
     // OSE credentials
     @Column(name = "ose_base_url", length = 500)
     private String oseBaseUrl;
@@ -153,6 +159,10 @@ public class Tenant {
     public void setSolUser(String solUser) { this.solUser = solUser; }
     public String getSolPassword() { return solPassword; }
     public void setSolPassword(String solPassword) { this.solPassword = solPassword; }
+    public String getGreClientId() { return greClientId; }
+    public void setGreClientId(String value) { greClientId = value; }
+    public String getGreClientSecret() { return greClientSecret; }
+    public void setGreClientSecret(String value) { greClientSecret = value; }
     public String getOseBaseUrl() { return oseBaseUrl; }
     public void setOseBaseUrl(String oseBaseUrl) { this.oseBaseUrl = oseBaseUrl; }
     public String getOseApiToken() { return oseApiToken; }

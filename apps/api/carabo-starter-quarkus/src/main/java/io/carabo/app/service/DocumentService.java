@@ -390,7 +390,7 @@ public class DocumentService {
 
     // --- Document building (uses tenant defaults) ---
 
-    private Document buildDocument(EmitDocumentRequest req, Tenant tenant) {
+    Document buildDocument(EmitDocumentRequest req, Tenant tenant) {
         Document doc = new Document();
         doc.setBusinessCode(req.getBusinessCode());
         doc.setDocType(DocumentType.fromSunatCode(req.getDocType()));
@@ -459,10 +459,11 @@ public class DocumentService {
             var taxProfile = PeruTaxRules.profile(affectationCode);
             line.setAffectationCode(affectationCode);
 
-            BigDecimal lineBase = reqLine.getQuantity().multiply(reqLine.getUnitPrice())
-                .subtract(line.getDiscount()).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal unroundedBase = reqLine.getQuantity().multiply(reqLine.getUnitPrice())
+                .subtract(line.getDiscount());
+            BigDecimal lineBase = unroundedBase.setScale(2, RoundingMode.HALF_UP);
             BigDecimal taxRate = taxProfile != null ? taxProfile.rate() : BigDecimal.ZERO;
-            BigDecimal lineIgv = lineBase.multiply(taxRate)
+            BigDecimal lineIgv = unroundedBase.multiply(taxRate)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
             line.setTaxBase(lineBase);

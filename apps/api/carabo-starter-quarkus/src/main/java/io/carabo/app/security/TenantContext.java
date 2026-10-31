@@ -58,6 +58,15 @@ public class TenantContext {
         return tenant().getBusinessCode();
     }
 
+    public boolean canManage(Tenant target) {
+        return administrator && (isPlatformAdministrator()
+            || tenant != null && tenant.getBusinessCode().equals(target.getBusinessCode()));
+    }
+
+    public boolean isPlatformAdministrator() {
+        return administrator && (userCode == null || roles.contains("ROOT_PLATFORM"));
+    }
+
     public boolean isAdministrator() {
         return administrator;
     }

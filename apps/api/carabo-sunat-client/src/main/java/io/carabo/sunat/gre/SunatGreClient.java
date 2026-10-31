@@ -1,167 +1,141 @@
 package io.carabo.sunat.gre;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.HexFormat;
+import java.util.Map;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-/**
- * SUNAT GRE 2.0 REST API client.
- * Uses OAuth2 client_credentials for token, then sends signed XML via REST.
- *
- * Endpoints:
- * - Token: https://api-seguridad.sunat.gob.pe/v1/clientessol/{clientId}/oauth2/token
- * - Send:  https://api-cpe.sunat.gob.pe/v1/contribuyente/gem/comprobantes/{filename}
- * - Status: https://api-cpe.sunat.gob.pe/v1/contribuyente/gem/comprobantes/envios/{ticket}
- */
+/** SUNAT GRE REST transport. HTTP success and tickets do not imply fiscal acceptance. */
 public class SunatGreClient {
-
-    private static final String TOKEN_URL_TEMPLATE = "https://api-seguridad.sunat.gob.pe/v1/clientessol/%s/oauth2/token";
-    private static final String SEND_URL = "https://api-cpe.sunat.gob.pe/v1/contribuyente/gem/comprobantes/";
-    private static final String STATUS_URL = "https://api-cpe.sunat.gob.pe/v1/contribuyente/gem/comprobantes/envios/";
-
-    // Beta endpoints
-    private static final String BETA_TOKEN_URL_TEMPLATE = "https://gre-beta.sunat.gob.pe/v1/clientessol/%s/oauth2/token";
-    private static final String BETA_SEND_URL = "https://gre-beta.sunat.gob.pe/v1/contribuyente/gem/comprobantes/";
-    private static final String BETA_STATUS_URL = "https://gre-beta.sunat.gob.pe/v1/contribuyente/gem/comprobantes/envios/";
-
-    private final String clientId;
-    private final String clientSecret;
-    private final String solUser;     // RUC + usuario SOL (e.g. 20123456789MODDATOS)
-    private final String solPassword;
-    private final boolean beta;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final String clientId, clientSecret, solUser, solPassword, tokenUrl, sendUrl, statusUrl;
+    private final HttpClient httpClient;
     private final ObjectMapper mapper = new ObjectMapper();
-
     private String cachedToken;
     private long tokenExpiry;
 
     public SunatGreClient(String clientId, String clientSecret, String solUser, String solPassword, boolean beta) {
-        this.clientId = clientId;
-        this.clientSecret = clientSecret;
-        this.solUser = solUser;
-        this.solPassword = solPassword;
-        this.beta = beta;
+        this(clientId, clientSecret, solUser, solPassword,
+            String.format(beta ? "https://gre-beta.sunat.gob.pe/v1/clientessol/%s/oauth2/token"
+                : "https://api-seguridad.sunat.gob.pe/v1/clientessol/%s/oauth2/token", clientId),
+            beta ? "https://gre-beta.sunat.gob.pe/v1/contribuyente/gem/comprobantes/"
+                : "https://api-cpe.sunat.gob.pe/v1/contribuyente/gem/comprobantes/",
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
     }
 
-    /**
-     * Send signed GRE XML to SUNAT REST API.
-     * Returns ticket number for async status check.
-     */
+    SunatGreClient(String clientId, String clientSecret, String solUser, String solPassword,
+                   String tokenUrl, String sendUrl, HttpClient httpClient) {
+        this.clientId = clientId; this.clientSecret = clientSecret; this.solUser = solUser;
+        this.solPassword = solPassword; this.tokenUrl = tokenUrl; this.sendUrl = sendUrl;
+        this.statusUrl = sendUrl + "envios/"; this.httpClient = httpClient;
+    }
+
     public GreSendResult send(String filename, String signedXml) {
+        String token;
+        try { token = getToken(); }
+        catch (Exception error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            return new GreSendResult(false, null, "No se pudo autenticar con SUNAT GRE; revisa credenciales y disponibilidad", true, false);
+        }
         try {
-            String token = getToken();
-            byte[] zipBytes = ZipUtil.zipContent(filename + ".xml", signedXml.getBytes(StandardCharsets.UTF_8));
-            String base64Zip = Base64.getEncoder().encodeToString(zipBytes);
-
-            String jsonBody = mapper.writeValueAsString(new SendBody(filename, base64Zip));
-
-            String sendUrl = beta ? BETA_SEND_URL + filename : SEND_URL + filename;
-
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(sendUrl))
-                .header("Authorization", "Bearer " + token)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
+            byte[] zip = ZipUtil.zipContent(filename + ".xml", signedXml.getBytes(StandardCharsets.UTF_8));
+            String body = mapper.writeValueAsString(Map.of("archivo", Map.of(
+                "nomArchivo", filename + ".zip", "arcGreZip", Base64.getEncoder().encodeToString(zip),
+                "hashZip", HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(zip)))));
+            var request = HttpRequest.newBuilder(URI.create(sendUrl + filename)).timeout(Duration.ofSeconds(20))
+                .header("Authorization", "Bearer " + token).header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200 || response.statusCode() == 201) {
-                JsonNode node = mapper.readTree(response.body());
-                String ticket = node.has("numTicket") ? node.get("numTicket").asText() : null;
-                return new GreSendResult(true, ticket, null, response.body());
+                String ticket = mapper.readTree(response.body()).path("numTicket").asText("");
+                if (!ticket.isBlank()) return new GreSendResult(true, ticket, null, false, false);
+                return unknownSubmission();
             }
-
-            return new GreSendResult(false, null, "HTTP " + response.statusCode(), response.body());
-        } catch (Exception e) {
-            return new GreSendResult(false, null, e.getMessage(), null);
+            if (response.statusCode() >= 500) return unknownSubmission();
+            return new GreSendResult(false, null, "SUNAT no admitió la solicitud GRE (HTTP " + response.statusCode()
+                + "); revisa la configuración y el documento", false, false);
+        } catch (Exception error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            return unknownSubmission();
         }
     }
 
-    /**
-     * Check ticket status for a previously sent GRE.
-     */
+    private GreSendResult unknownSubmission() {
+        return new GreSendResult(false, null, "Envío sin confirmación de ticket. Requiere conciliación antes de reenviar; no habilita el traslado", false, true);
+    }
+
     public GreStatusResult checkStatus(String ticket) {
         try {
-            String token = getToken();
-            String statusUrl = beta ? BETA_STATUS_URL + ticket : STATUS_URL + ticket;
-
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(statusUrl))
-                .header("Authorization", "Bearer " + token)
-                .GET()
-                .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200) {
-                JsonNode node = mapper.readTree(response.body());
-                String status = node.has("codRespuesta") ? node.get("codRespuesta").asText() : "PENDING";
-                boolean accepted = "0".equals(status) || "0000".equals(status);
-                String cdrBase64 = node.has("arcCdr") ? node.get("arcCdr").asText() : null;
-                byte[] cdrZip = cdrBase64 != null ? Base64.getDecoder().decode(cdrBase64) : null;
-                String cdrXml = cdrZip != null ? ZipUtil.unzipFirst(cdrZip) : null;
-                String msg = node.has("desMensaje") ? node.get("desMensaje").asText() : "";
-                return new GreStatusResult(accepted, status, msg, cdrXml);
-            }
-
-            return new GreStatusResult(false, "ERROR", "HTTP " + response.statusCode(), null);
-        } catch (Exception e) {
-            return new GreStatusResult(false, "ERROR", e.getMessage(), null);
+            var request = HttpRequest.newBuilder(URI.create(statusUrl + URLEncoder.encode(ticket, StandardCharsets.UTF_8)))
+                .timeout(Duration.ofSeconds(20)).header("Authorization", "Bearer " + getToken()).GET().build();
+            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) return statusError("HTTP_" + response.statusCode(), "SUNAT no pudo confirmar el estado de la guía");
+            return parseStatus(response.body());
+        } catch (Exception error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            return statusError("TRANSPORT_ERROR", "No se pudo consultar SUNAT. La guía sigue sin confirmación fiscal");
         }
+    }
+
+    GreStatusResult parseStatus(String body) throws Exception {
+        JsonNode node = mapper.readTree(body);
+        String status = node.path("codRespuesta").asText("");
+        if ("98".equals(status)) return new GreStatusResult(false, "98", "SUNAT está procesando la guía; no habilita el traslado", null, false, false);
+        String encoded = node.path("arcCdr").asText("");
+        if (encoded.isBlank()) return statusError("MISSING_CDR", "SUNAT aún no devolvió una CDR verificable; no habilita el traslado");
+        String xml = ZipUtil.unzipFirst(Base64.getDecoder().decode(encoded));
+        if (xml == null) return statusError("INVALID_CDR", "La respuesta SUNAT no contiene una CDR verificable");
+        var factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        var responses = document.getElementsByTagNameNS("*", "ResponseCode");
+        var descriptions = document.getElementsByTagNameNS("*", "Description");
+        if (responses.getLength() != 1) return statusError("INVALID_CDR", "La CDR no contiene un resultado fiscal único");
+        String code = responses.item(0).getTextContent().trim();
+        if (!code.matches("\\d{1,5}")) return statusError("INVALID_CDR", "La CDR no contiene un código fiscal válido");
+        String message = descriptions.getLength() > 0 ? descriptions.item(0).getTextContent().trim() : "Respuesta fiscal " + code;
+        boolean accepted = "0".equals(code);
+        var notes = document.getElementsByTagNameNS("*", "Note");
+        boolean observed = accepted && notes.getLength() > 0;
+        for (int index = 0; index < Math.min(notes.getLength(), 20); index++) message += "; " + notes.item(index).getTextContent().trim();
+        if (message.length() > 2000) message = message.substring(0, 2000);
+        return new GreStatusResult(accepted, code, message, xml, !accepted, observed);
+    }
+
+    private GreStatusResult statusError(String code, String message) {
+        return new GreStatusResult(false, code, message, null, false, false);
     }
 
     private String getToken() throws Exception {
-        if (cachedToken != null && System.currentTimeMillis() < tokenExpiry) {
-            return cachedToken;
-        }
-
-        String tokenUrl = String.format(beta ? BETA_TOKEN_URL_TEMPLATE : TOKEN_URL_TEMPLATE, clientId);
-
-        String formBody = "grant_type=password"
-            + "&scope=https://api-cpe.sunat.gob.pe"
-            + "&client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8)
-            + "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8)
-            + "&username=" + URLEncoder.encode(solUser, StandardCharsets.UTF_8)
-            + "&password=" + URLEncoder.encode(solPassword, StandardCharsets.UTF_8);
-
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(tokenUrl))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(HttpRequest.BodyPublishers.ofString(formBody))
-            .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("SUNAT token request failed: " + response.statusCode() + " " + response.body());
-        }
-
-        JsonNode node = mapper.readTree(response.body());
-        cachedToken = node.get("access_token").asText();
-        int expiresIn = node.has("expires_in") ? node.get("expires_in").asInt() : 3600;
-        tokenExpiry = System.currentTimeMillis() + (expiresIn - 60) * 1000L;
-
+        if (cachedToken != null && System.currentTimeMillis() < tokenExpiry) return cachedToken;
+        String form = "grant_type=password&scope=https://api-cpe.sunat.gob.pe&client_id=" + encode(clientId)
+            + "&client_secret=" + encode(clientSecret) + "&username=" + encode(solUser) + "&password=" + encode(solPassword);
+        var request = HttpRequest.newBuilder(URI.create(tokenUrl)).timeout(Duration.ofSeconds(15))
+            .header("Content-Type", "application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(form)).build();
+        var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) throw new IllegalStateException("GRE authentication unavailable");
+        var node = mapper.readTree(response.body());
+        cachedToken = node.path("access_token").asText("");
+        if (cachedToken.isBlank()) throw new IllegalStateException("GRE token missing");
+        tokenExpiry = System.currentTimeMillis() + Math.max(0, node.path("expires_in").asInt(3600) - 60) * 1000L;
         return cachedToken;
     }
 
-    // DTOs
-    public record GreSendResult(boolean success, String ticket, String error, String rawResponse) {}
-    public record GreStatusResult(boolean accepted, String code, String message, String cdrXml) {}
-
-    private static class SendBody {
-        public String nomArchivo;
-        public String arcGreZip;
-        public SendBody(String nomArchivo, String arcGreZip) {
-            this.nomArchivo = nomArchivo;
-            this.arcGreZip = arcGreZip;
-        }
-    }
+    private String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
+    public record GreSendResult(boolean success, String ticket, String error, boolean retryable, boolean uncertain) {}
+    public record GreStatusResult(boolean accepted, String code, String message, String cdrXml, boolean rejected, boolean observed) {}
 }

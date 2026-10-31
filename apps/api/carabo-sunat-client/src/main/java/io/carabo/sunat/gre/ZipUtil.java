@@ -26,12 +26,14 @@ public final class ZipUtil {
 
     public static String unzipFirst(byte[] zipBytes) {
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-            ZipEntry entry = zis.getNextEntry();
+            ZipEntry entry;
+            do { entry = zis.getNextEntry(); } while (entry != null && entry.isDirectory());
             if (entry == null) return null;
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
             int len;
             while ((len = zis.read(buffer)) > 0) {
+                if (baos.size() + len > 5 * 1024 * 1024) throw new IllegalArgumentException("CDR exceeds size limit");
                 baos.write(buffer, 0, len);
             }
             return baos.toString(StandardCharsets.UTF_8);

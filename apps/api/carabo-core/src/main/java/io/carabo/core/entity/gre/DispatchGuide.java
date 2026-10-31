@@ -24,7 +24,7 @@ public class DispatchGuide {
     @Column(nullable = false, length = 10)
     private String series; // T001, V001
 
-    @Column(nullable = false)
+    @Column
     private Integer number;
 
     @Column(name = "issue_date", nullable = false)
@@ -118,8 +118,17 @@ public class DispatchGuide {
 
     // Status & SUNAT
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 32)
     private DocumentStatus status = DocumentStatus.PENDING;
+
+    @Column(length = 20)
+    private String environment;
+
+    @Column(name = "payload_hash", length = 64)
+    private String payloadHash;
+
+    @Column(name = "sunat_response_code", length = 100)
+    private String sunatResponseCode;
 
     @Column(name = "hash_code", length = 100)
     private String hashCode;
@@ -157,7 +166,7 @@ public class DispatchGuide {
     @PreUpdate
     void preUpdate() { updatedAt = Instant.now(); }
 
-    public String getFullNumber() { return series + "-" + String.format("%08d", number); }
+    public String getFullNumber() { return number == null ? null : series + "-" + String.format("%08d", number); }
 
     // Getters & Setters
     public UUID getId() { return id; }
@@ -222,6 +231,12 @@ public class DispatchGuide {
     public void setTransferReasonDesc(String transferReasonDesc) { this.transferReasonDesc = transferReasonDesc; }
     public DocumentStatus getStatus() { return status; }
     public void setStatus(DocumentStatus status) { this.status = status; }
+    public String getEnvironment() { return environment; }
+    public void setEnvironment(String value) { environment = value; }
+    public String getPayloadHash() { return payloadHash; }
+    public void setPayloadHash(String value) { payloadHash = value; }
+    public String getSunatResponseCode() { return sunatResponseCode; }
+    public void setSunatResponseCode(String value) { sunatResponseCode = value; }
     public String getHashCode() { return hashCode; }
     public void setHashCode(String hashCode) { this.hashCode = hashCode; }
     public String getSunatResponse() { return sunatResponse; }

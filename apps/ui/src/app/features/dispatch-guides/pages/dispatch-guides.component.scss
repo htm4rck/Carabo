@@ -59,3 +59,17 @@ table {
   color: var(--forestColor);
   margin: 10px 0 4px;
 }
+
+.consulted-at {
+  margin-top: 12px !important;
+  font-size: 12px;
+}
+td small {
+  margin-top: 7px;
+  line-height: 1.45;
+  white-space: normal;
+  max-width: 55ch;
+}
+.retry-blocker {
+  color: #914129;
+}

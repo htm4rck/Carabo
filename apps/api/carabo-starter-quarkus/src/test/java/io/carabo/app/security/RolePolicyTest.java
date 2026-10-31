@@ -14,12 +14,14 @@ class RolePolicyTest {
         assertTrue(RolePolicy.permits("/documents/emit", "POST", access));
         assertFalse(RolePolicy.permits("/tenants", "GET", access));
         assertFalse(RolePolicy.permits("/documents/abc/retry", "POST", access));
+        assertFalse(RolePolicy.permits("/dispatch-guides/abc/retry", "POST", access));
     }
 
     @Test
     void supervisorCanRetryAndRunBatchButCannotAdministerTenants() {
         var access = new HumanAccessService.Access(true, false, Set.of("SUPERVISOR_Carabo"));
         assertTrue(RolePolicy.permits("/documents/abc/retry", "POST", access));
+        assertTrue(RolePolicy.permits("/dispatch-guides/abc/retry", "POST", access));
         assertTrue(RolePolicy.permits("/documents/batch/summary", "POST", access));
         assertFalse(RolePolicy.permits("/tenants", "GET", access));
         assertTrue(RolePolicy.permits("/fiscal-status", "GET", access));

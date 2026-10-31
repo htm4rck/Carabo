@@ -15,7 +15,7 @@ final class RolePolicy {
             if (HttpMethod.GET.equals(method)) return access.hasAny("SUPERVISOR_Carabo", "ADMIN_Carabo", "ROOT_PLATFORM");
             return access.hasAny("ADMIN_Carabo", "ROOT_PLATFORM");
         }
-        if ((path.matches("/documents/[^/]+/retry") && HttpMethod.POST.equals(method)) || path.startsWith("/documents/batch/")) {
+        if ((path.matches("/(documents|dispatch-guides)/[^/]+/retry") && HttpMethod.POST.equals(method)) || path.startsWith("/documents/batch/")) {
             return access.hasAny("SUPERVISOR_Carabo", "ADMIN_Carabo", "ROOT_PLATFORM");
         }
         if (path.startsWith("/operations/") && HttpMethod.POST.equals(method)) {

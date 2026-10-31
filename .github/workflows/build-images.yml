@@ -60,7 +60,7 @@ jobs:
         env:
           PGPASSWORD: carabo_test
         run: |
-          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql migrations/008-operational-reliability.sql migrations/009-async-operations.sql migrations/010-producer-integrations.sql migrations/011-deferred-fiscal-issuance.sql migrations/012-fiscal-corrections.sql; do
+          for migration in migrations/001-document-schema.sql migrations/003-gre-and-apikey.sql migrations/004-correlatives-and-idempotency.sql migrations/005-api-key-hardening.sql migrations/006-signing-and-note-metadata.sql migrations/007-utc-timestamps.sql migrations/008-operational-reliability.sql migrations/009-async-operations.sql migrations/010-producer-integrations.sql migrations/011-deferred-fiscal-issuance.sql migrations/012-fiscal-corrections.sql migrations/013-fiscal-response-codes.sql migrations/014-deferred-dispatch-guides.sql migrations/015-managed-tenant-credentials.sql; do
             psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 -f "$migration"
           done
           psql -h localhost -U carabo -d carabo_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -155,6 +155,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f migrations/010-producer-integrations.sql
           psql -v ON_ERROR_STOP=1 -f migrations/011-deferred-fiscal-issuance.sql
           psql -v ON_ERROR_STOP=1 -f migrations/012-fiscal-corrections.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/013-fiscal-response-codes.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/014-deferred-dispatch-guides.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/015-managed-tenant-credentials.sql
       - name: Verify UTC timestamp contract
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -256,16 +259,9 @@ jobs:
             exit 1
           fi
 
-          if [ "$GITHUB_REF_NAME" = "develop" ]; then
-            deploy_event="deploy-dev"
-          else
-            deploy_event="deploy-lab"
-          fi
-
-          curl -fsS -X POST \
-            -H "Authorization: Bearer $PLATFORM_DEPLOY_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/htm4rck/Tordo.Platform/dispatches \
-            -d "{\"event_type\":\"${deploy_event}\",\"client_payload\":{\"source_repo\":\"$GITHUB_REPOSITORY\",\"source_ref\":\"$GITHUB_REF_NAME\",\"source_sha\":\"$GITHUB_SHA\"}}"
-
+          node - <<'NODE'
+          const dev=process.env.GITHUB_REF_NAME==='develop';
+          const endpoint=dev?'https://api.github.com/repos/htm4rck/Tordo.Platform/actions/workflows/deploy-dev.yml/dispatches':'https://api.github.com/repos/htm4rck/Tordo.Platform/dispatches';
+          const payload=dev?{ref:'develop',inputs:{source_repo:process.env.GITHUB_REPOSITORY,source_sha:process.env.GITHUB_SHA}}:{event_type:'deploy-lab',client_payload:{source_repo:process.env.GITHUB_REPOSITORY,source_ref:process.env.GITHUB_REF_NAME,source_sha:process.env.GITHUB_SHA}};
+          fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+process.env.PLATFORM_DEPLOY_TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(payload)}).then(response=>{if(!response.ok)throw Error('Platform workflow dispatch failed: '+response.status);}).catch(error=>{console.error(error.message);process.exitCode=1;});
+          NODE

@@ -232,6 +232,195 @@
             <mat-icon>close</mat-icon>
           </button>
         </div>
+        <section class="credentials-panel" aria-labelledby="credentials-title">
+          <h3 id="credentials-title">Credenciales de esta empresa</h3>
+          <p>
+            Puedes completar todos estos datos en pantalla o importar un archivo TXT. Los valores
+            guardados permanecen ocultos por seguridad.
+          </p>
+          @if (credentialsLoading) {
+            <p role="status">Consultando credenciales…</p>
+          }
+          @if (credentialError) {
+            <p class="credential-error" role="alert">{{ credentialError }}</p>
+          }
+          @if (credentialMessage) {
+            <p class="credential-success" role="status">{{ credentialMessage }}</p>
+          }
+          @if (credentials; as state) {
+            @if (!state.storageReady) {
+              <p class="credential-error" role="alert">
+                El almacén seguro no está disponible. Contacta al administrador de la plataforma
+                para habilitar el guardado.
+              </p>
+            }
+            <div class="credential-cards">
+              @for (group of credentialGroups; track group.key) {
+                <article
+                  class="credential-card"
+                  [class.editing]="editingCredentialGroup === group.key"
+                  [attr.aria-labelledby]="'credential-title-' + group.key"
+                >
+                  <h4 [id]="'credential-title-' + group.key">{{ group.title }}</h4>
+                  <p class="credential-description">{{ group.description }}</p>
+                  <dl class="credential-summary">
+                    @for (field of group.fields; track field.key) {
+                      <div>
+                        <dt>{{ field.label }}</dt>
+                        <dd
+                          class="credential-status"
+                          [class.complete]="state.fields[field.key].usable"
+                          [class.invalid]="
+                            state.fields[field.key].configured && !state.fields[field.key].usable
+                          "
+                        >
+                          <span class="credential-status-dot" aria-hidden="true"></span>
+                          {{
+                            state.fields[field.key].usable
+                              ? 'Guardado'
+                              : state.fields[field.key].configured
+                                ? 'Revisar'
+                                : 'Sin registrar'
+                          }}
+                        </dd>
+                      </div>
+                    }
+                  </dl>
+                  @if (editingCredentialGroup === group.key) {
+                    <form (ngSubmit)="saveCredentials()" autocomplete="off">
+                      <fieldset
+                        class="credential-fieldset"
+                        [disabled]="credentialsSaving || saving || !state.storageReady"
+                      >
+                        <legend class="sr-only">Actualizar {{ group.title }}</legend>
+                        <p class="credential-edit-hint">
+                          Completa los datos que quieras guardar. Si dejas un campo vacío, se
+                          conserva su valor actual.
+                        </p>
+                        @for (field of group.fields; track field.key) {
+                          <label [for]="'credential-' + field.key">{{
+                            state.fields[field.key].configured
+                              ? field.replacementLabel
+                              : field.label
+                          }}</label>
+                          <input
+                            [type]="field.secret ? 'password' : 'text'"
+                            [name]="field.key"
+                            [attr.name]="field.key"
+                            [id]="'credential-' + field.key"
+                            [(ngModel)]="credentialValues[field.key]"
+                            [maxlength]="field.max"
+                            [autocomplete]="field.secret ? 'new-password' : 'off'"
+                            spellcheck="false"
+                            autocapitalize="off"
+                          />
+                        }
+                        <div class="credential-actions">
+                          <button
+                            type="button"
+                            mat-button
+                            (click)="cancelCredentialEdit()"
+                            [disabled]="credentialsSaving"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            mat-raised-button
+                            color="primary"
+                            [disabled]="!canSaveCredentials()"
+                          >
+                            {{ credentialsSaving ? 'Guardando…' : 'Guardar cambios' }}
+                          </button>
+                        </div>
+                      </fieldset>
+                    </form>
+                  } @else {
+                    <button
+                      type="button"
+                      mat-stroked-button
+                      class="credential-card-action"
+                      [id]="'credential-action-' + group.key"
+                      [attr.aria-label]="
+                        (credentialGroupHasValue(group) ? 'Actualizar ' : 'Configurar ') +
+                        group.title
+                      "
+                      [disabled]="credentialsSaving || saving || !state.storageReady"
+                      (click)="editCredentialGroup(group.key)"
+                    >
+                      {{ credentialGroupHasValue(group) ? 'Actualizar' : 'Configurar' }}
+                    </button>
+                  }
+                </article>
+              }
+            </div>
+            <p class="credential-state-help">
+              Guardado indica que Carabo puede leer el dato. La autenticación se comprueba al usar
+              SUNAT o el proveedor OSE.
+            </p>
+            <div class="credential-file-choice">
+              <div>
+                <h4>¿Prefieres usar un archivo?</h4>
+                <p>El TXT permite cargar o actualizar estos mismos datos en una sola operación.</p>
+              </div>
+              <button
+                type="button"
+                mat-stroked-button
+                (click)="toggleCredentialImport()"
+                [attr.aria-expanded]="credentialImportOpen"
+                aria-controls="credential-import"
+                [disabled]="credentialsSaving || saving"
+              >
+                {{ credentialImportOpen ? 'Cerrar importación' : 'Importar TXT' }}
+              </button>
+            </div>
+            @if (credentialImportOpen) {
+              <div
+                class="credential-import"
+                id="credential-import"
+                role="region"
+                aria-label="Importar credenciales desde TXT"
+              >
+                <div>
+                  <h4>Descarga y completa la plantilla</h4>
+                  <p>
+                    La descarga siempre está vacía y nunca incluye los valores guardados. En el TXT,
+                    los campos vacíos conservan los datos actuales.
+                  </p>
+                  <button type="button" mat-stroked-button (click)="downloadCredentialTemplate()">
+                    Descargar plantilla vacía
+                  </button>
+                </div>
+                <div>
+                  <label for="credential-file">Archivo de credenciales</label>
+                  <input
+                    id="credential-file"
+                    type="file"
+                    accept=".txt,text/plain"
+                    aria-describedby="credential-file-hint"
+                    (change)="selectCredentialFile($event)"
+                    [disabled]="credentialsSaving || saving || !state.storageReady"
+                  />
+                  <small id="credential-file-hint"
+                    >UTF-8, hasta 16 KB. Una línea CAMPO=valor; conserva los signos = al final de
+                    las claves.</small
+                  >
+                  <button
+                    type="button"
+                    mat-raised-button
+                    color="primary"
+                    (click)="importCredentials()"
+                    [disabled]="
+                      !credentialFile || credentialsSaving || saving || !state.storageReady
+                    "
+                  >
+                    {{ credentialsSaving ? 'Importando…' : 'Importar credenciales' }}
+                  </button>
+                </div>
+              </div>
+            }
+          }
+        </section>
         <form #tenantForm="ngForm" (ngSubmit)="saveTenant()">
           <div class="form-grid">
             <label
@@ -292,36 +481,6 @@
                 <option value="PRODUCTION">Producción</option>
               </select>
             </label>
-            @if (draft.sendMode === 'SUNAT_DIRECT') {
-              <label
-                >Usuario SOL
-                <input
-                  name="solUser"
-                  [(ngModel)]="draft.solUser"
-                  maxlength="100"
-                  autocomplete="off"
-                  placeholder="RUC + usuario SOL"
-                />
-                <small
-                  >Se guarda para autenticación SUNAT y nunca se devuelve en las consultas.</small
-                >
-              </label>
-              <label
-                >Referencia de contraseña SOL
-                <input
-                  name="solPassword"
-                  [(ngModel)]="draft.solPassword"
-                  maxlength="100"
-                  autocomplete="off"
-                  placeholder="secret://empresa-sol-password"
-                  pattern="secret://.+"
-                />
-                <small
-                  >Déjalo vacío para conservar el valor actual; nunca escribas la contraseña
-                  directamente.</small
-                >
-              </label>
-            }
             @if (draft.sendMode === 'OSE') {
               <label class="wide"
                 >URL HTTPS del adaptador OSE
@@ -334,18 +493,6 @@
                   placeholder="https://ose-proveedor.example/api"
                 />
                 <small>Debe implementar el contrato Carabo OSE Gateway v1.</small>
-              </label>
-              <label class="wide"
-                >Referencia del token OSE
-                <input
-                  name="oseApiToken"
-                  [(ngModel)]="draft.oseApiToken"
-                  maxlength="100"
-                  autocomplete="off"
-                  placeholder="secret://empresa-ose-token"
-                  pattern="secret://.+"
-                />
-                <small>Déjalo vacío solo si no estás cambiando el token ya configurado.</small>
               </label>
             }
             <label
@@ -407,14 +554,19 @@
             </label>
           </div>
           <div class="panel-actions">
-            <button type="button" mat-button (click)="closePanels()" [disabled]="saving">
+            <button
+              type="button"
+              mat-button
+              (click)="closePanels()"
+              [disabled]="saving || credentialsSaving"
+            >
               Cancelar
             </button>
             <button
               type="submit"
               mat-raised-button
               color="primary"
-              [disabled]="tenantForm.invalid || saving"
+              [disabled]="tenantForm.invalid || saving || credentialsSaving"
             >
               <mat-icon>{{ saving ? 'hourglass_top' : 'save' }}</mat-icon
               >{{ saving ? 'Guardando…' : 'Guardar configuración' }}
@@ -453,15 +605,17 @@
             <small>Formato .p12 o .pfx; máximo 5 MB.</small>
           </label>
           <label
-            >Referencia de contraseña
+            >Contraseña del certificado
             <input
-              [(ngModel)]="passwordReference"
-              name="passwordReference"
-              placeholder="secret://empresa-cert-password"
+              type="password"
+              [(ngModel)]="certificatePassword"
+              name="certificatePassword"
+              autocomplete="new-password"
+              maxlength="4096"
             />
             <small
-              >La contraseña debe existir previamente en el secret store; nunca se guarda en esta
-              pantalla.</small
+              >Se valida y se guarda cifrada junto con el certificado. Déjala vacía para usar la
+              contraseña ya configurada.</small
             >
           </label>
         </div>
