@@ -1,4 +1,12 @@
-import { Component, DestroyRef, HostListener, OnInit, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ToggleService } from './toggle.service';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +19,8 @@ import { BuildInfoService } from '../../core/configuration/build-info.service';
   standalone: true,
   imports: [NgClass, FormsModule],
   templateUrl: './header.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./header.component.scss'],
 })
 export class HeaderComponent implements OnInit {

@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, inject, DestroyRef } from '@angular/core';
+import { Component, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -41,6 +41,8 @@ interface EmitLine {
     MatDividerModule,
   ],
   templateUrl: './emit.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './emit.component.scss',
 })
 export class EmitComponent {

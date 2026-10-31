@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, signal, inject, DestroyRef } from '@angular/core';
+import { Component, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -10,6 +10,8 @@ import { AuthService } from '../../../core/session/auth.service';
   standalone: true,
   imports: [FormsModule],
   templateUrl: './login.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './login.component.scss',
 })
 export class LoginComponent {

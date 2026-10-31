@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -28,6 +28,8 @@ import type { FiscalReadiness, TenantConfig } from '../domain/config.models';
     MatTooltipModule,
   ],
   templateUrl: './config.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './config.component.scss',
 })
 export class ConfigComponent implements OnInit {

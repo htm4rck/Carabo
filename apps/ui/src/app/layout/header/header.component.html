@@ -37,7 +37,7 @@
         <select
           aria-label="Empresa activa"
           [disabled]="!auth.businessesLoaded()"
-          [ngModel]="auth.session()?.tenantId"
+          [ngModel]="$safeNavigationMigration(auth.session()?.tenantId)"
           (ngModelChange)="changeBusiness($event)"
         >
           @for (business of auth.session()?.businesses ?? []; track business.businessCode) {

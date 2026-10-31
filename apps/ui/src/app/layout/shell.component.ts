@@ -1,5 +1,13 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, HostListener, OnDestroy, OnInit, inject, DestroyRef } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  inject,
+  DestroyRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ToggleService } from './header/toggle.service';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from './header/header.component';
@@ -13,6 +21,8 @@ import { BuildInfoService } from '../core/configuration/build-info.service';
   standalone: true,
   imports: [RouterOutlet, CommonModule, SidebarComponent, HeaderComponent],
   templateUrl: './shell.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './shell.component.scss',
 })
 export class ShellComponent implements OnInit, OnDestroy {

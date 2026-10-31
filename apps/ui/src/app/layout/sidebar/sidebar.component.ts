@@ -1,5 +1,5 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, inject, DestroyRef } from '@angular/core';
+import { Component, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { ToggleService } from '../header/toggle.service';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NgClass } from '@angular/common';
@@ -12,6 +12,8 @@ import { AuthService } from '../../core/session/auth.service';
   standalone: true,
   imports: [RouterLink, RouterLinkActive, NgClass, NgScrollbarModule, MatExpansionModule],
   templateUrl: './sidebar.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./sidebar.component.scss'],
 })
 export class SidebarComponent {

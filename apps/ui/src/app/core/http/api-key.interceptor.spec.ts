@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
@@ -19,7 +19,7 @@ describe('Credential boundary and context lifetime', () => {
     logout = vi.fn();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([apiKeyInterceptor])),
+        provideHttpClient(withXhr(), withInterceptors([apiKeyInterceptor])),
         provideHttpClientTesting(),
         {
           provide: AuthService,

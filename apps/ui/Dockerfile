@@ -1,9 +1,9 @@
-FROM node:22-alpine AS deps
+FROM node:24.19.0-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline
 
-FROM node:22-alpine AS build
+FROM node:24.19.0-alpine AS build
 WORKDIR /app
 ARG CARABO_UI_VERSION=0.2.0
 ARG CARABO_BUILD_DATE=unknown

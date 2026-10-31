@@ -1,6 +1,6 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +22,8 @@ import type { DispatchGuideSummary } from '../domain/dispatch-guides.models';
     MatTableModule,
   ],
   templateUrl: './dispatch-guides.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dispatch-guides.component.scss',
 })
 export class DispatchGuidesComponent implements OnInit {

@@ -1,14 +1,37 @@
 {
   "app": "Carabo",
-  "checkedAt": "2026-10-30T23:39:33.017027+00:00",
+  "checkedAt": "2026-10-31T03:50:34.938902+00:00",
   "angularRoot": "apps/ui",
-  "sourceAndConfigurationSha256": "3131a87aafebfec797b9d3567d19c4792824a24fd9b30a12a881dcfb80137e81",
-  "lockfileSha256": "a18a8552fa6ca357c7951efd868c9791b48a3c3d4050c73b6f747d4551958e46",
+  "versions": {
+    "@angular/core": "22.2.4",
+    "@angular/cli": "22.2.5",
+    "@angular/build": "22.2.5",
+    "typescript": "6.0.3",
+    "angular-eslint": "22.6.0",
+    "@types/node": "24.19.2"
+  },
+  "node": "24.19.0",
+  "sourceAndConfigurationSha256": "ec36358da5e359893639296c0ac49bcb74ea8f54bf8082792e274c082b715eff",
+  "lockfileSha256": "ee240374fef4f421d5b062135485ed721c82031f08003098c823c5f7311ec36f",
   "unitTests": 9,
   "architectureGateTests": 5,
   "browserTests": 3,
-  "initialBundle": "511.83 kB",
+  "developmentServerSmoke": {
+    "app": "Carabo/apps/ui",
+    "command": "ng serve --host 127.0.0.1 --port 53395",
+    "passed": true
+  },
+  "initialBundle": "524.83 kB",
+  "previousInitialBundle": "511.83 kB",
   "audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 18,
+    "high": 0,
+    "critical": 0,
+    "total": 18
+  },
+  "productionDependencyAudit": {
     "info": 0,
     "low": 0,
     "moderate": 0,
@@ -17,10 +40,12 @@
     "total": 0
   },
   "productionGatewaySecurityAcceptance": false,
-  "remoteCiAcceptance": "pending remote execution",
+  "remoteCiAcceptance": "pending execution for this commit",
   "commands": [
     "npm run verify",
     "npm run e2e",
-    "npm audit --json"
+    "ng serve development smoke",
+    "npm audit --json",
+    "npm audit --omit=dev --json"
   ]
 }

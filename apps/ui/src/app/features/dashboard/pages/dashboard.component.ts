@@ -1,5 +1,12 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Component, OnInit, signal, inject, DestroyRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  signal,
+  inject,
+  DestroyRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DocumentsApi as CaraboApiService } from '../../documents/public-api';
@@ -11,6 +18,8 @@ import { AuthService } from '../../../core/session/auth.service';
   standalone: true,
   imports: [RouterLink, DecimalPipe],
   templateUrl: './dashboard.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit {

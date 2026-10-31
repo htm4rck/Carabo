@@ -1,6 +1,6 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, Inject, inject, DestroyRef } from '@angular/core';
+import { Component, Inject, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
@@ -39,6 +39,8 @@ export interface IntegrationGuideData {
     CodeBlockComponent,
   ],
   templateUrl: './integration-guide-dialog.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './integration-guide-dialog.component.scss',
 })
 export class IntegrationGuideDialogComponent {

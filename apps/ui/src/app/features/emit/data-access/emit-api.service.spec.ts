@@ -1,12 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { EmitApi } from './emit-api.service';
 import { environment } from '../../../../environments/environment';
 describe('Fiscal emission wire contract', () => {
   it('preserves an external id as the idempotency key and sends the original payload', () => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     const api = TestBed.inject(EmitApi),
       requests = TestBed.inject(HttpTestingController);

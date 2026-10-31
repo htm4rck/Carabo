@@ -1,6 +1,13 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnInit, inject, DestroyRef } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  OnInit,
+  inject,
+  DestroyRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -28,6 +35,8 @@ import { IntegrationGuideDialogComponent } from '../ui/integration-guide-dialog.
     MatSnackBarModule,
   ],
   templateUrl: './integrations.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './integrations.component.scss',
 })
 export class IntegrationsComponent implements OnInit {

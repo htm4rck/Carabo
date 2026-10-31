@@ -1,5 +1,7 @@
 # Adopción de la referencia Angular — Carabo
 
+> Estado actual (2026-10-31): actualizado a Angular 22.2.4. Ver [migración y evidencia actual](ANGULAR22_UPGRADE.md). El texto siguiente conserva la adopción arquitectónica del 2026-10-30.
+
 Fecha: 2026-10-30. Raíz: `apps/ui`. BaseHref de producción: `/carabo/ui/`.
 
 Se divide el cliente HTTP monolítico en nueve adaptadores por capacidad: documents, emit, config, fiscal-status, integrations, batch, reports, dispatch-guides y operations. Dashboard consume la API pública de documents. DTO y ejemplos se ubican junto a su dominio. Shell/header/sidebar pasan a layout, separados del login. Se conserva el wire contract fiscal, incluidos headers, Blob e Idempotency-Key; la emisión tiene prueba específica de ese contrato. El selector de empresa usa FormsModule para mantener el valor correcto después de crear opciones y recargar; E2E acredita consultas con A y B. Build inicial de referencia: 651.42 kB.

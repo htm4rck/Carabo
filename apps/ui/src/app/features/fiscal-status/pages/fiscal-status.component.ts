@@ -1,6 +1,6 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +13,8 @@ import type { FiscalStatus } from '../domain/fiscal-status.models';
   standalone: true,
   imports: [CommonModule, RouterLink, MatButtonModule, MatIconModule],
   templateUrl: './fiscal-status.component.html',
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './fiscal-status.component.scss',
 })
 export class FiscalStatusComponent implements OnInit {
