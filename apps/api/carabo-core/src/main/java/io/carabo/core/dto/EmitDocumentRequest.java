@@ -51,6 +51,9 @@ public class EmitDocumentRequest {
     }
 
     public static class Receiver {
+        private String email;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
         private String docType;      // 6=RUC, 1=DNI, 4=CE
         private String doc;
         private String name;

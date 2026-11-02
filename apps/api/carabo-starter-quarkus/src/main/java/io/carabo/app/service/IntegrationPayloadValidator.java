@@ -22,7 +22,7 @@ public class IntegrationPayloadValidator {
     private static final Set<String> ROOT_FIELDS = Set.of("docType", "series", "issueDate", "dueDate",
         "currency", "sendMode", "issuer", "receiver", "lines", "reference", "callbackUrl",
         "externalId", "sourceDocId");
-    private static final Set<String> RECEIVER_FIELDS = Set.of("docType", "doc", "name", "address");
+    private static final Set<String> RECEIVER_FIELDS = Set.of("docType", "doc", "name", "address", "email");
     private static final Set<String> LINE_FIELDS = Set.of("productCode", "productName", "unitCode",
         "quantity", "unitPrice", "discount", "affectationCode");
     private static final Set<String> REFERENCE_FIELDS = Set.of("docType", "series", "number", "reasonCode", "reason");
@@ -75,6 +75,14 @@ public class IntegrationPayloadValidator {
                 "objeto con docType, doc y name", value(receiver), "Agrega los datos de identificación del receptor.");
         } else {
             flagUnknown(receiver, RECEIVER_FIELDS, "$.receiver", issues);
+            if (receiver.hasNonNull("email")) {
+                try {
+                    if (!receiver.get("email").isTextual()) throw new IllegalArgumentException();
+                    CustomerMailOutbox.validRecipient(receiver.get("email").asText());
+                } catch (IllegalArgumentException invalidEmail) {
+                    error(issues, "$.receiver.email", "INVALID_RECEIVER_EMAIL", "Correo del receptor inválido", "correo válido", "inválido", "Corrige el correo del cliente.");
+                }
+            }
             String receiverType = requiredText(receiver, "docType", "$.receiver.docType", issues, "6 para RUC o 1 para DNI");
             String receiverDoc = requiredText(receiver, "doc", "$.receiver.doc", issues, "número de documento");
             requiredText(receiver, "name", "$.receiver.name", issues, "razón social o nombre");

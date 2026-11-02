@@ -7,6 +7,7 @@ import io.carabo.core.enums.DocumentType;
 import io.carabo.core.validation.PeruTaxRules;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneId;
 
@@ -328,7 +329,7 @@ public class UblBuilder {
             xml.append("    <cac:PricingReference>\n");
             xml.append("      <cac:AlternativeConditionPrice>\n");
             xml.append("        <cbc:PriceAmount currencyID=\"").append(doc.getCurrency()).append("\">")
-                .append(line.getGrossPrice()).append("</cbc:PriceAmount>\n");
+                .append(fiscalPrice(line.getGrossPrice())).append("</cbc:PriceAmount>\n");
             xml.append("        <cbc:PriceTypeCode>01</cbc:PriceTypeCode>\n");
             xml.append("      </cac:AlternativeConditionPrice>\n");
             xml.append("    </cac:PricingReference>\n");
@@ -366,11 +367,15 @@ public class UblBuilder {
             // Price
             xml.append("    <cac:Price>\n");
             xml.append("      <cbc:PriceAmount currencyID=\"").append(doc.getCurrency()).append("\">")
-                .append(line.getUnitPrice()).append("</cbc:PriceAmount>\n");
+                .append(fiscalPrice(line.getUnitPrice())).append("</cbc:PriceAmount>\n");
             xml.append("    </cac:Price>\n");
 
             xml.append("  </cac:").append(lineTag).append(">\n");
         }
+    }
+
+    private static String fiscalPrice(BigDecimal value) {
+        return (value.scale() > 10 ? value.setScale(10, RoundingMode.HALF_UP) : value).toPlainString();
     }
 
     private String escapeXml(String s) {

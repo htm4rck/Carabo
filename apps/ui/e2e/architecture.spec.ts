@@ -91,6 +91,59 @@ async function signIn(page: Page) {
   await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/carabo\/ui\/$/);
 }
+
+for (const width of [1440, 390]) {
+  test(`shows the fiscal rejection reason and its full decimal detail at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await carabo(page);
+    await page.route('**/carabo/api/documents*', (route) =>
+      route.fulfill({
+        json: {
+          items: [
+            {
+              id: 'rejected-receipt',
+              fullNumber: 'B001-00000004',
+              docType: '03',
+              docTypeName: 'Boleta',
+              status: 'REJECTED',
+              total: 79,
+              currency: 'PEN',
+              receiverName: 'Cliente de prueba',
+              receiverDoc: '12345678',
+              issueDate: '2026-11-01',
+              createdAt: '2026-11-01T14:49:19Z',
+              timeZone: 'America/Lima',
+              businessCode: 'B11111111111',
+              externalId: 'fixture',
+              hashCode: '',
+              sunatResponse:
+                'El valor de venta unitario no cumple con el formato establecido - Detalle: ticket: 1793546058930 error: Error en la linea: 1: 2369 (nodo: "cac:Price/cbc:PriceAmount" valor: "66.94915254237289")',
+            },
+          ],
+          total: 1,
+          offset: 0,
+          limit: 25,
+        },
+      }),
+    );
+    await signIn(page);
+    await page.goto(prefix + 'documents');
+    const response = page.locator('app-fiscal-response:visible');
+    await expect(response.getByText('SUNAT 2369', { exact: true })).toBeVisible();
+    await expect(
+      response.getByText('El valor de venta unitario no cumple con el formato establecido', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(response.locator('details')).not.toHaveAttribute('open', '');
+    await response.getByText('Detalle de la respuesta', { exact: true }).click();
+    await expect(response.locator('details p')).toContainText('66.94915254237289');
+    await expect(response.locator('details p')).toBeVisible();
+  });
+}
+
 test('protects private fiscal routes without loading the private shell', async ({ page }) => {
   await carabo(page);
   await page.goto(prefix + 'documents');

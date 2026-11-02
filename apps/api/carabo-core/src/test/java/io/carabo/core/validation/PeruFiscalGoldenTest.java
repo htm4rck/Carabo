@@ -14,6 +14,22 @@ import java.time.LocalDate;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PeruFiscalGoldenTest {
+    @Test
+    void pricesFromTaxInclusiveCheckoutUseAtMostTenDecimalsWithoutChangingTotals() {
+        Document document = baseInvoice();
+        addLine(document, 1, "Producto", "10", "66.95", "12.05");
+        document.getLines().get(0).setUnitPrice(new BigDecimal("66.94915254237289"));
+        document.getLines().get(0).setGrossPrice(new BigDecimal("79.0000000000000102"));
+        addTax(document, "1000", "IGV", "66.95", "12.05", "18.00");
+        document.setTaxBase(new BigDecimal("66.95"));
+        document.setIgvAmount(new BigDecimal("12.05"));
+        document.setTotal(new BigDecimal("79.00"));
+        String xml = new UblBuilder().build(document);
+        assertTrue(xml.contains(">66.9491525424</cbc:PriceAmount>"));
+        assertTrue(xml.contains(">79.0000000000</cbc:PriceAmount>"));
+        assertTrue(xml.contains(">79.00</cbc:PayableAmount>"));
+        assertFalse(xml.contains("66.94915254237289"));
+    }
 
     @Test
     void mixedTaxableAndExemptInvoiceReconcilesAndProducesCatalog07Ubl() {

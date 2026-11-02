@@ -434,6 +434,7 @@ public class DocumentService {
             doc.setReceiverDoc(req.getReceiver().getDoc());
             doc.setReceiverName(req.getReceiver().getName());
             doc.setReceiverAddress(req.getReceiver().getAddress());
+            doc.setReceiverEmail(CustomerMailOutbox.validRecipient(req.getReceiver().getEmail()));
         }
 
         // Lines

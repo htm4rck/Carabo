@@ -70,6 +70,10 @@ public class Document {
 
     @Column(name = "receiver_address", length = 500)
     private String receiverAddress;
+    @Column(name = "receiver_email", length = 254)
+    private String receiverEmail;
+    public String getReceiverEmail() { return receiverEmail; }
+    public void setReceiverEmail(String receiverEmail) { this.receiverEmail = receiverEmail; }
 
     // Totales
     @Column(name = "tax_base", precision = 18, scale = 2)

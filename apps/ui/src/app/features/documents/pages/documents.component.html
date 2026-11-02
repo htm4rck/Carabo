@@ -108,6 +108,7 @@
             <th mat-header-cell *matHeaderCellDef>Estado</th>
             <td mat-cell *matCellDef="let d">
               <span class="badge" [attr.data-status]="d.status">{{ statusLabel(d.status) }}</span>
+              <app-fiscal-response [document]="d" />
             </td>
           </ng-container>
           <ng-container matColumnDef="actions">
@@ -168,6 +169,7 @@
             </div>
 
             <div class="document-card__customer">
+              <app-fiscal-response [document]="d" />
               <span>Cliente</span>
               <strong>{{ d.receiverName }}</strong>
               <small>{{ d.receiverDoc }}</small>

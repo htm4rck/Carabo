@@ -28,6 +28,7 @@ RUN mkdir -p /app/migrations \
     && cp /migrations/013-fiscal-response-codes.sql /app/migrations/V12__fiscal_response_codes.sql \
     && cp /migrations/014-deferred-dispatch-guides.sql /app/migrations/V13__deferred_dispatch_guides.sql \
     && cp /migrations/015-managed-tenant-credentials.sql /app/migrations/V14__managed_tenant_credentials.sql \
+    && cp /migrations/016-customer-document-mail.sql /app/migrations/V15__customer_document_mail.sql \
     && test -s /app/migrations/V1__document_schema.sql \
     && test -s /app/migrations/V2__gre_and_api_key.sql \
     && test -s /app/migrations/V3__correlatives_and_idempotency.sql \

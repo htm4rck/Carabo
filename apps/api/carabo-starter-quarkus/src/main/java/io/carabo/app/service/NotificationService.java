@@ -38,6 +38,7 @@ public class NotificationService {
     @Inject TenantService tenantService;
     @Inject SecretResolver secretResolver;
     @Inject OperationalMetrics metrics;
+    @Inject CustomerMailOutbox customerMail;
 
     @ConfigProperty(name = "carabo.webhooks.allow-private-addresses", defaultValue = "false")
     boolean allowPrivateAddresses;
@@ -47,6 +48,7 @@ public class NotificationService {
 
     @Transactional
     public void enqueueFor(Document document, Tenant tenant) {
+        customerMail.enqueue(document);
         if (document.getCallbackUrl() != null && !document.getCallbackUrl().isBlank()) {
             enqueue(document, "CALLBACK", document.getCallbackUrl());
         }
@@ -89,7 +91,7 @@ public class NotificationService {
     @Transactional
     public int deliverDue() {
         List<NotificationOutbox> pending = em.createQuery(
-                "SELECT o FROM NotificationOutbox o WHERE o.status IN ('PENDING','RETRY') " +
+                "SELECT o FROM NotificationOutbox o WHERE o.targetType <> 'CUSTOMER_EMAIL' AND o.status IN ('PENDING','RETRY') " +
                     "AND o.nextAttemptAt <= :now ORDER BY o.nextAttemptAt", NotificationOutbox.class)
             .setParameter("now", Instant.now()).setMaxResults(50).getResultList();
         for (NotificationOutbox item : pending) deliver(item);
@@ -177,7 +179,7 @@ public class NotificationService {
         } catch (IllegalArgumentException invalidId) {
             return false;
         }
-        if (item == null || "DELIVERED".equals(item.getStatus())) return false;
+        if (item == null || "DELIVERED".equals(item.getStatus()) || ("CUSTOMER_EMAIL".equals(item.getTargetType()) && "QUEUED".equals(item.getStatus()))) return false;
         item.setStatus("RETRY");
         item.setAttempts(0);
         item.setLastError(null);

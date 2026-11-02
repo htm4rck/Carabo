@@ -11,6 +11,9 @@ class IntegrationPolicyTest {
         assertFalse(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_READ")));
         assertFalse(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_INGEST")));
         assertTrue(IntegrationPolicy.permits(document + "/retry", "POST", Set.of("DOCUMENT_EMIT")));
+        assertFalse(IntegrationPolicy.permits(document + "/customer-email", "POST", Set.of("DOCUMENT_READ")));
+        assertFalse(IntegrationPolicy.permits(document + "/customer-email", "POST", Set.of("DOCUMENT_INGEST")));
+        assertTrue(IntegrationPolicy.permits(document + "/customer-email", "POST", Set.of("DOCUMENT_EMIT")));
         assertTrue(IntegrationPolicy.permits(document + "/status", "POST", Set.of("DOCUMENT_READ")));
         assertFalse(IntegrationPolicy.permits(document + "/status", "POST", Set.of("DOCUMENT_EMIT")));
         assertTrue(IntegrationPolicy.permits("/documents/identity", "GET", Set.of("DOCUMENT_READ")));

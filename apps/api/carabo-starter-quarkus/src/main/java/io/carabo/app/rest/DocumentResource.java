@@ -1,11 +1,12 @@
 package io.carabo.app.rest;
 
-import io.carabo.app.client.LayoutClient;
+import io.carabo.app.service.CustomerDocumentPdf;
 import io.carabo.app.service.BatchService;
 import io.carabo.app.service.DocumentQueryService;
 import io.carabo.app.service.DocumentService;
 import io.carabo.app.service.FiscalClock;
 import io.carabo.app.service.IntegrationPayloadValidator;
+import io.carabo.app.service.CustomerMailOutbox;
 import io.carabo.app.security.TenantContext;
 import io.carabo.core.dto.EmitDocumentRequest;
 import io.carabo.core.dto.EmitDocumentResponse;
@@ -36,6 +37,18 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Documents", description = "Emisión y consulta de documentos electrónicos")
 public class DocumentResource {
+    @Inject CustomerMailOutbox customerMail;
+
+    public record CustomerEmailRequest(String email) {}
+
+    @POST
+    @Path("/{id}/customer-email")
+    @Operation(summary = "Registrar el correo del receptor y solicitar el envío del comprobante aceptado")
+    public Response customerEmail(@PathParam("id") UUID id, CustomerEmailRequest request) {
+        if (request == null) throw new BadRequestException("Indica el correo del cliente");
+        customerMail.configureRecipient(id, tenantContext.businessCode(), request.email());
+        return Response.accepted(java.util.Map.of("documentId", id, "registered", true)).build();
+    }
 
     @Inject
     DocumentService documentService;
@@ -53,7 +66,7 @@ public class DocumentResource {
     IntegrationPayloadValidator integrationPayloadValidator;
 
     @Inject
-    LayoutClient layoutClient;
+    CustomerDocumentPdf documentPdf;
 
     @Inject
     TenantContext tenantContext;
@@ -242,8 +255,9 @@ public class DocumentResource {
                            @HeaderParam("Authorization") String authorization,
                            @HeaderParam("X-Layout-Authorization") String delegatedAuthorization) {
         return documentService.findById(id, tenantContext.businessCode()).map(doc -> {
-            byte[] pdf = layoutClient.generatePdf(doc, format, authorization != null ? authorization : delegatedAuthorization);
-            if (pdf == null) return Response.status(502).entity("PDF generation failed").build();
+            byte[] pdf;
+            try { pdf = documentPdf.download(doc, format, authorization != null ? authorization : delegatedAuthorization); }
+            catch (IllegalStateException pending) { return Response.status(502).entity("PDF generation pending").build(); }
             return Response.ok(pdf)
                 .header("Content-Disposition", "inline; filename=\"" + doc.getFullNumber() + ".pdf\"")
                 .build();

@@ -30,7 +30,8 @@ public class LayoutClient {
     @Inject
     ObjectMapper objectMapper;
 
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+        .connectTimeout(java.time.Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
 
     /**
      * Calls tordo.layout to generate PDF for an electronic document.
@@ -44,6 +45,17 @@ public class LayoutClient {
     public byte[] generatePdf(Document doc, String pageFormat, String authorization) {
         return generatePdf(resolveTemplateType(doc),
             pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc), doc.getBusinessCode(), authorization);
+    }
+
+    public byte[] generateDocumentPdf(Document doc, String serviceToken) {
+        return generateDocumentPdf(doc, null, serviceToken);
+    }
+
+    public byte[] generateDocumentPdf(Document doc, String pageFormat, String serviceToken) {
+        if (serviceToken == null || serviceToken.length() < 32 || serviceToken.length() > 512)
+            throw new IllegalArgumentException("Layout document service identity is not configured");
+        return generatePdf(resolveTemplateType(doc), pageFormat != null ? pageFormat : resolveDefaultFormat(doc), buildTemplateData(doc),
+            doc.getBusinessCode(), null, serviceToken);
     }
 
     public byte[] generatePdf(DispatchGuide guide, String pageFormat) { return generatePdf(guide,pageFormat,null); }
@@ -87,6 +99,10 @@ public class LayoutClient {
     }
 
     private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data, String businessCode, String authorization) {
+        return generatePdf(templateType, pageFormat, data, businessCode, authorization, null);
+    }
+
+    private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data, String businessCode, String authorization, String serviceToken) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("templateType", templateType);
@@ -96,11 +112,12 @@ public class LayoutClient {
             String json = objectMapper.writeValueAsString(payload);
 
             HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(layoutBaseUrl + "/pdf/generate"))
+                .uri(URI.create(layoutBaseUrl + (serviceToken == null ? "/pdf/generate" : "/pdf/documents/generate")))
                 .header("Content-Type", "application/json")
                 .timeout(java.time.Duration.ofSeconds(25));
             if (businessCode != null) builder.header("business-code", businessCode);
             if (authorization != null && authorization.startsWith("Bearer ")) builder.header("Authorization", authorization);
+            if (serviceToken != null) builder.header("x-tordo-service-token", serviceToken);
             HttpRequest request = builder.POST(HttpRequest.BodyPublishers.ofString(json)).build();
 
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
@@ -168,7 +185,8 @@ public class LayoutClient {
         data.put("receiver", receiver);
 
         // Lines
-        List<Map<String, Object>> lines = doc.getLines().stream().map(line -> {
+        List<Map<String, Object>> lines = doc.getLines().stream()
+            .sorted(java.util.Comparator.comparing(DocumentLine::getLineNumber)).map(line -> {
             Map<String, Object> l = new HashMap<>();
             l.put("lineNumber", line.getLineNumber());
             l.put("productCode", line.getProductCode());

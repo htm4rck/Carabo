@@ -21,12 +21,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DocumentsApi as CaraboApiService } from '../data-access/documents-api.service';
 import type { DocumentSummary, QueryParams } from '../domain/documents.models';
+import { FiscalResponseComponent } from '../ui/fiscal-response.component';
 import { finalize, take, timeout } from 'rxjs';
 
 @Component({
   selector: 'app-documents',
   standalone: true,
   imports: [
+    FiscalResponseComponent,
     CommonModule,
     FormsModule,
     MatCardModule,
