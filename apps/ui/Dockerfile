@@ -1,6 +1,7 @@
 FROM node:24.19.0-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY vendor/ ./vendor/
 RUN npm ci --prefer-offline
 
 FROM node:24.19.0-alpine AS build
