@@ -51,8 +51,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Run backend tests
-        run: ./gradlew test --no-daemon
+      - name: Verify backend architecture and tests
+        run: ./gradlew check --no-daemon
       - name: Build API for isolation smoke
         run: ./gradlew :carabo-starter-quarkus:quarkusBuild --no-daemon
       - name: Seed cross-tenant fixtures

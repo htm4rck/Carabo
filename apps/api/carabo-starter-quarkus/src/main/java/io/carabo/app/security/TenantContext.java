@@ -1,7 +1,7 @@
 package io.carabo.app.security;
 
 import io.carabo.core.entity.Tenant;
-import io.carabo.core.entity.ProducerIntegration;
+import io.carabo.domain.producer.Producer;
 import jakarta.enterprise.context.RequestScoped;
 import java.util.UUID;
 import java.util.Set;
@@ -27,11 +27,14 @@ public class TenantContext {
         this.administrator = false;
     }
 
-    public void authenticateProducer(Tenant tenant, ProducerIntegration producer, Set<String> scopes) {
+    public void authenticateProducer(Tenant tenant, Producer producer, Set<String> scopes) {
+        if (!tenant.getBusinessCode().equals(producer.scope().businessCode())) {
+            throw new IllegalArgumentException("Producer and authenticated company must match");
+        }
         this.tenant = tenant;
         this.administrator = false;
-        this.producerId = producer.getId();
-        this.producerCode = producer.getCode();
+        this.producerId = producer.id();
+        this.producerCode = producer.code();
         this.producerScopes = Set.copyOf(scopes);
     }
 

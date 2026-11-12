@@ -1,0 +1,217 @@
+{
+  "baseline": {
+    "jdk.ExecutionSample": {
+      "events": 106,
+      "weight_total": 106,
+      "category_weight_percent": {
+        "poi": 32.1,
+        "xmlbeans": 81.1,
+        "hibernate": 1.9,
+        "text_layout": 0.9
+      },
+      "top_frames": [
+        [
+          "java/util/HashMap.getNode",
+          9
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Cur.moveToNoCheck",
+          9
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Saver.pushMappings",
+          6
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Xobj.getAttr",
+          5
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Xobj.find_all_element_users",
+          4
+        ],
+        [
+          "java/lang/StringLatin1.getChars",
+          4
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Saver$TextSaver.emitAttrHelper",
+          4
+        ],
+        [
+          "org/apache/xmlbeans/impl/values/XmlObjectBase.get_store",
+          4
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Saver.process",
+          3
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Saver$TextSaver.emit",
+          3
+        ]
+      ]
+    },
+    "jdk.ObjectAllocationSample": {
+      "events": 3615,
+      "weight_total": 4953709528,
+      "category_weight_percent": {
+        "hibernate": 1.2,
+        "xmlbeans": 51.9,
+        "poi": 14.3,
+        "font": 14.4,
+        "text_layout": 4.9
+      },
+      "top_frames": [
+        [
+          "org/apache/xmlbeans/impl/store/Saver$TextSaver.resize",
+          946126496
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Locale.<init>",
+          604204456
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Cur$Locations.<init>",
+          358048352
+        ],
+        [
+          "java/util/HashMap.resize",
+          288962904
+        ],
+        [
+          "java/lang/StringLatin1.toLowerCase",
+          225927464
+        ],
+        [
+          "java/util/HashMap.newNode",
+          180666336
+        ],
+        [
+          "java/util/regex/Pattern.compile",
+          141277536
+        ],
+        [
+          "java/awt/geom/Rectangle2D$Float.getBounds2D",
+          121369496
+        ],
+        [
+          "java/util/Arrays.copyOf",
+          102077320
+        ],
+        [
+          "org/apache/xmlbeans/impl/store/Cur.createAttr",
+          92683968
+        ]
+      ]
+    }
+  },
+  "current": {
+    "jdk.ExecutionSample": {
+      "events": 25,
+      "weight_total": 25,
+      "category_weight_percent": {
+        "poi": 44.0,
+        "xmlbeans": 16.0,
+        "font": 24.0,
+        "text_layout": 4.0,
+        "hibernate": 4.0
+      },
+      "top_frames": [
+        [
+          "javax/xml/namespace/QName.equals",
+          2
+        ],
+        [
+          "org/apache/poi/ss/util/SheetUtil.getCellWidth",
+          2
+        ],
+        [
+          "java/text/AttributedString$AttributeMap.entrySet",
+          2
+        ],
+        [
+          "java/lang/String.hashCode",
+          2
+        ],
+        [
+          "java/util/regex/Pattern$BitClass.is",
+          1
+        ],
+        [
+          "java/text/AttributedString.addAttribute",
+          1
+        ],
+        [
+          "java/util/concurrent/locks/AbstractQueuedSynchronizer.signalNext",
+          1
+        ],
+        [
+          "java/text/MessageFormat.makeFormat",
+          1
+        ],
+        [
+          "com/sun/org/apache/xerces/internal/dom/AttributeMap.setNamedItem",
+          1
+        ],
+        [
+          "java/util/HashMap.removeNode",
+          1
+        ]
+      ]
+    },
+    "jdk.ObjectAllocationSample": {
+      "events": 3096,
+      "weight_total": 4049881256,
+      "category_weight_percent": {
+        "poi": 25.7,
+        "font": 35.0,
+        "text_layout": 15.8,
+        "xmlbeans": 18.9,
+        "hibernate": 0.1
+      },
+      "top_frames": [
+        [
+          "org/apache/xmlbeans/impl/store/Cur$Locations.<init>",
+          357780696
+        ],
+        [
+          "sun/font/FileFontStrike.getGlyphMetrics",
+          206532480
+        ],
+        [
+          "sun/font/TextLabelFactory.createExtended",
+          195287048
+        ],
+        [
+          "java/awt/geom/Rectangle2D$Float.getBounds2D",
+          183705800
+        ],
+        [
+          "sun/font/GlyphLayout$GVData.createGlyphVector",
+          181510944
+        ],
+        [
+          "org/apache/poi/ss/util/SheetUtil.getCellWidth",
+          163055256
+        ],
+        [
+          "java/util/HashMap.newNode",
+          144306656
+        ],
+        [
+          "java/util/HashMap.resize",
+          139881984
+        ],
+        [
+          "java/util/regex/Pattern.compile",
+          137038160
+        ],
+        [
+          "java/awt/font/TextLine.init",
+          125250008
+        ]
+      ]
+    }
+  }
+}

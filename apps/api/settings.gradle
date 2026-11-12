@@ -6,6 +6,7 @@ rootProject.name = 'carabo'
 
 include(
   'carabo-bom',
+  'carabo-domain',
   'carabo-core',
   'carabo-signer',
   'carabo-ose-client',

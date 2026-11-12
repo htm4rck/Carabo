@@ -3,6 +3,7 @@ plugins {
 }
 dependencies {
   implementation platform(project(':carabo-bom'))
+  implementation project(':carabo-domain')
   implementation project(':carabo-core')
   implementation project(':carabo-signer')
   implementation project(':carabo-sunat-client')

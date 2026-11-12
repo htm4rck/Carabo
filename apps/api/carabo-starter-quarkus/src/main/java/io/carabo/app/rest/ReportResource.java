@@ -1,8 +1,10 @@
 package io.carabo.app.rest;
 
-import io.carabo.app.service.ExcelExportService;
-import io.carabo.app.service.ReportService;
+import io.carabo.application.reporting.ReportUseCases;
 import io.carabo.app.security.TenantContext;
+import io.carabo.domain.BusinessScope;
+import io.carabo.domain.RuleViolation;
+import io.carabo.domain.reporting.ReportPeriod;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -11,6 +13,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.time.LocalDate;
+import java.time.DateTimeException;
 
 @Path("/reports")
 @Produces(MediaType.APPLICATION_JSON)
@@ -19,10 +22,7 @@ import java.time.LocalDate;
 public class ReportResource {
 
     @Inject
-    ReportService reportService;
-
-    @Inject
-    ExcelExportService excelService;
+    ReportUseCases reports;
 
     @Inject
     TenantContext tenantContext;
@@ -35,10 +35,7 @@ public class ReportResource {
         @QueryParam("from") String from,
         @QueryParam("to") String to
     ) {
-        if (from == null || to == null) {
-            return Response.status(400).entity("{\"error\":\"from and to are required\"}").build();
-        }
-        var report = reportService.salesReport(tenantContext.businessCode(), LocalDate.parse(from), LocalDate.parse(to));
+        var report = reports.sales(new BusinessScope(tenantContext.businessCode()), period(from, to));
         return Response.ok(report).build();
     }
 
@@ -50,10 +47,7 @@ public class ReportResource {
         @QueryParam("year") int year,
         @QueryParam("month") int month
     ) {
-        if (year == 0 || month == 0) {
-            return Response.status(400).entity("{\"error\":\"year and month are required\"}").build();
-        }
-        var report = reportService.monthlyReport(tenantContext.businessCode(), year, month);
+        var report = reports.monthly(new BusinessScope(tenantContext.businessCode()), year, month);
         return Response.ok(report).build();
     }
 
@@ -66,13 +60,21 @@ public class ReportResource {
         @QueryParam("from") String from,
         @QueryParam("to") String to
     ) {
-        if (from == null || to == null) {
-            return Response.status(400).entity("{\"error\":\"from and to are required\"}").build();
-        }
         String authenticatedBusiness = tenantContext.businessCode();
-        byte[] xlsx = excelService.exportDocuments(authenticatedBusiness, LocalDate.parse(from), LocalDate.parse(to));
+        byte[] xlsx = reports.export(new BusinessScope(authenticatedBusiness), period(from, to));
         return Response.ok(xlsx)
             .header("Content-Disposition", "attachment; filename=\"registro-ventas-" + authenticatedBusiness + "-" + from + "-" + to + ".xlsx\"")
             .build();
+    }
+
+    private ReportPeriod period(String from, String to) {
+        if (from == null || to == null) {
+            throw new RuleViolation("INVALID_REPORT_PERIOD", "from and to are required", RuleViolation.Kind.INVALID);
+        }
+        try {
+            return new ReportPeriod(LocalDate.parse(from), LocalDate.parse(to));
+        } catch (DateTimeException error) {
+            throw new RuleViolation("INVALID_REPORT_PERIOD", "from and to must be valid ISO dates", RuleViolation.Kind.INVALID);
+        }
     }
 }

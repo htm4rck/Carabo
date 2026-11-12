@@ -1,5 +1,6 @@
 package io.carabo.app.security;
 
+import io.carabo.application.producer.ports.ProducerKeys;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.nio.charset.StandardCharsets;
@@ -9,7 +10,7 @@ import java.security.SecureRandom;
 import java.util.HexFormat;
 
 @ApplicationScoped
-public class ApiKeyService {
+public class ApiKeyService implements ProducerKeys {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     public String generate() {

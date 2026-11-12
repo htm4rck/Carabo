@@ -3,7 +3,8 @@ package io.carabo.app.rest;
 import io.carabo.app.service.TenantService;
 import io.carabo.app.service.CertificateService;
 import io.carabo.app.service.FiscalReadinessService;
-import io.carabo.app.service.ProducerIntegrationService;
+import io.carabo.application.producer.ProducerUseCases;
+import io.carabo.domain.BusinessScope;
 import io.carabo.app.security.ApiKeyService;
 import io.carabo.app.security.ManagedCredentialStore;
 import io.carabo.app.security.TenantContext;
@@ -49,7 +50,7 @@ public class TenantResource {
     FiscalReadinessService fiscalReadinessService;
 
     @Inject
-    ProducerIntegrationService producerIntegrationService;
+    ProducerUseCases producers;
 
     @POST
     @Transactional
@@ -90,7 +91,7 @@ public class TenantResource {
         tenant.setApiKeyRotatedAt(Instant.now());
         em.persist(tenant);
         em.flush();
-        producerIntegrationService.syncLegacyCredential(tenant.getBusinessCode(), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
+        producers.syncLegacyCredential(new BusinessScope(tenant.getBusinessCode()), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
         return Response.status(201).entity(new CreatedTenantResponse(toResponse(tenant), apiKey)).build();
     }
 
@@ -195,7 +196,7 @@ public class TenantResource {
         tenant.setApiKeyHash(apiKeyService.hash(apiKey));
         tenant.setApiKeyRotatedAt(Instant.now());
         em.merge(tenant);
-        producerIntegrationService.syncLegacyCredential(tenant.getBusinessCode(), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
+        producers.syncLegacyCredential(new BusinessScope(tenant.getBusinessCode()), tenant.getApiKeyHash(), tenant.getApiKeyRotatedAt());
         tenantService.evict(tenant.getBusinessCode());
         return Response.ok(new RotatedApiKeyResponse(apiKey, tenant.getApiKeyRotatedAt())).build();
     }

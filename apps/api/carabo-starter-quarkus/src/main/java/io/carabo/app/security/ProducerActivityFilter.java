@@ -1,6 +1,7 @@
 package io.carabo.app.security;
 
-import io.carabo.app.service.ProducerIntegrationService;
+import io.carabo.application.producer.ProducerUseCases;
+import io.carabo.domain.BusinessScope;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
@@ -11,12 +12,12 @@ import jakarta.ws.rs.ext.Provider;
 @Provider
 public class ProducerActivityFilter implements ContainerResponseFilter {
     @Inject TenantContext tenantContext;
-    @Inject ProducerIntegrationService producers;
+    @Inject ProducerUseCases producers;
 
     @Override
     public void filter(ContainerRequestContext request, ContainerResponseContext response) {
         if (tenantContext.producerId() != null) {
-            producers.recordActivity(tenantContext.producerId(), response.getStatus());
+            producers.recordActivity(new BusinessScope(tenantContext.businessCode()), tenantContext.producerId(), response.getStatus());
         }
     }
 }

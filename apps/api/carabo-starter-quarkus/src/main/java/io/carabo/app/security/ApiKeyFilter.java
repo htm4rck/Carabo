@@ -1,7 +1,7 @@
 package io.carabo.app.security;
 
 import io.carabo.app.service.TenantService;
-import io.carabo.app.service.ProducerIntegrationService;
+import io.carabo.application.producer.ProducerUseCases;
 import io.carabo.core.entity.Tenant;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
@@ -25,7 +25,7 @@ public class ApiKeyFilter implements ContainerRequestFilter {
     private static final Set<String> PUBLIC_PATHS = Set.of("/health", "/version", "/metrics", "/openapi", "/q/openapi", "/swagger");
 
     @Inject TenantService tenantService;
-    @Inject ProducerIntegrationService producerIntegrationService;
+    @Inject ProducerUseCases producers;
     @Inject TenantContext tenantContext;
     @Inject HumanAccessService humanAccessService;
     @Inject SecretResolver secretResolver;
@@ -93,11 +93,11 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             reject(ctx, 401, "Missing authentication credential");
             return;
         }
-        var producer = producerIntegrationService.findByApiKey(apiKey).orElse(null);
+        var producer = producers.authenticate(apiKey).orElse(null);
         if (producer != null) {
-            Tenant tenant = tenantService.findByBusinessCode(producer.getBusinessCode()).orElse(null);
+            Tenant tenant = tenantService.findByBusinessCode(producer.scope().businessCode()).orElse(null);
             if (tenant == null || !tenant.isActive()) { reject(ctx, 403, "Tenant is inactive"); return; }
-            Set<String> scopes = producerIntegrationService.scopes(producer);
+            Set<String> scopes = producer.scopes();
             String path = "/" + ctx.getUriInfo().getPath().replaceFirst("^/", "");
             if (!IntegrationPolicy.permits(path, ctx.getMethod(), scopes)) {
                 reject(ctx, 403, "Producer credential does not permit this operation");

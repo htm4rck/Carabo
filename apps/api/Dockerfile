@@ -5,6 +5,7 @@ COPY apps/api/gradlew apps/api/settings.gradle apps/api/build.gradle apps/api/gr
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN sed -i '/org.gradle.java.home/d' gradle.properties
 COPY apps/api/carabo-bom/ carabo-bom/
+COPY apps/api/carabo-domain/ carabo-domain/
 COPY apps/api/carabo-core/ carabo-core/
 COPY apps/api/carabo-signer/ carabo-signer/
 COPY apps/api/carabo-ose-client/ carabo-ose-client/

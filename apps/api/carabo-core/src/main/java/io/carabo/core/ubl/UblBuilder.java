@@ -61,6 +61,7 @@ public class UblBuilder {
         appendSignature(xml, doc);
         appendSupplier(xml, doc);
         appendCustomer(xml, doc);
+        appendPaymentTerms(xml, doc);
         appendTaxTotal(xml, doc);
         appendMonetaryTotal(xml, doc, "LegalMonetaryTotal");
         appendLines(xml, doc, "InvoiceLine");
@@ -198,6 +199,24 @@ public class UblBuilder {
     private void appendDueDate(StringBuilder xml, Document doc) {
         if (doc.getDueDate() != null) {
             xml.append("  <cbc:DueDate>").append(doc.getDueDate().format(DATE_FMT)).append("</cbc:DueDate>\n");
+        }
+    }
+
+    private void appendPaymentTerms(StringBuilder xml, Document doc) {
+        if (doc.getDocType() != DocumentType.INVOICE) return;
+        xml.append("  <cac:PaymentTerms><cbc:ID>FormaPago</cbc:ID><cbc:PaymentMeansID>")
+            .append(doc.getDueDate() == null ? "Contado" : "Credito")
+            .append("</cbc:PaymentMeansID>");
+        if (doc.getDueDate() != null) {
+            xml.append("<cbc:Amount currencyID=\"").append(escapeXml(doc.getCurrency())).append("\">")
+                .append(doc.getTotal().setScale(2, RoundingMode.HALF_UP).toPlainString()).append("</cbc:Amount>");
+        }
+        xml.append("</cac:PaymentTerms>\n");
+        if (doc.getDueDate() != null) {
+            xml.append("  <cac:PaymentTerms><cbc:ID>FormaPago</cbc:ID><cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>")
+                .append("<cbc:Amount currencyID=\"").append(escapeXml(doc.getCurrency())).append("\">")
+                .append(doc.getTotal().setScale(2, RoundingMode.HALF_UP).toPlainString()).append("</cbc:Amount>")
+                .append("<cbc:PaymentDueDate>").append(doc.getDueDate()).append("</cbc:PaymentDueDate></cac:PaymentTerms>\n");
         }
     }
 

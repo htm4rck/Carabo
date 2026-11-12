@@ -1,0 +1,20 @@
+tasks.register('checkArchitecture') {
+    dependsOn tasks.named('jar')
+    doLast {
+        if (!configurations.runtimeClasspath.files.empty) {
+            throw new GradleException('Carabo domain must have no runtime dependencies')
+        }
+        def launcher = javaToolchains.launcherFor(java.toolchain).get()
+        def jdeps = launcher.metadata.installationPath.file('bin/jdeps').asFile
+        def output = new ByteArrayOutputStream()
+        exec {
+            commandLine jdeps, '-R', '-s', tasks.named('jar').get().archiveFile.get().asFile
+            standardOutput = output
+        }
+        def dependencies = output.toString('UTF-8').readLines().findAll { it.contains(' -> ') }
+        if (dependencies.any { !it.endsWith(' -> java.base') }) {
+            throw new GradleException('Carabo domain depends on an external module: ' + dependencies)
+        }
+    }
+}
+tasks.named('check') { dependsOn tasks.named('checkArchitecture') }

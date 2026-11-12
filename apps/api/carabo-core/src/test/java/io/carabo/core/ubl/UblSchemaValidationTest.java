@@ -16,6 +16,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UblSchemaValidationTest {
+    @Test
+    void invoicesDeclareCashOrOneCreditInstallmentUnderTheNormativeSchema() {
+        Document cash = document(DocumentType.INVOICE);
+        cash.setDueDate(null);
+        String cashXml = new UblBuilder().build(cash);
+        assertTrue(cashXml.contains("<cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>"));
+        Document credit = document(DocumentType.INVOICE);
+        credit.setDueDate(credit.getIssueDate().plusDays(30));
+        String creditXml = new UblBuilder().build(credit);
+        assertTrue(creditXml.contains("<cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>"));
+        assertTrue(creditXml.contains("<cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>"));
+        assertTrue(creditXml.contains("<cbc:PaymentDueDate>" + credit.getDueDate() + "</cbc:PaymentDueDate>"));
+    }
+
 
     @Test
     void generatedDocumentsPassNormativeSchemasForAllSupportedTypes() {

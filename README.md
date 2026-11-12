@@ -55,7 +55,8 @@ Carabo/
 ├── apps/
 │   ├── api/                              # Backend Quarkus
 │   │   ├── carabo-bom/                   # BOM — gestión centralizada de versiones
-│   │   ├── carabo-core/                  # Dominio: entidades, enums, DTOs, UBL builder, validación
+│   │   ├── carabo-domain/                # Núcleo puro: contratos, dominio, puertos y casos de uso
+│   │   ├── carabo-core/                  # Persistencia y generación fiscal existentes
 │   │   │   └── country/{pe,cl,co,mx}/    # Estrategias por país (extensible)
 │   │   ├── carabo-signer/                # Firma digital XML (XMLDSig, SHA-256, enveloped)
 │   │   ├── carabo-sunat-client/          # Cliente SOAP BillService + REST GRE 2.0
@@ -65,7 +66,9 @@ Carabo/
 │   │   └── carabo-starter-quarkus/       # Aplicación Quarkus
 │   │       ├── rest/                     # Endpoints REST (Documents, Tenants, GRE, Reports, Health)
 │   │       ├── consumer/                 # RabbitMQ consumer (document.emit)
-│   │       ├── service/                  # Lógica de negocio
+│   │       ├── composition/              # Fábricas CDI de casos de uso
+│   │       ├── infrastructure/           # Adaptadores JPA, HTTP y Excel
+│   │       ├── service/                  # Servicios fiscales pendientes de extracción
 │   │       ├── client/                   # Cliente HTTP a Layout service
 │   │       ├── scheduler/                # Scheduler de reintentos automáticos
 │   │       └── security/                 # API Key filter por tenant
@@ -79,11 +82,15 @@ Carabo/
 
 ## Módulos del Backend
 
+### carabo-domain
+Núcleo Java sin dependencias de ejecución: contratos fiscales y enums compatibles, dominio, puertos y casos de uso de reportes e integraciones productoras. La API compone los adaptadores JPA, HTTP, claves y Excel siguiendo la arquitectura de Tordo.Business. `./gradlew check` verifica el aislamiento del JAR y sus pruebas.
+
+El [mapa de arquitectura backend](docs/architecture/backend/ARCHITECTURE.md) detalla lo migrado, las transacciones, las mejoras de consultas y los flujos fiscales pendientes.
+
 ### carabo-core
-Dominio puro sin dependencias de framework. Contiene:
+Módulo existente de persistencia y generación fiscal; depende de `carabo-domain` y todavía contiene dependencias de infraestructura:
 - **Entidades JPA**: `Tenant`, `Document`, `DocumentLine`, `DocumentTax`, `DocumentSendLog`, `DispatchGuide`, `DispatchGuideItem`
-- **Enums**: `DocumentType` (01-09, RA, RC), `DocumentStatus`, `SendMode`
-- **DTOs**: `EmitDocumentRequest`, `EmitDocumentResponse`, `DocumentCallback`
+- **Contratos y enums**: reexportados mediante la dependencia `api` de `carabo-domain`, conservando los paquetes Java existentes
 - **UBL Builder**: Genera XML UBL 2.1 conforme a estándares SUNAT
 - **Validador**: Reglas de negocio pre-emisión
 - **Country Strategy**: Patrón Strategy para extensión a Chile, Colombia, México
