@@ -38,6 +38,7 @@ jobs:
       - name: Retain failed browser evidence
         if: failure()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: angular-failure-${{ strategy.job-index || '0' }}
           path: apps/ui/test-results

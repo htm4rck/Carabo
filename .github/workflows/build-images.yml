@@ -206,8 +206,17 @@ jobs:
       - name: Prepare build secrets
         run: |
           mkdir -p .docker-secrets
-          printf "%s" "${NPMRC:-}" > .docker-secrets/npmrc
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            printf '@tordo-io:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=%s\n' "$NPM_TOKEN" > .docker-secrets/npmrc
+          elif [ -n "${NPMRC:-}" ]; then
+            printf '%s' "$NPMRC" > .docker-secrets/npmrc
+          else
+            echo 'Private package registry credentials are required' >&2
+            exit 1
+          fi
+          chmod 600 .docker-secrets/npmrc
         env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPMRC: ${{ secrets.NPMRC }}
 
       - name: Resolve tags
