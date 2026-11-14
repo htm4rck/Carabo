@@ -48,7 +48,7 @@ public class ApiKeyFilter implements ContainerRequestFilter {
             return;
         }
 
-        if (path.startsWith("/tenants")) {
+        if (path.startsWith("/tenants") || path.startsWith("/fiscal-routes")) {
             authenticateLegacyAdministrator(ctx);
             return;
         }

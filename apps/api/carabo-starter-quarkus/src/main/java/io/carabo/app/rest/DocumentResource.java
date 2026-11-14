@@ -308,7 +308,12 @@ public class DocumentResource {
 
     @GET
     @Path("/identity")
-    public Response identity() { return Response.ok(java.util.Map.of("businessCode", tenantContext.businessCode())).build(); }
+    public Response identity() {
+        var tenant = tenantContext.tenant();
+        return Response.ok(new FiscalEmitterIdentity(tenantContext.businessCode(), tenant.getIssuerRuc(),
+            tenant.getCountryCode(), tenant.getEnvironment())).build();
+    }
+    public record FiscalEmitterIdentity(String businessCode, String issuerRuc, String countryCode, String environment) {}
 
     @GET
     @Path("/batch/ticket/{businessCode}/{ticket}")

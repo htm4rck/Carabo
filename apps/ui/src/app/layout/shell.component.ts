@@ -1,3 +1,5 @@
+import { AmaziliaReturnComponent } from '../shared/amazilia-return.component';
+import { AssistantHostComponent } from '@tordo-io/assistant-ui';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   Component,
@@ -19,7 +21,14 @@ import { BuildInfoService } from '../core/configuration/build-info.service';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, CommonModule, SidebarComponent, HeaderComponent],
+  imports: [
+    AmaziliaReturnComponent,
+    AssistantHostComponent,
+    RouterOutlet,
+    CommonModule,
+    SidebarComponent,
+    HeaderComponent,
+  ],
   templateUrl: './shell.component.html',
   // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection -- Preserve pre-v22 async rendering during this framework migration.
   changeDetection: ChangeDetectionStrategy.Eager,

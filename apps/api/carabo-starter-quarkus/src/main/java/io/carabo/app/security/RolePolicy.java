@@ -7,7 +7,7 @@ final class RolePolicy {
 
     static boolean permits(String path, String method, HumanAccessService.Access access) {
         if (!access.allowed()) return false;
-        if (path.startsWith("/tenants")) return access.hasAny("ADMIN_Carabo", "ROOT_PLATFORM");
+        if (path.startsWith("/tenants") || path.startsWith("/fiscal-routes")) return access.hasAny("ADMIN_Carabo", "ROOT_PLATFORM");
         if (path.startsWith("/fiscal-status")) {
             return HttpMethod.GET.equals(method) && access.hasAny("SUPERVISOR_Carabo", "ADMIN_Carabo", "ROOT_PLATFORM");
         }

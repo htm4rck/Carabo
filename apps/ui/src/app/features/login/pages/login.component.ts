@@ -1,3 +1,4 @@
+import { AmaziliaHandoffService } from '../../../core/session/amazilia-handoff.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Component, signal, inject, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -25,6 +26,7 @@ export class LoginComponent {
 
   constructor(
     private readonly auth: AuthService,
+    private readonly handoff: AmaziliaHandoffService,
     private readonly router: Router,
   ) {}
 
@@ -37,7 +39,7 @@ export class LoginComponent {
       .pipe(finalize(() => this.loading.set(false)))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => void this.router.navigateByUrl('/'),
+        next: () => void this.router.navigateByUrl(this.handoff.loginDestination()),
         error: (error) => this.error.set(this.accessError(error)),
       });
   }

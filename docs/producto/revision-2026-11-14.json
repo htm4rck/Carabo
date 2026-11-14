@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-14",
+  "product": "Carabo",
+  "baseline_gaps": 15,
+  "new_product_gaps": 7,
+  "total_gaps": 22,
+  "outcomes": 8,
+  "interfaces": 6,
+  "assumptions": {
+    "backend_y_base_de_datos": "Los backends, servicios compartidos y bases necesarios se consideran disponibles. Su despliegue, separación o existencia no se computa como brecha de independencia.",
+    "objeto_del_analisis": "La independencia se evalúa por tareas que el usuario completa, datos que mantiene o intercambia y resultados de su operativa; el servicio interno conserva su responsabilidad.",
+    "ejemplo_mvp": "Dar acceso parcial a otro frontal fue un ejemplo de Marc. Se compara con experiencia propia, componentes compartidos e integración; no se registra como decisión comercial confirmada.",
+    "alcance_de_esta_entrega": "Definición funcional, recomendación y gaps; no implementación de pantallas, activación de licencias, cambio de precios ni homologación de sistemas externos."
+  },
+  "shared_manifest": "/home/marc/Documentos/Proyects/Tordo.Platform/docs/portfolio/productos-independientes-2026-11-14/revision.json",
+  "wiki_app": "Catalogos/Aplicaciones/TORDO-APP-005 Carabo Facturacion Electronica.md",
+  "backup": "/opt/tordo-platform/data/tecolyt/wiki/Tordo/.tecolyt/history/20261114T024806Z-productos-independientes"
+}

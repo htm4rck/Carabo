@@ -55,6 +55,8 @@ public class DocumentService {
     @Inject
     FiscalClock fiscalClock;
 
+    @Inject FiscalRoutingService fiscalRouting;
+
     @Inject
     NotificationService notificationService;
 
@@ -103,6 +105,8 @@ public class DocumentService {
                 null, doc.getSunatResponse(), doc.getExternalId());
         }
 
+        fiscalRouting.capture(doc,tenant,sunatEndpoint(tenant));
+        tenant=fiscalRouting.effective(doc,tenant);
         doc.setStatus(DocumentStatus.PENDING);
         em.persist(doc);
         em.flush();
@@ -170,7 +174,7 @@ public class DocumentService {
             && doc.getStatus() != DocumentStatus.ERROR
             && doc.getStatus() != DocumentStatus.VALIDATED) return;
 
-        Tenant tenant = tenantService.resolve(doc.getBusinessCode());
+        Tenant tenant = fiscalRouting.effective(doc,tenantService.resolve(doc.getBusinessCode()));
         var readinessErrors = validator.validateFiscalReadiness(tenant);
         if (!readinessErrors.isEmpty()) {
             doc.setStatus(DocumentStatus.BLOCKED_CONFIGURATION);
@@ -249,7 +253,7 @@ public class DocumentService {
         Document doc = found.get();
         em.lock(doc,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (doc.getSunatTicket()==null || !(doc.getStatus()==DocumentStatus.PENDING || doc.getStatus()==DocumentStatus.SENT)) return found;
-        Tenant tenant = tenantService.resolve(businessCode);
+        Tenant tenant = fiscalRouting.effective(doc,tenantService.resolve(businessCode));
         SendResult result;
         if (tenant.getSendMode()==SendMode.OSE) {
             var remote = new OseClient(tenant.getOseBaseUrl(),secretResolver.resolve(tenant.getOseApiToken())).getStatus(doc.getSunatTicket());

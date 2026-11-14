@@ -38,7 +38,7 @@ final class IntegrationPolicy {
         if (HttpMethod.GET.equals(method) && path.matches("/documents/[0-9a-fA-F-]+(/xml|/cdr|/pdf)?")) {
             return scopes.contains("DOCUMENT_READ");
         }
-        if (HttpMethod.GET.equals(method) && (path.equals("/dispatch-guides")
+        if (HttpMethod.GET.equals(method) && (path.equals("/dispatch-guides/readiness") || path.equals("/dispatch-guides")
             || path.matches("/dispatch-guides/[0-9a-fA-F-]+(/xml|/cdr|/pdf)?"))) {
             return scopes.contains("DOCUMENT_READ");
         }

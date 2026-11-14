@@ -61,6 +61,15 @@ public class LayoutClient {
     public byte[] generatePdf(DispatchGuide guide, String pageFormat) { return generatePdf(guide,pageFormat,null); }
 
     public byte[] generatePdf(DispatchGuide guide, String pageFormat, String authorization) {
+        return generateDispatchGuidePdf(guide,pageFormat,authorization,null);
+    }
+
+    public byte[] generateDispatchGuideDocumentPdf(DispatchGuide guide,String pageFormat,String serviceToken) {
+        if(serviceToken==null||serviceToken.length()<32||serviceToken.length()>512)throw new IllegalStateException("GRE_PDF_NOT_CONFIGURED");
+        return generateDispatchGuidePdf(guide,pageFormat,null,serviceToken);
+    }
+
+    private byte[] generateDispatchGuidePdf(DispatchGuide guide,String pageFormat,String authorization,String serviceToken) {
         Map<String, Object> data = new HashMap<>();
         data.put("fullNumber", guide.getFullNumber());
         data.put("docType", "09");
@@ -91,7 +100,7 @@ public class LayoutClient {
             "productName", safe(item.getProductName()), "unitCode", safe(item.getUnitCode()),
             "quantity", item.getQuantity(), "weight", item.getWeight() != null ? item.getWeight() : ""
         )).toList());
-        return generatePdf("ELECTRONIC_DISPATCH_GUIDE", pageFormat != null ? pageFormat : "A4", data, guide.getBusinessCode(), authorization);
+        return generatePdf("ELECTRONIC_DISPATCH_GUIDE", pageFormat != null ? pageFormat : "A4", data, guide.getBusinessCode(), authorization,serviceToken);
     }
 
     private byte[] generatePdf(String templateType, String pageFormat, Map<String, Object> data) {

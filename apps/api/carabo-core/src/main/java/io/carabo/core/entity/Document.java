@@ -103,6 +103,12 @@ public class Document {
     @Column(name = "send_mode", length = 20)
     private SendMode sendMode = SendMode.SUNAT_DIRECT;
 
+    @Column(name="fiscal_route_snapshot",columnDefinition="text")
+    private String fiscalRouteSnapshot;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public String getFiscalRouteSnapshot() { return fiscalRouteSnapshot; }
+    public void setFiscalRouteSnapshot(String value) { fiscalRouteSnapshot=value; }
+
     @Column(name = "hash_code", length = 100)
     private String hashCode;
 

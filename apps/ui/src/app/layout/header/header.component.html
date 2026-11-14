@@ -22,6 +22,16 @@
       </div>
     </div>
     <ul class="header-right-side d-flex align-items-center mt-0 mb-0">
+      <li>
+        <button
+          type="button"
+          aria-label="Guía de esta pantalla"
+          title="Guía de esta pantalla"
+          (click)="assistant.open('guide')"
+        >
+          <i class="ri-question-line" aria-hidden="true"></i>
+        </button>
+      </li>
       <li class="version-cluster" aria-label="Versiones desplegadas">
         <span title="UI · fecha de construcción · revisión"
           >UI {{ buildInfo.ui.version }} · {{ buildInfo.ui.buildDate }} ·

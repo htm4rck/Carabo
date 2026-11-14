@@ -174,3 +174,8 @@ p {
 
 // Sidebar
 @import './sidebar';
+
+/* Keep the shared manual header legible when the global paragraph theme applies. */
+tordo-assistant-manual-page > header p {
+  color: #18333d;
+}

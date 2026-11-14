@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.carabo.app.client.LayoutClient;
 import io.carabo.app.security.TenantContext;
+import io.carabo.app.security.SecretResolver;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import java.util.Optional;
 import io.carabo.app.service.DispatchGuidePayloadValidator;
 import io.carabo.app.service.DispatchGuideService;
 import io.carabo.app.service.FiscalClock;
@@ -34,6 +37,8 @@ public class DispatchGuideResource {
   @Inject FiscalClock fiscalClock;
 
   @Inject ObjectMapper objectMapper;
+  @Inject SecretResolver secrets;
+  @ConfigProperty(name="carabo.layout.service-token") Optional<String> layoutServiceToken;
 
   @GET
   @Path("/readiness")
@@ -48,6 +53,8 @@ public class DispatchGuideResource {
                 ready,
                 "businessCode",
                 tenantContext.businessCode(),
+                "issuerRuc",tenantContext.tenant().getIssuerRuc()==null?"":tenantContext.tenant().getIssuerRuc(),
+                "environment",tenantContext.tenant().getEnvironment()==null?"":tenantContext.tenant().getEnvironment(),
                 "message",
                 environment != null
                     ? environment
@@ -159,7 +166,14 @@ public class DispatchGuideResource {
                                 + " aceptada. Una solicitud pendiente, rechazada o de prueba no"
                                 + " sustenta el traslado"))
                     .build();
-              byte[] pdf = layoutClient.generatePdf(gre, "A4", authorization);
+              byte[] pdf;
+              if(authorization!=null&&authorization.startsWith("Bearer "))pdf=layoutClient.generatePdf(gre,"A4",authorization);
+              else {
+                String token;
+                try{token=layoutServiceToken.filter(value->!value.isBlank()).map(secrets::resolve).orElseThrow();if(token.length()<32||token.length()>512)throw new IllegalStateException();}
+                catch(Exception missing){return Response.status(503).entity(new ErrorResponse("GRE_PDF_NOT_CONFIGURED","Configura la identidad de servicio de la representación de guía")).build();}
+                pdf=layoutClient.generateDispatchGuideDocumentPdf(gre,"A4",token);
+              }
               return pdf != null
                   ? Response.ok(pdf)
                       .header(

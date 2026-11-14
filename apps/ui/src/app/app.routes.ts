@@ -4,6 +4,20 @@ import { pendingCredentialGuard } from './core/session/guards/pending-credential
 
 export const routes: Routes = [
   {
+    path: 'companion/birdport',
+    loadComponent: () =>
+      import('./features/companion/pages/amazilia-companion.component').then(
+        (m) => m.AmaziliaCompanionComponent,
+      ),
+  },
+  {
+    path: 'companion/amazilia',
+    loadComponent: () =>
+      import('./features/companion/pages/amazilia-companion.component').then(
+        (m) => m.AmaziliaCompanionComponent,
+      ),
+  },
+  {
     path: 'login',
     loadComponent: () =>
       import('./features/login/pages/login.component').then((m) => m.LoginComponent),
@@ -13,6 +27,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),
     children: [
+      {
+        path: 'manuals',
+        loadComponent: () =>
+          import('@tordo-io/assistant-ui').then((m) => m.AssistantManualPageComponent),
+      },
+      {
+        path: 'manuals/:id',
+        loadComponent: () =>
+          import('@tordo-io/assistant-ui').then((m) => m.AssistantManualPageComponent),
+      },
       {
         path: 'formats',
         canActivate: [authGuard],

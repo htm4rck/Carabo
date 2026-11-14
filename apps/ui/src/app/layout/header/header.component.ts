@@ -1,3 +1,4 @@
+import { AssistantService } from '@tordo-io/assistant-ui';
 import {
   Component,
   DestroyRef,
@@ -24,6 +25,7 @@ import { BuildInfoService } from '../../core/configuration/build-info.service';
   styleUrls: ['./header.component.scss'],
 })
 export class HeaderComponent implements OnInit {
+  readonly assistant = inject(AssistantService);
   private readonly destroyRef = inject(DestroyRef);
   readonly businessError = signal('');
   desktopCollapsed = false;
