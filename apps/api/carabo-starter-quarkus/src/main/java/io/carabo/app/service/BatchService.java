@@ -47,6 +47,7 @@ public class BatchService {
     @Inject
     FiscalClock fiscalClock;
     @Inject IdempotencyService idempotencyService;
+    @Inject BatchTicketService ticketService;
 
     @ConfigProperty(name = "carabo.certs.base-path", defaultValue = "/app/certs")
     String certsBasePath;
@@ -117,7 +118,8 @@ public class BatchService {
         BatchOperation prior = em.createQuery("SELECT b FROM BatchOperation b WHERE b.businessCode=:bc AND b.requestKey=:key", BatchOperation.class)
             .setParameter("bc", businessCode).setParameter("key", key).getResultStream().findFirst().orElse(null);
         if (prior != null && !fingerprint.equals(prior.getRequestHash())) throw new ClientErrorException("La llave de baja ya tiene otro contenido",409);
-        if (prior != null && !"ERROR".equals(prior.getStatus())) return toResult(prior, !"REJECTED".equals(prior.getStatus()));
+        if (prior != null && ((prior.getTicket() != null && !prior.getTicket().isBlank()) || !"ERROR".equals(prior.getStatus())))
+            return toResult(prior, !java.util.Set.of("ERROR", "REJECTED").contains(prior.getStatus()));
         Tenant tenant = tenantService.resolve(businessCode);
         List<Document> docs = em.createQuery(
             "SELECT d FROM Document d WHERE d.id IN :ids AND d.businessCode = :bc ORDER BY d.id", Document.class)
@@ -178,39 +180,9 @@ public class BatchService {
     /**
      * Checks the status of a previously sent summary/voided ticket.
      */
-    @Transactional
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public BatchResult checkTicket(String businessCode, String ticket) {
-        Tenant tenant = tenantService.resolve(businessCode);
-        BatchOperation operation = em.createQuery(
-                "SELECT b FROM BatchOperation b WHERE b.businessCode = :bc AND b.ticket = :ticket ORDER BY b.createdAt DESC",
-                BatchOperation.class)
-            .setParameter("bc", businessCode).setParameter("ticket", ticket).setMaxResults(1)
-            .getResultStream().findFirst().orElse(null);
-        if (operation != null) {
-            if (java.util.Set.of("ACCEPTED","OBSERVED","REJECTED").contains(operation.getStatus())) return toResult(operation,!"REJECTED".equals(operation.getStatus()));
-            String status, message, cdr; boolean accepted;
-            if (tenant.getSendMode() == SendMode.OSE) {
-                var result = new OseClient(tenant.getOseBaseUrl(),secretResolver.resolve(tenant.getOseApiToken())).getStatus(ticket);
-                accepted = result.accepted(); status = result.processing()?"PENDING":accepted?(result.observed()?"OBSERVED":"ACCEPTED"):result.retryable()?"ERROR":"REJECTED";
-                message = result.responseMsg(); cdr = result.cdrXml();
-            } else {
-                var result = new SunatBillService(sunatEndpoint(tenant),tenant.getSolUser(),secretResolver.resolve(tenant.getSolPassword())).getStatus(ticket);
-                accepted = result.accepted(); status = result.processing()?"PENDING":accepted?(result.observed()?"OBSERVED":"ACCEPTED"):result.retryable()?"ERROR":"REJECTED";
-                message = result.responseMsg(); cdr = result.cdrXml();
-            }
-            operation.setStatus(status);
-            operation.setMessage(message); operation.setCdrXml(cdr);
-            if (operation.getDocumentIds() != null && (accepted || "REJECTED".equals(status))) {
-                for (String id : operation.getDocumentIds().split(",")) {
-                    Document doc = em.find(Document.class,UUID.fromString(id),LockModeType.PESSIMISTIC_WRITE);
-                    if (doc != null && businessCode.equals(doc.getBusinessCode()) && doc.getStatus()==DocumentStatus.VOID_REQUESTED)
-                        doc.setStatus(accepted?DocumentStatus.VOIDED:DocumentStatus.ACCEPTED);
-                }
-            }
-            em.merge(operation);
-            return toResult(operation, accepted);
-        }
-        throw new NotFoundException("Ticket no encontrado en la empresa autenticada");
+        return ticketService.check(businessCode, ticket);
     }
 
     public List<BatchResult> listOperations(String businessCode, String kind, int limit) {
