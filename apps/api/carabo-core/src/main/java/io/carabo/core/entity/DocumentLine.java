@@ -19,7 +19,7 @@ public class DocumentLine {
     @Column(name = "line_number", nullable = false)
     private Integer lineNumber;
 
-    @Column(name = "product_code", length = 50)
+    @Column(name = "product_code", length = 100)
     private String productCode;
 
     @Column(name = "product_name", nullable = false, length = 500)
@@ -28,13 +28,13 @@ public class DocumentLine {
     @Column(name = "unit_code", length = 10)
     private String unitCode = "NIU";
 
-    @Column(nullable = false, precision = 18, scale = 4)
+    @Column(nullable = false, precision = 24, scale = 6)
     private BigDecimal quantity;
 
-    @Column(name = "unit_price", nullable = false, precision = 18, scale = 6)
+    @Column(name = "unit_price", nullable = false, precision = 24, scale = 10)
     private BigDecimal unitPrice;
 
-    @Column(name = "gross_price", precision = 18, scale = 6)
+    @Column(name = "gross_price", precision = 24, scale = 10)
     private BigDecimal grossPrice;
 
     @Column(precision = 18, scale = 2)

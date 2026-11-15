@@ -19,12 +19,12 @@ public class IntegrationPayloadValidator {
     private static final Set<String> AFFECTATION_CODES = Set.of("10", "20", "30", "40");
     private static final Set<String> CREDIT_REASON_CODES = Set.of("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13");
     private static final Set<String> DEBIT_REASON_CODES = Set.of("01", "02", "03", "11", "12");
-    private static final Set<String> ROOT_FIELDS = Set.of("docType", "series", "issueDate", "dueDate",
+    private static final Set<String> ROOT_FIELDS = Set.of("docType", "series", "number", "issueDate", "dueDate",
         "currency", "sendMode", "issuer", "receiver", "lines", "reference", "callbackUrl",
         "externalId", "sourceDocId");
     private static final Set<String> RECEIVER_FIELDS = Set.of("docType", "doc", "name", "address", "email");
     private static final Set<String> LINE_FIELDS = Set.of("productCode", "productName", "unitCode",
-        "quantity", "unitPrice", "discount", "affectationCode");
+        "quantity", "unitPrice", "discount", "affectationCode", "originalAmounts");
     private static final Set<String> REFERENCE_FIELDS = Set.of("docType", "series", "number", "reasonCode", "reason");
 
     public ValidationReport validate(JsonNode payload, String idempotencyKey, LocalDate fiscalToday) {
@@ -42,6 +42,9 @@ public class IntegrationPayloadValidator {
                 "01, 03, 07 u 08", docType, "Usa el código SUNAT del comprobante.");
         }
 
+        if (payload.has("number") && (!payload.get("number").isIntegralNumber() || !payload.get("number").canConvertToInt() || payload.get("number").asInt()<1 || payload.get("number").asInt()>99999999)) {
+            error(issues,"$.number","INVALID_ORIGINAL_NUMBER","El correlativo original debe ser entero positivo","1 a 99999999",value(payload.get("number")),"Conserva el correlativo asignado por el emisor original.");
+        }
         String series = text(payload, "series");
         if (series == null) {
             warning(issues, "$.series", "DEFAULTED_SERIES", "La serie no fue enviada",
@@ -105,7 +108,7 @@ public class IntegrationPayloadValidator {
             error(issues, "$.lines", "LINES_REQUIRED", "El documento debe tener al menos una línea",
                 "arreglo con uno o más conceptos", value(lines), "Agrega el producto o servicio facturado.");
         } else {
-            for (int index = 0; index < lines.size(); index++) validateLine(lines.get(index), index, issues);
+            for (int index = 0; index < lines.size(); index++) validateLine(lines.get(index), index, issues, payload);
         }
 
         if ("07".equals(docType) || "08".equals(docType)) validateReference(payload.get("reference"), docType, series, issues);
@@ -124,7 +127,7 @@ public class IntegrationPayloadValidator {
         return report(issues);
     }
 
-    private void validateLine(JsonNode line, int index, List<ValidationIssue> issues) {
+    private void validateLine(JsonNode line, int index, List<ValidationIssue> issues, JsonNode payload) {
         String base = "$.lines[" + index + "]";
         if (line == null || !line.isObject()) {
             error(issues, base, "INVALID_LINE", "Cada línea debe ser un objeto", "{ productName, quantity, unitPrice }",
@@ -132,6 +135,7 @@ public class IntegrationPayloadValidator {
             return;
         }
         flagUnknown(line, LINE_FIELDS, base, issues);
+        validateOriginalAmounts(payload,line,base,issues);
         requiredText(line, "productName", base + ".productName", issues, "descripción del producto o servicio");
         positiveNumber(line, "quantity", base + ".quantity", true, issues);
         positiveNumber(line, "unitPrice", base + ".unitPrice", false, issues);
@@ -144,6 +148,20 @@ public class IntegrationPayloadValidator {
         else if (!AFFECTATION_CODES.contains(affectation)) error(issues, base + ".affectationCode", "UNSUPPORTED_AFFECTATION",
             "Código de afectación IGV no soportado", "10, 20, 30 o 40", affectation,
             "Selecciona el código SUNAT que corresponda al concepto.");
+    }
+
+    private void validateOriginalAmounts(JsonNode payload, JsonNode line, String base, List<ValidationIssue> issues) {
+        JsonNode allocated=line.get("originalAmounts");
+        if(allocated==null)return;
+        if(!allocated.isObject() || allocated.size()!=2 || !allocated.path("net").isTextual() || !allocated.path("tax").isTextual() || !allocated.path("net").asText().matches("\\d{1,12}\\.\\d{2}") || !allocated.path("tax").asText().matches("\\d{1,12}\\.\\d{2}") || !line.path("quantity").isNumber() || !line.path("unitPrice").isNumber() || line.has("discount") && !line.get("discount").isNumber()) {
+            error(issues,base+".originalAmounts","INVALID_ORIGINAL_CENTS","La asignación original debe declarar neto e impuesto exactos","net y tax como textos de dos decimales",value(allocated),"Usa la asignación de céntimos confirmada por la autoridad financiera.");return;
+        }
+        var original=new io.carabo.core.dto.EmitDocumentRequest.OriginalAmounts();original.setNet(new BigDecimal(allocated.path("net").asText()));original.setTax(new BigDecimal(allocated.path("tax").asText()));
+        try {
+            OriginalCreditAmounts.resolve(payload.path("docType").asText(),payload.path("reference").path("reasonCode").asText(),payload.path("currency").asText("PEN"),line.path("quantity").decimalValue(),line.path("unitPrice").decimalValue(),line.has("discount")?line.path("discount").decimalValue():BigDecimal.ZERO,line.path("affectationCode").asText("10"),original);
+        } catch(IllegalArgumentException failure) {
+            error(issues,base+".originalAmounts",failure.getMessage(),"La asignación no corresponde al perfil de nota de crédito original","Nota 07, PEN/IGV18, motivo 01/06/07, diferencia máxima de un céntimo",value(allocated),"Concilia con el documento original antes de emitir.");
+        }
     }
 
     private void validateReference(JsonNode reference, String docType, String noteSeries, List<ValidationIssue> issues) {

@@ -13,6 +13,22 @@ class IntegrationPayloadValidatorTest {
     private final LocalDate today = LocalDate.of(2026, 10, 16);
 
     @Test
+    void acceptsOnlyBoundedOriginalCentsForAReferencedCredit() throws Exception {
+        var payload=(com.fasterxml.jackson.databind.node.ObjectNode)mapper.readTree("""
+            {"docType":"07","series":"BC01","number":3,"issueDate":"2026-10-16","currency":"PEN","externalId":"original-cent",
+             "receiver":{"docType":"1","doc":"87654321","name":"Synthetic"},
+             "reference":{"docType":"03","series":"B001","number":1,"reasonCode":"07","reason":"Item return"},
+             "lines":[{"productCode":"CENT","productName":"Original cent","unitCode":"NIU","quantity":1,"unitPrice":0.03,"discount":0,"affectationCode":"10","originalAmounts":{"net":"0.03","tax":"0.00"}}]}
+            """);
+        assertTrue(validator.validate(payload,"original-cent",today).valid());
+        payload.put("number",0);assertFalse(validator.validate(payload,"original-cent",today).valid());payload.put("number",3);
+        var original=(com.fasterxml.jackson.databind.node.ObjectNode)payload.path("lines").get(0).path("originalAmounts");
+        original.put("tax","0.03");assertFalse(validator.validate(payload,"original-cent",today).valid());original.put("tax","0.00");
+        original.put("net",0.03);assertFalse(validator.validate(payload,"original-cent",today).valid());original.put("net","0.03");
+        payload.put("docType","03");assertFalse(validator.validate(payload,"original-cent",today).valid());
+    }
+
+    @Test
     void acceptsCompleteInvoiceWithoutWarnings() throws Exception {
         var payload = mapper.readTree("""
             {"docType":"01","series":"F001","issueDate":"2026-10-16","currency":"PEN",

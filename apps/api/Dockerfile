@@ -31,6 +31,8 @@ RUN mkdir -p /app/migrations \
     && cp /migrations/015-managed-tenant-credentials.sql /app/migrations/V14__managed_tenant_credentials.sql \
     && cp /migrations/016-customer-document-mail.sql /app/migrations/V15__customer_document_mail.sql \
     && cp /migrations/017-fiscal-routing.sql /app/migrations/V16__fiscal_routing.sql \
+    && cp /migrations/018-original-credit-precision.sql /app/migrations/V17__original_credit_precision.sql \
+    && test -s /app/migrations/V17__original_credit_precision.sql \
     && test -s /app/migrations/V16__fiscal_routing.sql \
     && test -s /app/migrations/V1__document_schema.sql \
     && test -s /app/migrations/V2__gre_and_api_key.sql \

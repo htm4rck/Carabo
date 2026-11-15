@@ -471,12 +471,19 @@ public class DocumentService {
             BigDecimal lineIgv = unroundedBase.multiply(taxRate)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
 
+            try {
+                var original=OriginalCreditAmounts.resolve(req.getDocType(),req.getReference()==null?null:req.getReference().getReasonCode(),doc.getCurrency(),reqLine.getQuantity(),reqLine.getUnitPrice(),line.getDiscount(),affectationCode,reqLine.getOriginalAmounts());
+                if(original!=null){lineBase=original.net();lineIgv=original.tax();}
+            } catch (IllegalArgumentException failure) {
+                throw new jakarta.ws.rs.BadRequestException(failure.getMessage());
+            }
+
             line.setTaxBase(lineBase);
             line.setIgvAmount(lineIgv);
             line.setIgvRate(taxRate);
             line.setGrossPrice(reqLine.getUnitPrice()
                 .multiply(BigDecimal.ONE.add(taxRate.divide(new BigDecimal("100"))))
-                .setScale(6, RoundingMode.HALF_UP));
+                .setScale(10, RoundingMode.HALF_UP));
             line.setLineTotal(lineBase.add(lineIgv));
 
             doc.getLines().add(line);

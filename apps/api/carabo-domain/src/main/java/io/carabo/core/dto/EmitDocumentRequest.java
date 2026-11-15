@@ -69,7 +69,19 @@ public class EmitDocumentRequest {
         public void setAddress(String address) { this.address = address; }
     }
 
+    public static class OriginalAmounts {
+        private BigDecimal net;
+        private BigDecimal tax;
+        public BigDecimal getNet() { return net; }
+        public void setNet(BigDecimal net) { this.net=net; }
+        public BigDecimal getTax() { return tax; }
+        public void setTax(BigDecimal tax) { this.tax=tax; }
+    }
+
     public static class Line {
+        private OriginalAmounts originalAmounts;
+        public OriginalAmounts getOriginalAmounts() { return originalAmounts; }
+        public void setOriginalAmounts(OriginalAmounts value) { originalAmounts=value; }
         private String productCode;
         private String productName;
         private String unitCode;

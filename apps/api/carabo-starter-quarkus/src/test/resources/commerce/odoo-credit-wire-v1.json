@@ -1,0 +1,225 @@
+{
+  "basis": "Six actual posted Odoo partial credits; synthetic parties and controlled fiscal receipts.",
+  "payloads": [
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.03,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.03",
+            "tax": "0.01"
+          }
+        }
+      ],
+      "number": 3,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 2,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-9",
+      "sourceDocId": "ODOO-9"
+    },
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.03,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.03",
+            "tax": "0.01"
+          }
+        }
+      ],
+      "number": 4,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 2,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-11",
+      "sourceDocId": "ODOO-11"
+    },
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.03,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.03",
+            "tax": "0.00"
+          }
+        }
+      ],
+      "number": 5,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 2,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-13",
+      "sourceDocId": "ODOO-13"
+    },
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.0266666667,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.03",
+            "tax": "0.00"
+          }
+        }
+      ],
+      "number": 6,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 3,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-17",
+      "sourceDocId": "ODOO-17"
+    },
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.0266666667,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.03",
+            "tax": "0.00"
+          }
+        }
+      ],
+      "number": 7,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 3,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-19",
+      "sourceDocId": "ODOO-19"
+    },
+    {
+      "lines": [
+        {
+          "discount": 0,
+          "quantity": 1,
+          "unitCode": "NIU",
+          "unitPrice": 0.0266666667,
+          "productCode": "BDP-TEST-7DF1B",
+          "productName": "[BDP-TEST-7DF1B] BirdPort test 7DF1B",
+          "affectationCode": "10",
+          "originalAmounts": {
+            "net": "0.02",
+            "tax": "0.01"
+          }
+        }
+      ],
+      "number": 8,
+      "series": "BC7D",
+      "docType": "07",
+      "currency": "PEN",
+      "receiver": {
+        "doc": "12345678",
+        "name": "Synthetic buyer",
+        "docType": "1"
+      },
+      "issueDate": "2026-11-15",
+      "reference": {
+        "number": 3,
+        "reason": "Item return preserving original cents",
+        "series": "B7DF",
+        "docType": "03",
+        "reasonCode": "07"
+      },
+      "externalId": "ODOO-0e1204ea-e0e6-11f1-b09b-a108951280b1-1-21",
+      "sourceDocId": "ODOO-21"
+    }
+  ],
+  "issuer": {
+    "issuerName": "My Company",
+    "issuerRuc": "20123456789"
+  }
+}

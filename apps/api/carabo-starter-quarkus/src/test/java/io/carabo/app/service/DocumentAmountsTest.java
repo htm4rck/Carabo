@@ -48,6 +48,34 @@ class DocumentAmountsTest {
         assertEquals(new BigDecimal("224.20"), document.getTotal());
     }
 
+    @Test
+    void preservesAllocatedOriginalCentsAcrossThreeCreditNotes() throws Exception {
+        for (String[][] rows : List.of(new String[][]{{"0.0300000000","0.03","0.01"},{"0.0300000000","0.03","0.01"},{"0.0300000000","0.03","0.00"}},new String[][]{{"0.0266666667","0.03","0.00"},{"0.0266666667","0.03","0.00"},{"0.0266666667","0.02","0.01"}})) {
+            BigDecimal totalNet=BigDecimal.ZERO,totalTax=BigDecimal.ZERO;
+            for(String[] row:rows){
+                var line=line(BigDecimal.ONE,new BigDecimal(row[0]));
+                var original=new EmitDocumentRequest.OriginalAmounts();original.setNet(new BigDecimal(row[1]));original.setTax(new BigDecimal(row[2]));line.setOriginalAmounts(original);
+                Document document=build(List.of(line),true);
+                assertEquals(new BigDecimal(row[1]),document.getTaxBase());assertEquals(new BigDecimal(row[2]),document.getIgvAmount());
+                assertEquals(new BigDecimal(row[0]),document.getLines().get(0).getUnitPrice());
+                var parsed=DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new ByteArrayInputStream(new UblBuilder().build(document).getBytes(StandardCharsets.UTF_8)));
+                var xpath=XPathFactory.newInstance().newXPath();
+                assertEquals(0,new BigDecimal(row[1]).compareTo(new BigDecimal(xpath.evaluate("//*[local-name()='CreditNoteLine']/*[local-name()='LineExtensionAmount']",parsed))));
+                assertEquals(0,new BigDecimal(row[2]).compareTo(new BigDecimal(xpath.evaluate("//*[local-name()='CreditNoteLine']/*[local-name()='TaxTotal']/*[local-name()='TaxAmount']",parsed))));
+                totalNet=totalNet.add(document.getTaxBase());totalTax=totalTax.add(document.getIgvAmount());
+            }
+            assertEquals(new BigDecimal(rows[0][0].equals("0.0300000000")?"0.09":"0.08"),totalNet);
+            assertEquals(new BigDecimal(rows[0][0].equals("0.0300000000")?"0.02":"0.01"),totalTax);
+        }
+    }
+
+    @Test
+    void cannotApplyOriginalCreditCentsToInvoicesOrExceedOneCent() {
+        var line=line(BigDecimal.ONE,new BigDecimal("0.03"));var original=new EmitDocumentRequest.OriginalAmounts();original.setNet(new BigDecimal("0.03"));original.setTax(new BigDecimal("0.00"));line.setOriginalAmounts(original);
+        assertThrows(jakarta.ws.rs.BadRequestException.class,()->build(List.of(line)));
+        original.setNet(new BigDecimal("0.05"));assertThrows(jakarta.ws.rs.BadRequestException.class,()->build(List.of(line),true));
+    }
+
     private EmitDocumentRequest.Line line(BigDecimal quantity, BigDecimal value) {
         var line = new EmitDocumentRequest.Line();
         line.setProductCode("TEST"); line.setProductName("Artículo de prueba");
@@ -55,11 +83,14 @@ class DocumentAmountsTest {
         return line;
     }
 
-    private Document build(List<EmitDocumentRequest.Line> lines) {
+    private Document build(List<EmitDocumentRequest.Line> lines) {return build(lines,false);}
+
+    private Document build(List<EmitDocumentRequest.Line> lines,boolean credit) {
         var request = new EmitDocumentRequest();
         request.setBusinessCode("B20123456789"); request.setDocType("03"); request.setSeries("B001"); request.setNumber(1);
         request.setIssueDate(LocalDate.of(2026, 10, 31)); request.setCurrency("PEN"); request.setLines(lines);
         var receiver = new EmitDocumentRequest.Receiver(); receiver.setDocType("1"); receiver.setDoc("87654321"); receiver.setName("Cliente de prueba"); request.setReceiver(receiver);
+        if(credit){request.setDocType("07");request.setSeries("BC01");var reference=new EmitDocumentRequest.Reference();reference.setDocType("03");reference.setSeries("B001");reference.setNumber(1);reference.setReasonCode("07");reference.setReason("Devolución parcial original");request.setReference(reference);}
         var tenant = new Tenant(); tenant.setIssuerRuc("20123456789"); tenant.setIssuerName("Empresa de prueba"); tenant.setIssuerAddress("Lima"); tenant.setIssuerUbigeo("150101");
         return new DocumentService().buildDocument(request, tenant);
     }
