@@ -11,6 +11,9 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -21,6 +24,7 @@ class SunatBillServiceTest {
     private final AtomicReference<Response> next = new AtomicReference<>();
     private final AtomicReference<String> requestBody = new AtomicReference<>();
     private SunatBillService client;
+    private volatile CountDownLatch stalled;
 
     @BeforeEach
     void startServer() throws Exception {
@@ -31,7 +35,20 @@ class SunatBillServiceTest {
     }
 
     @AfterEach
-    void stopServer() { server.stop(0); }
+    void stopServer() { if (stalled != null) stalled.countDown(); server.stop(0); }
+
+    @Test
+    void aStatusTimeoutRemainsRetryableWithoutInventingACdrOrSendingTheBatchAgain() {
+        stalled = new CountDownLatch(1);
+        client = new SunatBillService("http://localhost:" + server.getAddress().getPort() + "/billService", "20123456789MODDATOS", "secret", HttpClient.newHttpClient(), Duration.ofMillis(500));
+        next.set(new Response(200, "<Envelope><statusCode>98</statusCode></Envelope>"));
+        var result = client.getStatus("original-ticket");
+        assertTrue(result.retryable()); assertFalse(result.accepted()); assertNull(result.cdrXml());
+        assertEquals("TRANSPORT_ERROR", result.responseCode());
+        assertNotNull(requestBody.get()); assertTrue(requestBody.get().contains("original-ticket"));
+        assertFalse(requestBody.get().contains("sendSummary"));
+        stalled.countDown();
+    }
 
     @Test
     void parsesSunatCdrWhenZipStartsWithADirectory() throws Exception {
@@ -136,6 +153,7 @@ class SunatBillServiceTest {
     private void respond(HttpExchange exchange) {
         try (exchange) {
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            if (stalled != null) stalled.await();
             Response response = next.get();
             byte[] bytes = response.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/xml; charset=utf-8");

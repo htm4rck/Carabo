@@ -34,6 +34,7 @@ public class SunatBillService {
     private final String solUser;
     private final String solPassword;
     private final HttpClient httpClient;
+    private final Duration statusTimeout;
 
     public SunatBillService(String endpoint, String solUser, String solPassword) {
         this(endpoint, solUser, solPassword, HttpClient.newBuilder()
@@ -41,6 +42,10 @@ public class SunatBillService {
     }
 
     public SunatBillService(String endpoint, String solUser, String solPassword, HttpClient httpClient) {
+        this(endpoint, solUser, solPassword, httpClient, Duration.ofSeconds(20));
+    }
+
+    SunatBillService(String endpoint, String solUser, String solPassword, HttpClient httpClient, Duration statusTimeout) {
         if (endpoint == null || endpoint.isBlank()) throw new IllegalArgumentException("SUNAT endpoint is required");
         if (solUser == null || solUser.isBlank()) throw new IllegalArgumentException("SUNAT SOL user is required");
         if (solPassword == null || solPassword.isBlank()) throw new IllegalArgumentException("SUNAT SOL password is required");
@@ -48,6 +53,8 @@ public class SunatBillService {
         this.solUser = solUser;
         this.solPassword = solPassword;
         this.httpClient = httpClient;
+        if (statusTimeout == null || statusTimeout.isNegative() || statusTimeout.isZero() || statusTimeout.compareTo(REQUEST_TIMEOUT) > 0) throw new IllegalArgumentException("Invalid fiscal status timeout");
+        this.statusTimeout = statusTimeout;
     }
 
     public static SunatBillService beta(String solUser, String solPassword) {
@@ -102,7 +109,7 @@ public class SunatBillService {
     /** Gets an RC/RA result; code 98 is represented as processing, not rejected. */
     public SendBillResult getStatus(String ticket) {
         try {
-            SoapResponse response = callSoap(buildGetStatusSoap(ticket), "getStatus");
+            SoapResponse response = callSoap(buildGetStatusSoap(ticket), "getStatus", statusTimeout);
             SoapFault fault = parseFault(response.body());
             if (fault != null) return SendBillResult.transportError(fault.code(), fault.message(), isRetryableFault(fault.code()));
             if (response.statusCode() >= 500) {
@@ -181,10 +188,14 @@ public class SunatBillService {
     }
 
     private SoapResponse callSoap(String soapBody, String action) throws IOException, InterruptedException {
+        return callSoap(soapBody, action, REQUEST_TIMEOUT);
+    }
+
+    private SoapResponse callSoap(String soapBody, String action, Duration timeout) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(endpoint)
             .header("Content-Type", "text/xml; charset=utf-8")
             .header("SOAPAction", "urn:" + action)
-            .timeout(REQUEST_TIMEOUT)
+            .timeout(timeout)
             .POST(HttpRequest.BodyPublishers.ofString(soapBody, StandardCharsets.UTF_8)).build();
         HttpResponse<String> response = httpClient.send(request,
             HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
