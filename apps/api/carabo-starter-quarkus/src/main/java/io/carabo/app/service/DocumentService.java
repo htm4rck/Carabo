@@ -17,6 +17,7 @@ import io.carabo.sunat.SunatBillService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -161,21 +162,25 @@ public class DocumentService {
 
     @Transactional
     public void retry(UUID documentId) {
-        Document doc = em.find(Document.class, documentId);
-        if (doc == null) return;
-        if (doc.getRetryCount() >= MAX_RETRIES) {
-            doc.setStatus(DocumentStatus.FAILED);
-            doc.setNextRetryAt(null);
-            em.merge(doc);
-            return;
-        }
+        Document doc = em.find(Document.class, documentId, LockModeType.PESSIMISTIC_WRITE);
+        if (doc != null && (doc.getNextRetryAt() == null || !doc.getNextRetryAt().isAfter(Instant.now()))) retryLocked(doc);
+    }
+
+    private void retryLocked(Document doc) {
         if (doc.getStatus() != DocumentStatus.PENDING
             && doc.getStatus() != DocumentStatus.BLOCKED_CONFIGURATION
             && doc.getStatus() != DocumentStatus.ERROR
+            && doc.getStatus() != DocumentStatus.RETRY_PENDING
             && doc.getStatus() != DocumentStatus.VALIDATED) return;
+        if (doc.getRetryCount() >= MAX_RETRIES) {
+            doc.setStatus(DocumentStatus.FAILED);
+            doc.setNextRetryAt(null);
+            return;
+        }
 
         Tenant tenant = fiscalRouting.effective(doc,tenantService.resolve(doc.getBusinessCode()));
-        var readinessErrors = validator.validateFiscalReadiness(tenant);
+        boolean hasTicket = doc.getSunatTicket() != null && !doc.getSunatTicket().isBlank();
+        var readinessErrors = hasTicket ? List.<String>of() : validator.validateFiscalReadiness(tenant);
         if (!readinessErrors.isEmpty()) {
             doc.setStatus(DocumentStatus.BLOCKED_CONFIGURATION);
             doc.setSunatResponse(String.join("; ", readinessErrors));
@@ -184,7 +189,7 @@ public class DocumentService {
             notificationService.enqueueFor(doc, tenant);
             return;
         }
-        if (doc.getNumber() == null) {
+        if (!hasTicket && doc.getNumber() == null) {
             doc.setStatus(DocumentStatus.REJECTED);
             doc.setSunatResponse("El productor no proporcionó un correlativo fiscal válido.");
             em.merge(doc);
@@ -195,16 +200,13 @@ public class DocumentService {
         doc.setNextRetryAt(null);
 
         try {
-            String xml = ublBuilder.build(doc);
-            XmlSigner signer = createSigner(tenant);
-            XmlSigner.SignResult signResult = signer.sign(xml);
-
-            doc.setHashCode(signResult.digestValue());
-            getStorage().storeSignedXml(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), signResult.signedXml());
-
-            SendResult result = sendToAuthority(doc, signResult.signedXml(), tenant);
+            SendResult result = hasTicket ? readAuthorityStatus(doc, tenant)
+                : sendToAuthority(doc, signedXmlForRetry(doc, tenant), tenant);
 
             applySendResult(doc, result);
+            if (hasTicket && result.status() == DocumentStatus.PENDING) {
+                doc.setNextRetryAt(Instant.now().plus(Duration.ofMinutes(1)));
+            }
 
             if (result.cdrXml() != null) {
                 getStorage().storeCdr(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), result.cdrXml());
@@ -220,6 +222,15 @@ public class DocumentService {
         em.merge(doc);
 
         notificationService.enqueueFor(doc, tenant);
+    }
+
+    private String signedXmlForRetry(Document doc, Tenant tenant) {
+        var stored = getStorage().getSignedXml(doc.getBusinessCode(), doc.getSeries(), doc.getNumber());
+        if (stored.isPresent()) return stored.get();
+        var signed = createSigner(tenant).sign(ublBuilder.build(doc));
+        doc.setHashCode(signed.digestValue());
+        getStorage().storeSignedXml(doc.getBusinessCode(), doc.getSeries(), doc.getNumber(), signed.signedXml());
+        return signed.signedXml();
     }
 
     public Optional<Document> findById(UUID id) {
@@ -254,6 +265,14 @@ public class DocumentService {
         em.lock(doc,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         if (doc.getSunatTicket()==null || !(doc.getStatus()==DocumentStatus.PENDING || doc.getStatus()==DocumentStatus.SENT)) return found;
         Tenant tenant = fiscalRouting.effective(doc,tenantService.resolve(businessCode));
+        SendResult result = readAuthorityStatus(doc, tenant);
+        applySendResult(doc,result);
+        if (result.cdrXml()!=null) getStorage().storeCdr(businessCode,doc.getSeries(),doc.getNumber(),result.cdrXml());
+        logSend(doc,result); notificationService.enqueueFor(doc,tenant);
+        return found;
+    }
+
+    private SendResult readAuthorityStatus(Document doc, Tenant tenant) {
         SendResult result;
         if (tenant.getSendMode()==SendMode.OSE) {
             var remote = new OseClient(tenant.getOseBaseUrl(),secretResolver.resolve(tenant.getOseApiToken())).getStatus(doc.getSunatTicket());
@@ -264,17 +283,15 @@ public class DocumentService {
             var status = remote.processing()?DocumentStatus.PENDING:remote.accepted()?(remote.observed()?DocumentStatus.OBSERVED:DocumentStatus.ACCEPTED):remote.retryable()?DocumentStatus.ERROR:DocumentStatus.REJECTED;
             result = new SendResult(status,null,doc.getSunatTicket(),remote.responseCode(),remote.responseMsg(),remote.cdrXml(),remote.retryable());
         }
-        applySendResult(doc,result);
-        if (result.cdrXml()!=null) getStorage().storeCdr(businessCode,doc.getSeries(),doc.getNumber(),result.cdrXml());
-        logSend(doc,result); notificationService.enqueueFor(doc,tenant);
-        return found;
+        return result;
     }
 
     @Transactional
     public boolean retry(UUID documentId, String businessCode) {
-        if (findById(documentId, businessCode).isEmpty()) return false;
-        retry(documentId);
-        return true;
+        return em.createQuery("SELECT d FROM Document d WHERE d.id = :id AND d.businessCode = :business", Document.class)
+            .setParameter("id", documentId).setParameter("business", businessCode)
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList().stream().findFirst()
+            .map(doc -> { retryLocked(doc); return true; }).orElse(false);
     }
 
     public Optional<String> getSignedXml(UUID id) {

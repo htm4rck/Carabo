@@ -85,7 +85,7 @@ Carabo/
 ### carabo-domain
 Núcleo Java sin dependencias de ejecución: contratos fiscales y enums compatibles, dominio, puertos y casos de uso de reportes e integraciones productoras. La API compone los adaptadores JPA, HTTP, claves y Excel siguiendo la arquitectura de Tordo.Business. `./gradlew check` verifica el aislamiento del JAR y sus pruebas.
 
-El [mapa de arquitectura backend](docs/architecture/backend/ARCHITECTURE.md) detalla lo migrado, las transacciones, las mejoras de consultas y los flujos fiscales pendientes.
+El [mapa de arquitectura backend](https://dev.tordo.io/tecolyt/ui/wiki?path=Z_Archivo%2FMigracion%20documental%202026-11-15%2FCarabo%2Fdocs%2Farchitecture%2Fbackend%2FARCHITECTURE.md) detalla lo migrado, las transacciones, las mejoras de consultas y los flujos fiscales pendientes.
 
 ### carabo-core
 Módulo existente de persistencia y generación fiscal; depende de `carabo-domain` y todavía contiene dependencias de infraestructura:
@@ -141,7 +141,7 @@ Aplicación ejecutable que integra todos los módulos:
 
 El [procedimiento para completar la empresa](docs/runbooks/carabo-operations.md#completar-configuración-de-una-empresa) distingue identidad fiscal, credenciales SOL/GRE, referencias del almacén de secretos, certificado, ambiente y validaciones pendientes del canal GRE Beta.
 
-Las series visibles en Configuración son respaldos de compatibilidad, no un maestro paralelo de rangos y correlativos. En los comprobantes integrados, **Aquila/Business/Operation o el ERP productor asignan serie y número; Carabo los conserva**. GRE todavía utiliza un contador propio y requiere un contrato adicional para admitir numeración fiscal asignada por SAP. La justificación, comparación con SAP y APIs fiscales, y límites actuales están en [Series y correlativos](docs/external-integration.md#series-y-correlativos-tordo-sap-y-otros-erp).
+Las series visibles en Configuración son respaldos de compatibilidad, no un maestro paralelo de rangos y correlativos. En los comprobantes integrados, **Aquila/Business/Operation o el ERP productor asignan serie y número; Carabo los conserva**. GRE todavía utiliza un contador propio y requiere un contrato adicional para admitir numeración fiscal asignada por SAP. La justificación, comparación con SAP y APIs fiscales, y límites actuales están en [Series y correlativos](https://dev.tordo.io/tecolyt/ui/wiki?path=Z_Archivo%2FMigracion%20documental%202026-11-15%2FCarabo%2Fdocs%2Fexternal-integration.md#series-y-correlativos-tordo-sap-y-otros-erp).
 
 ## API Endpoints
 
@@ -235,7 +235,7 @@ Cada tenant (empresa) se configura independientemente:
 - Repetir simultáneamente una solicitud con la misma clave retorna el documento existente y no vuelve a enviarlo a SUNAT/OSE.
 - `externalId` conserva compatibilidad como clave idempotente. En documentos también puede usarse `sourceDocId`.
 - Si se envían `Idempotency-Key` y `externalId`, ambos deben coincidir.
-- Contrato, códigos HTTP y ejemplos: [`docs/external-integration.md`](docs/external-integration.md).
+- Contrato, códigos HTTP y ejemplos: [`docs/external-integration.md`](https://dev.tordo.io/tecolyt/ui/wiki?path=Z_Archivo%2FMigracion%20documental%202026-11-15%2FCarabo%2Fdocs%2Fexternal-integration.md).
 - Cada aplicación productora usa una identidad de máquina propia; no requiere usuario, contraseña ni licencia humana. La pantalla **Integraciones** permite observarla y, para Admin/Root, crearla, rotarla o revocarla.
 - RabbitMQ directo no está expuesto a productores externos: una API key no autentica AMQP. La entrada soportada es HTTP y Carabo realiza la publicación interna; abrir AMQP exige usuario dedicado, TLS, vhost y ACL por productor.
 
@@ -251,7 +251,7 @@ Cada tenant (empresa) se configura independientemente:
 - **Webhook signing**: HMAC-SHA256 para verificar autenticidad de callbacks
 - **Schema isolation**: Todos los datos en schema `carabo` separado
 - **Custodia verificable**: AES-256-GCM, checksum SHA-256 y escrituras atómicas para XML/CDR/PDF
-- **Backup/restore**: Procedimiento DEV con manifiesto de integridad en [`docs/storage-operations.md`](docs/storage-operations.md)
+- **Backup/restore**: Procedimiento DEV con manifiesto de integridad en [`docs/storage-operations.md`](https://dev.tordo.io/tecolyt/ui/wiki?path=Z_Archivo%2FMigracion%20documental%202026-11-15%2FCarabo%2Fdocs%2Fstorage-operations.md)
 
 ## Extensibilidad por País
 
@@ -333,3 +333,33 @@ Flyway ejecuta automáticamente las migraciones V1–V13 del schema `carabo` al 
 ## Licencia
 
 Propietario — Tordo Platform.
+
+<!-- tecolyt:documentacion-base:v1 -->
+
+## Identidad y responsables
+
+Propietario documental: Tordo interno. La asignación nominal del responsable técnico se mantiene en el proyecto; esta migración no asigna cargos ni crea registros de catálogo.
+
+## Mapa del repositorio
+
+`Tordo/`, `apps/`, `docs/`, `examples/`, `gradle/`, `infra/`, `migrations/`, `ops/`, `scripts/`, `templates/`, `tools/`. Consultar el detalle por componente en Desarrollo y en los anexos conservados.
+## Por dónde empezar
+
+[Desarrollo](docs/DESARROLLO.md) · [Configuración](docs/CONFIGURACION.md) · [Pruebas](docs/PRUEBAS.md)
+
+## Documentación canónica en la wiki
+
+[Mapa documental en la wiki](https://dev.tordo.io/tecolyt/ui/wiki?path=Gobierno%2FDocumentacion%2FRepositorios%2FCarabo%2FIndice.md) · [Referencias de desarrollo](https://dev.tordo.io/tecolyt/ui/wiki?path=Arquitectura%2FEstandares%2FIndice.md)
+
+## Registro documental adicional
+
+| Ruta | Motivo de conservación | Condición |
+|---|---|---|
+| `DESIGN.md` | CONSERVAR | Revisión del consumidor o condición de retiro antes de la baja |
+| `PRODUCT.md` | CONSERVAR; Fuente del manifiesto de manuales; preservar hechos y procedencia | Revisión del consumidor o condición de retiro antes de la baja |
+| `Tordo/Catalogos/Aplicaciones/TORDO-APP-005 Carabo Facturacion Electronica.md` | Consumidor o registro explícito: conservar fuente hasta resolverlo | Revisión del consumidor o condición de retiro antes de la baja |
+| `apps/api/carabo-core/src/main/resources/ubl/2.1/README.md` | CONSERVAR | Revisión del consumidor o condición de retiro antes de la baja |
+| `docs/runbooks/carabo-operations.md` | Consumidor o registro explícito: conservar fuente hasta resolverlo | Revisión del consumidor o condición de retiro antes de la baja |
+| `tools/ose-simulator/README.md` | CONSERVAR | Revisión del consumidor o condición de retiro antes de la baja |
+
+El registro corresponde a esta normalización documental. Los archivos de fuente editorial, contratos y herramientas conservan su autoridad hasta migrar sus consumidores; no se consideran otra definición funcional mantenida.
